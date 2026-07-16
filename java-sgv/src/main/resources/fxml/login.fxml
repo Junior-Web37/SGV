@@ -1,0 +1,44 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<?import javafx.scene.control.*?>
+<?import javafx.scene.layout.*?>
+<?import javafx.geometry.Insets?>
+
+<StackPane xmlns="http://javafx.com/javafx/17" xmlns:fx="http://javafx.com/fxml/1"
+           fx:controller="com.sgv.desktop.LoginController"
+           style="-fx-background-color:#0F172A;">
+    <VBox alignment="CENTER" spacing="0">
+        <VBox alignment="CENTER" spacing="28" maxWidth="400"
+              style="-fx-background-color:#0F172A; -fx-background-radius:3; -fx-padding:48 40; -fx-border-color:#334155; -fx-border-radius:3;">
+
+            <VBox alignment="CENTER" spacing="8">
+                <Label text="SGV" style="-fx-font-size:36px; -fx-font-weight:800; -fx-text-fill:#2563EB;"/>
+                <Label text="Sistema de Gestão Avançada"
+                       style="-fx-font-size:13px; -fx-text-fill:#94A3B8;"/>
+            </VBox>
+
+            <Label fx:id="errorLabel" text=""
+                   style="-fx-text-fill:#EF4444; -fx-font-size:13px; -fx-font-weight:600; -fx-background-color:#450a0a; -fx-background-radius:3; -fx-padding:8 14;"
+                   managed="false" visible="false"/>
+
+            <VBox spacing="16" prefWidth="320">
+                <VBox spacing="6">
+                    <Label text="Username"
+                           style="-fx-font-weight:600; -fx-text-fill:#F8FAFC; -fx-font-size:13px;"/>
+                    <TextField fx:id="usernameField" promptText="admin"
+                               style="-fx-padding:10 12; -fx-background-radius:3; -fx-border-color:#334155; -fx-border-radius:3; -fx-font-size:14px; -fx-background-color:#0F172A; -fx-text-fill:#F8FAFC; -fx-prompt-text-fill:#94A3B8;"/>
+                </VBox>
+                <VBox spacing="6">
+                    <Label text="Palavra-passe"
+                           style="-fx-font-weight:600; -fx-text-fill:#F8FAFC; -fx-font-size:13px;"/>
+                    <PasswordField fx:id="passwordField" promptText="••••••••"
+                                   style="-fx-padding:10 12; -fx-background-radius:3; -fx-border-color:#334155; -fx-border-radius:3; -fx-font-size:14px; -fx-background-color:#0F172A; -fx-text-fill:#F8FAFC;"/>
+                </VBox>
+            </VBox>
+
+            <Button fx:id="loginButton" text="ENTRAR NO SISTEMA"
+                    style="-fx-background-color:#2563EB; -fx-text-fill:white; -fx-font-weight:700; -fx-font-size:14px; -fx-padding:12 0; -fx-background-radius:3; -fx-pref-width:320; -fx-cursor:hand;"/>
+        </VBox>
+        <Label text="© 2026 Desenvolvido com Spring Boot &amp; JavaFX"
+               style="-fx-text-fill:#475569; -fx-font-size:11px; -fx-padding:20;"/>
+    </VBox>
+</StackPane>

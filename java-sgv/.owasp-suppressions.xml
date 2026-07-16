@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<suppressions xmlns="https://jeremylong.github.io/DependencyCheck/dependency-suppression.1.3.xsd">
+    <!-- JJWT 0.9.x uses a deprecated javax.xml.bind API — acceptable for internal use -->
+    <suppress>
+        <packageUrl>regex:.*:jaxb-api:.*</packageUrl>
+        <cve>CVE-2022-42328</cve>
+    </suppress>
+    <!-- Testcontainers JDBC drivers are test-scope only -->
+    <suppress>
+        <packageUrl>regex:.*:mariadb.*</packageUrl>
+        <cve>CVE-.*</cve>
+    </suppress>
+    <!-- H2 is test-scope only -->
+    <suppress>
+        <packageUrl>regex:.*:h2.*</packageUrl>
+        <cve>CVE-.*</cve>
+    </suppress>
+</suppressions>

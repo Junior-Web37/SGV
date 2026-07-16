@@ -1,0 +1,159 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<?import javafx.scene.control.*?>
+<?import javafx.scene.layout.*?>
+<VBox fx:id="rootPane" xmlns="http://javafx.com/javafx/17" xmlns:fx="http://javafx.com/fxml/1"
+      fx:controller="com.sgv.desktop.SaleFormController"
+      spacing="0" style="-fx-padding:0; -fx-background-color:#F8FAFC;"
+      prefWidth="960" prefHeight="680">
+
+    <!-- TOP BAR: igual ao botão PDV do dashboard (#2563EB) -->
+    <HBox alignment="CENTER_LEFT" spacing="12"
+          style="-fx-background-color:#0F172A; -fx-padding:10 20; -fx-min-height:54;">
+        <Label text="PDV" style="-fx-font-size:16px; -fx-font-weight:800; -fx-text-fill:#ffffff;"/>
+        <Separator orientation="VERTICAL" style="-fx-padding:0 8; -fx-background-color:rgba(255,255,255,0.3);"/>
+        <Label text="Ponto de Venda" style="-fx-font-size:12px; -fx-text-fill:rgba(255,255,255,0.85);"/>
+        <Region HBox.hgrow="ALWAYS"/>
+        <ComboBox fx:id="documentTypeCombo" maxWidth="160"
+                  style="-fx-font-size:12px; -fx-font-weight:700; -fx-background-color:rgba(255,255,255,0.15); -fx-text-fill:#ffffff; -fx-border-color:rgba(255,255,255,0.3); -fx-border-radius:4; -fx-background-radius:4;"/>
+        <Label fx:id="headerTotalLabel" text="Total: 0.00"
+               style="-fx-font-size:18px; -fx-font-weight:800; -fx-text-fill:#ffffff;"/>
+    </HBox>
+
+    <!-- ERRO -->
+    <Label fx:id="errorLabel" text="" visible="false" managed="false"
+           style="-fx-text-fill:#EF4444; -fx-font-size:11px; -fx-font-weight:700; -fx-background-color:#FEE2E2; -fx-background-radius:4; -fx-padding:6 20; -fx-border-color:#FCA5A5; -fx-border-width:1; -fx-border-radius:4;"/>
+
+    <!-- CORPO PRINCIPAL: ESQUERDA + DIREITA -->
+    <HBox spacing="8" VBox.vgrow="ALWAYS" style="-fx-padding:8;">
+
+        <!-- COLUNA ESQUERDA -->
+        <VBox spacing="6" HBox.hgrow="ALWAYS">
+
+            <!-- Linha 1: Filial + Modo Preço + Cliente -->
+            <HBox spacing="8" alignment="CENTER_LEFT"
+                  style="-fx-background-color:#ffffff; -fx-background-radius:6; -fx-padding:8 10; -fx-border-color:#E2E8F0; -fx-border-width:1; -fx-border-radius:6;">
+                <VBox spacing="2">
+                    <Label text="Filial" style="-fx-font-size:10px; -fx-text-fill:#475569; -fx-font-weight:700;"/>
+                    <ComboBox fx:id="branchCombo" maxWidth="200"
+                              style="-fx-font-size:12px; -fx-background-radius:4; -fx-border-color:#E2E8F0; -fx-border-radius:4; -fx-padding:4; -fx-background-color:#F8FAFC;"/>
+                </VBox>
+                <VBox spacing="2">
+                    <Label text="Tabela" style="-fx-font-size:10px; -fx-text-fill:#475569; -fx-font-weight:700;"/>
+                    <HBox spacing="0">
+                        <ToggleButton fx:id="retailModeToggle" text="Retalho" selected="true"
+                                      style="-fx-padding:5 14; -fx-background-color:#2563EB; -fx-text-fill:#ffffff; -fx-font-weight:800; -fx-background-radius:4 0 0 4; -fx-font-size:11px;"/>
+                        <ToggleButton fx:id="wholesaleModeToggle" text="Grosso"
+                                      style="-fx-padding:5 14; -fx-background-color:#F8FAFC; -fx-text-fill:#0F172A; -fx-font-weight:700; -fx-background-radius:0 4 4 0; -fx-border-color:#E2E8F0; -fx-border-width:1 1 1 0; -fx-font-size:11px;"/>
+                    </HBox>
+                </VBox>
+                <CheckBox fx:id="diverseCustomerCheck" text="Cliente Diverso" selected="true"
+                          style="-fx-text-fill:#0F172A; -fx-font-size:12px; -fx-font-weight:700;"/>
+                <VBox spacing="2">
+                    <Label text="Cliente" style="-fx-font-size:10px; -fx-text-fill:#475569; -fx-font-weight:700;"/>
+                    <ComboBox fx:id="customerCombo" disable="true" maxWidth="200"
+                              style="-fx-font-size:12px; -fx-background-radius:4; -fx-border-color:#E2E8F0; -fx-border-radius:4; -fx-padding:4; -fx-background-color:#F8FAFC;"/>
+                </VBox>
+            </HBox>
+
+            <!-- Linha 2: Pesquisa -->
+            <VBox spacing="8" style="-fx-background-color:#F8FAFC; -fx-background-radius:6; -fx-padding:10 12; -fx-border-color:#93C5FD; -fx-border-width:1.5; -fx-border-radius:6;">
+                <HBox spacing="8" alignment="CENTER_LEFT">
+                    <VBox spacing="1" HBox.hgrow="ALWAYS">
+                        <Label text="Catálogo / Categoria" style="-fx-font-size:9px; -fx-text-fill:#2563EB; -fx-font-weight:800;"/>
+                        <ComboBox fx:id="productCategoryCombo" promptText="Todos os catálogos"
+                                  maxWidth="Infinity"
+                                  style="-fx-font-size:14px; -fx-font-weight:700; -fx-padding:6 8; -fx-background-radius:4; -fx-border-color:#2563EB; -fx-border-width:2; -fx-background-color:#ffffff;"/>
+                    </VBox>
+                </HBox>
+                <HBox spacing="8" alignment="CENTER_LEFT">
+                    <VBox spacing="1" HBox.hgrow="ALWAYS">
+                        <Label text="Código / Nome do Produto" style="-fx-font-size:9px; -fx-text-fill:#2563EB; -fx-font-weight:800;"/>
+                        <ComboBox fx:id="productSearchCombo" editable="true" promptText="Pesquisar produto..."
+                                  maxWidth="Infinity"
+                                  style="-fx-font-size:14px; -fx-font-weight:700; -fx-padding:6 8; -fx-background-radius:4; -fx-border-color:#2563EB; -fx-border-width:2; -fx-background-color:#ffffff;"/>
+                    </VBox>
+                    <VBox spacing="1">
+                        <Label text="Qtd." style="-fx-font-size:9px; -fx-text-fill:#475569; -fx-font-weight:700;"/>
+                        <TextField fx:id="quantityField" text="1"
+                                   style="-fx-font-size:14px; -fx-font-weight:800; -fx-padding:6; -fx-background-radius:4; -fx-border-color:#E2E8F0; -fx-border-radius:4; -fx-pref-width:75; -fx-background-color:#ffffff; -fx-text-fill:#0F172A; -fx-alignment:center;"/>
+                    </VBox>
+                    <Button fx:id="addItemButton" text="+ Adicionar"
+                            style="-fx-padding:8 18; -fx-background-color:#2563EB; -fx-text-fill:#ffffff; -fx-font-weight:800; -fx-font-size:13px; -fx-background-radius:6; -fx-cursor:hand; -fx-effect:dropshadow(gaussian,rgba(2,132,199,0.3),4,0,0,2);"/>
+                </HBox>
+            </VBox>
+
+            <!-- TABELA CARRINHO -->
+            <VBox VBox.vgrow="ALWAYS"
+                  style="-fx-background-color:#ffffff; -fx-background-radius:6; -fx-padding:8; -fx-border-color:#E2E8F0; -fx-border-width:1; -fx-border-radius:6;">
+                <TableView fx:id="itemsTable" VBox.vgrow="ALWAYS" styleClass="table-view"
+                           style="-fx-font-size:12px; -fx-background-color:#ffffff; -fx-text-fill:#0F172A;">
+                    <columns>
+                        <TableColumn fx:id="codeColumn"     text="Código"      prefWidth="110"/>
+                        <TableColumn fx:id="productColumn"  text="Produto"     prefWidth="300"/>
+                        <TableColumn fx:id="quantityColumn" text="Qtd."        prefWidth="70"/>
+                        <TableColumn fx:id="priceColumn"    text="Preço Unit." prefWidth="110"/>
+                        <TableColumn fx:id="totalColumn"    text="Total"       prefWidth="110"/>
+                        <TableColumn fx:id="actionColumn"   text=""            prefWidth="50"/>
+                    </columns>
+                    <placeholder>
+                        <VBox spacing="6" alignment="CENTER">
+                            <Label text="🛒" style="-fx-font-size:28px;"/>
+                            <Label text="Carrinho vazio" style="-fx-text-fill:#475569; -fx-font-size:13px; -fx-font-weight:700;"/>
+                            <Label text="Procure um produto" style="-fx-text-fill:#94A3B8; -fx-size:11px;"/>
+                        </VBox>
+                    </placeholder>
+                </TableView>
+            </VBox>
+        </VBox>
+
+        <!-- COLUNA DIREITA: PAGAMENTO + TOTAIS -->
+        <VBox spacing="8" style="-fx-min-width:300; -fx-max-width:340; -fx-background-color:#ffffff; -fx-background-radius:6; -fx-padding:12; -fx-border-color:#E2E8F0; -fx-border-width:1; -fx-border-radius:6;">
+
+            <Label text="PAGAMENTO" style="-fx-font-size:10px; -fx-text-fill:#2563EB; -fx-font-weight:800;"/>
+            <VBox spacing="4">
+                <Label text="Forma de Pagamento" style="-fx-font-size:10px; -fx-text-fill:#475569; -fx-font-weight:700;"/>
+                <ComboBox fx:id="paymentMethodCombo" maxWidth="Infinity"
+                          style="-fx-font-size:12px; -fx-background-radius:4; -fx-border-color:#E2E8F0; -fx-border-radius:4; -fx-padding:5; -fx-background-color:#F8FAFC;"/>
+            </VBox>
+            <VBox spacing="4">
+                <Label text="Moeda" style="-fx-font-size:10px; -fx-text-fill:#475569; -fx-font-weight:700;"/>
+                <ComboBox fx:id="currencyCombo"
+                          style="-fx-font-size:12px; -fx-background-radius:4; -fx-border-color:#E2E8F0; -fx-border-radius:4; -fx-padding:5; -fx-background-color:#F8FAFC; -fx-pref-width:130;"/>
+            </VBox>
+
+            <Separator style="-fx-opacity:0.5; -fx-padding:4 0;"/>
+
+            <VBox spacing="8" style="-fx-background-color:#F0FDF4; -fx-background-radius:6; -fx-padding:12; -fx-border-color:#86EFAC; -fx-border-width:1; -fx-border-radius:6;">
+                <Label text="RESUMO" style="-fx-font-size:10px; -fx-text-fill:#10B981; -fx-font-weight:800;"/>
+                <GridPane hgap="16" vgap="6">
+                    <columnConstraints>
+                        <ColumnConstraints/>
+                        <ColumnConstraints halignment="RIGHT"/>
+                    </columnConstraints>
+                    <children>
+                        <Label text="Subtotal:" style="-fx-font-size:12px; -fx-text-fill:#475569;" GridPane.columnIndex="0" GridPane.rowIndex="0"/>
+                        <Label fx:id="subtotalLabel" text="0.00 MT" style="-fx-font-size:13px; -fx-font-weight:700; -fx-text-fill:#0F172A;" GridPane.columnIndex="1" GridPane.rowIndex="0"/>
+                        <Label text="IVA (14%):" style="-fx-font-size:12px; -fx-text-fill:#475569;" GridPane.columnIndex="0" GridPane.rowIndex="1"/>
+                        <Label fx:id="taxLabel" text="0.00 MT" style="-fx-font-size:13px; -fx-font-weight:700; -fx-text-fill:#F59E0B;" GridPane.columnIndex="1" GridPane.rowIndex="1"/>
+                        <Separator style="-fx-opacity:0.4;" GridPane.columnIndex="0" GridPane.rowIndex="2" GridPane.columnSpan="2"/>
+                        <Label text="TOTAL:" style="-fx-font-size:16px; -fx-font-weight:900; -fx-text-fill:#0F172A;" GridPane.columnIndex="0" GridPane.rowIndex="3"/>
+                        <Label fx:id="totalLabel" text="0.00 MT" style="-fx-font-size:20px; -fx-font-weight:900; -fx-text-fill:#10B981;" GridPane.columnIndex="1" GridPane.rowIndex="3"/>
+                    </children>
+                </GridPane>
+            </VBox>
+
+            <Region VBox.vgrow="ALWAYS"/>
+
+            <VBox spacing="6">
+                <Button fx:id="cancelButton" text="Cancelar"
+                        style="-fx-padding:9 20; -fx-font-size:12px; -fx-background-color:#F8FAFC; -fx-text-fill:#475569; -fx-background-radius:6; -fx-cursor:hand; -fx-font-weight:700; -fx-border-color:#E2E8F0; -fx-border-radius:6; -fx-border-width:1;"/>
+                <StackPane>
+                    <Button fx:id="saveButton" text="FINALIZAR" styleClass="btn-primary-ux"
+                            style="-fx-padding:12 20; -fx-font-size:14px; -fx-background-color:#10B981; -fx-text-fill:#ffffff; -fx-font-weight:900; -fx-background-radius:6; -fx-cursor:hand;"/>
+                    <ProgressIndicator fx:id="saveSpinner" visible="false" managed="false"
+                                       style="-fx-progress-color:#ffffff; -fx-max-width:18; -fx-max-height:18;"/>
+                </StackPane>
+            </VBox>
+        </VBox>
+    </HBox>
+</VBox>

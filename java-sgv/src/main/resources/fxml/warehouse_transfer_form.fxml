@@ -1,0 +1,73 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<?import javafx.scene.control.*?>
+<?import javafx.scene.layout.*?>
+<VBox xmlns="http://javafx.com/javafx/17" xmlns:fx="http://javafx.com/fxml/1"
+      fx:controller="com.sgv.desktop.WarehouseTransferFormController"
+      spacing="10" style="-fx-padding:14; -fx-background-color:#F8FAFC;" prefWidth="900" prefHeight="600">
+
+    <HBox alignment="CENTER_LEFT" spacing="10">
+        <Label text="📦" style="-fx-font-size:20px;"/>
+        <Label text="Transferência Armazém → Loja"
+               style="-fx-font-size:14px; -fx-font-weight:800; -fx-text-fill:#0F172A;"/>
+    </HBox>
+
+    <!-- Header -->
+    <HBox spacing="10" alignment="CENTER_LEFT"
+          style="-fx-background-color:#ffffff; -fx-background-radius:6; -fx-padding:8 10; -fx-border-color:#E2E8F0; -fx-border-radius:6;">
+        <VBox spacing="2">
+            <Label text="Armazém origem" style="-fx-font-size:10px; -fx-font-weight:700; -fx-text-fill:#475569;"/>
+            <ComboBox fx:id="warehouseCombo" prefWidth="280"
+                      style="-fx-font-size:12px; -fx-padding:4; -fx-background-color:#F8FAFC; -fx-border-color:#E2E8F0; -fx-border-radius:4;"/>
+        </VBox>
+        <Label text="→" style="-fx-font-size:18px; -fx-text-fill:#2563EB;"/>
+        <VBox spacing="2">
+            <Label text="Loja destino" style="-fx-font-size:10px; -fx-font-weight:700; -fx-text-fill:#475569;"/>
+            <ComboBox fx:id="branchCombo" prefWidth="240"
+                      style="-fx-font-size:12px; -fx-padding:4; -fx-background-color:#F8FAFC; -fx-border-color:#E2E8F0; -fx-border-radius:4;"/>
+        </VBox>
+        <Region HBox.hgrow="ALWAYS"/>
+        <Label fx:id="stockSummaryLabel" text=""
+               style="-fx-font-size:11px; -fx-font-weight:700; -fx-text-fill:#10B981;"/>
+    </HBox>
+
+    <!-- Pesquisa + Adicionar -->
+    <HBox spacing="8" alignment="CENTER_LEFT"
+          style="-fx-background-color:#F8FAFC; -fx-background-radius:6; -fx-padding:8 10; -fx-border-color:#93C5FD; -fx-border-width:1.5; -fx-border-radius:6;">
+        <VBox spacing="1" HBox.hgrow="ALWAYS">
+            <Label text="Produto (apenas com stock no armazém)"
+                   style="-fx-font-size:9px; -fx-font-weight:800; -fx-text-fill:#2563EB;"/>
+            <ComboBox fx:id="productCombo" editable="true" promptText="Pesquisar produto..."
+                      maxWidth="Infinity"
+                      style="-fx-font-size:13px; -fx-font-weight:700; -fx-padding:5; -fx-background-color:#ffffff; -fx-border-color:#2563EB; -fx-border-width:2; -fx-border-radius:4;"/>
+        </VBox>
+        <VBox spacing="1">
+            <Label text="Qtd." style="-fx-font-size:9px; -fx-font-weight:700; -fx-text-fill:#475569;"/>
+            <TextField fx:id="quantityField" text="1" prefWidth="80"
+                       style="-fx-font-size:13px; -fx-font-weight:800; -fx-padding:5; -fx-background-color:#ffffff; -fx-border-color:#E2E8F0; -fx-border-radius:4; -fx-alignment:center;"/>
+        </VBox>
+        <Button fx:id="addItemButton" text="+ Adicionar"
+                style="-fx-padding:8 18; -fx-background-color:#2563EB; -fx-text-fill:#ffffff; -fx-font-weight:800; -fx-background-radius:6; -fx-cursor:hand;"/>
+    </HBox>
+
+    <!-- Tabela -->
+    <TableView fx:id="itemsTable" VBox.vgrow="ALWAYS"
+               style="-fx-font-size:12px; -fx-background-color:#ffffff;">
+        <columns>
+            <TableColumn fx:id="codeColumn"    text="Código"  prefWidth="100"/>
+            <TableColumn fx:id="productColumn" text="Produto" prefWidth="280"/>
+            <TableColumn fx:id="stockColumn"   text="Stock no Armazém" prefWidth="140"/>
+            <TableColumn fx:id="quantityColumn" text="Qtd."    prefWidth="100"/>
+            <TableColumn fx:id="actionColumn"  text=""       prefWidth="60"/>
+        </columns>
+    </TableView>
+
+    <Label fx:id="errorLabel" visible="false" managed="false"
+           style="-fx-text-fill:#EF4444; -fx-font-size:11px; -fx-font-weight:700; -fx-background-color:#FEE2E2; -fx-background-radius:4; -fx-padding:6 10;"/>
+
+    <HBox spacing="8" alignment="CENTER_RIGHT">
+        <Button fx:id="cancelButton" text="Cancelar"
+                style="-fx-padding:9 20; -fx-background-color:#F8FAFC; -fx-text-fill:#475569; -fx-border-color:#E2E8F0; -fx-border-radius:6; -fx-font-weight:700; -fx-cursor:hand;"/>
+        <Button fx:id="saveButton" text="Criar Transferência"
+                style="-fx-padding:9 22; -fx-background-color:#10B981; -fx-text-fill:#ffffff; -fx-font-weight:800; -fx-background-radius:6; -fx-cursor:hand;"/>
+    </HBox>
+</VBox>

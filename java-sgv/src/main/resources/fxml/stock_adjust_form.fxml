@@ -1,0 +1,49 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?import javafx.scene.control.*?>
+<?import javafx.scene.layout.*?>
+
+<VBox fx:id="rootPane" spacing="20" style="-fx-padding: 32; -fx-background-color: #ffffff;"
+      xmlns="http://javafx.com/javafx/17" xmlns:fx="http://javafx.com/fxml/1"
+      fx:controller="com.sgv.desktop.StockAdjustFormController"
+      prefWidth="500" stylesheets="@/styles/styles.css">
+
+    <Label text="Ajustar Stock" style="-fx-font-size: 20px; -fx-font-weight: bold; -fx-text-fill: white;"/>
+
+    <VBox spacing="16">
+        <HBox spacing="10">
+            <Label text="Produto:" style="-fx-font-weight: 600; -fx-text-fill: #94A3B8; -fx-font-size: 13px;"/>
+            <Label fx:id="productLabel" text="-" style="-fx-font-weight: bold; -fx-text-fill: white; -fx-font-size: 13px;"/>
+        </HBox>
+        <HBox spacing="10">
+            <Label text="Filial:" style="-fx-font-weight: 600; -fx-text-fill: #94A3B8; -fx-font-size: 13px;"/>
+            <Label fx:id="branchLabel" text="-" style="-fx-font-weight: bold; -fx-text-fill: white; -fx-font-size: 13px;"/>
+        </HBox>
+
+        <HBox spacing="12">
+            <VBox spacing="6" HBox.hgrow="ALWAYS">
+                <Label text="Stock Actual *" style="-fx-font-weight: 600; -fx-text-fill: #0F172A; -fx-font-size: 13px;"/>
+                <TextField fx:id="currentStockField" promptText="Ex: 50.0"
+                           style="-fx-padding: 8 12; -fx-background-radius: 4; -fx-border-color: #E2E8F0; -fx-border-radius: 4; -fx-background-color: #F8FAFC; -fx-text-fill: white; -fx-font-size: 13px;"/>
+            </VBox>
+            <VBox spacing="6" HBox.hgrow="ALWAYS">
+                <Label text="Stock Mínimo *" style="-fx-font-weight: 600; -fx-text-fill: #0F172A; -fx-font-size: 13px;"/>
+                <TextField fx:id="minStockField" promptText="Ex: 5.0"
+                           style="-fx-padding: 8 12; -fx-background-radius: 4; -fx-border-color: #E2E8F0; -fx-border-radius: 4; -fx-background-color: #F8FAFC; -fx-text-fill: white; -fx-font-size: 13px;"/>
+            </VBox>
+        </HBox>
+    </VBox>
+
+    <Label fx:id="errorLabel" textFill="#EF4444" style="-fx-font-size: 13px;" managed="false" visible="false"/>
+
+    <HBox spacing="12" alignment="CENTER_RIGHT" style="-fx-padding: 16 0 0 0;">
+        <Button fx:id="cancelButton" text="Cancelar" styleClass="btn-secondary-ux"
+                style="-fx-background-color: transparent; -fx-text-fill: #94A3B8; -fx-border-color: #E2E8F0; -fx-border-radius: 4; -fx-padding: 8 20; -fx-font-weight: 600; -fx-cursor: hand;"/>
+        <StackPane>
+            <Button fx:id="saveButton" text="Guardar Ajuste" disable="true" styleClass="btn-primary-ux"
+                    style="-fx-background-color: #0EA5E9; -fx-text-fill: white; -fx-padding: 8 20; -fx-background-radius: 4; -fx-font-weight: bold; -fx-cursor: hand;"/>
+            <ProgressIndicator fx:id="saveSpinner" visible="false" managed="false"
+                               style="-fx-progress-color:white; -fx-max-width:20; -fx-max-height:20;"/>
+        </StackPane>
+    </HBox>
+</VBox>

@@ -1,0 +1,269 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<?import javafx.geometry.Insets?>
+<?import javafx.scene.control.*?>
+<?import javafx.scene.layout.*?>
+<?import javafx.scene.chart.*?>
+<?import javafx.geometry.Pos?>
+    <BorderPane xmlns="http://javafx.com/javafx/17" xmlns:fx="http://javafx.com/fxml/1"
+             fx:controller="com.sgv.desktop.DashboardController"
+             fx:id="dashboardRoot"
+             style="-fx-background-color:#F8FAFC;">
+
+    <!-- ══════════════════════════════════════════════
+         TOP NAVIGATION BAR
+         ══════════════════════════════════════════════ -->
+    <top>
+        <VBox style="-fx-background-color:#2563EB; -fx-border-color:#1D4ED8; -fx-border-width:0 0 2 0;">
+
+            <!-- Brand + Nav + User Row -->
+            <HBox alignment="CENTER_LEFT" spacing="0"
+                  style="-fx-padding: 0 24; -fx-min-height: 56; -fx-max-height: 56;">
+
+                <!-- Brand -->
+                <HBox spacing="12" alignment="CENTER_LEFT" style="-fx-padding: 0 24 0 0;">
+                    <Label text="SGV" style="-fx-font-size:20px; -fx-font-weight:800; -fx-text-fill:#ffffff; -fx-font-family:'Segoe UI';"/>
+                </HBox>
+
+                <Separator orientation="VERTICAL" style="-fx-padding: 12 0; -fx-background-color:#1D4ED8;"/>
+
+                <!-- Navigation container -->
+                <StackPane fx:id="navStackPane" style="-fx-padding: 0 8;">
+
+                    <!-- ROOT NAV: Module-level buttons -->
+                    <HBox fx:id="navRootPane" spacing="4" alignment="CENTER_LEFT">
+                        <Button fx:id="navResumo" text="⌂  Dashboard" styleClass="nav-btn-home"/>
+                        <Button fx:id="navModComercial" text="Comercial  ▸" styleClass="nav-btn"/>
+                        <Button fx:id="navModOperacoes" text="Operações  ▸" styleClass="nav-btn"/>
+                        <Button fx:id="navModFinanceiro" text="Financeiro  ▸" styleClass="nav-btn"/>
+                        <Button fx:id="navModAdministracao" text="Admin  ▸" styleClass="nav-btn"/>
+                        <Button fx:id="navModLogs" text="Logs" styleClass="nav-btn"/>
+                    </HBox>
+
+                    <!-- SUB-MODULE NAV -->
+                    <HBox fx:id="navSubPane" spacing="4" alignment="CENTER_LEFT" visible="false" managed="false">
+                        <Button fx:id="navBackButton" text="◂  Voltar" styleClass="nav-btn"/>
+                        <Separator orientation="VERTICAL" style="-fx-padding: 8 4; -fx-background-color:#1D4ED8;"/>
+                        <Label fx:id="navSubModuleLabel" text="Comercial"
+                               style="-fx-text-fill:#BFDBFE; -fx-font-size:12px; -fx-font-weight:700; -fx-padding: 0 8;"/>
+
+                        <!-- Comercial: Nova Venda | Vendas | Clientes | Produtos -->
+                        <HBox fx:id="navComercialItems" spacing="4" alignment="CENTER_LEFT">
+                            <Button fx:id="navMenuNovaVenda" text="Nova Venda"  styleClass="nav-btn"/>
+                            <Button fx:id="navMenuVendas" text="Vendas"        styleClass="nav-btn"/>
+                            <Button fx:id="navMenuClientes" text="Clientes"   styleClass="nav-btn"/>
+                            <Button fx:id="navMenuProdutos" text="Produtos"   styleClass="nav-btn"/>
+                        </HBox>
+
+                        <!-- Operações: Stock | Caixa | Compras | Fornecedores -->
+                        <HBox fx:id="navOperacoesItems" spacing="4" alignment="CENTER_LEFT" visible="false" managed="false">
+                            <Button fx:id="navMenuArmazens"     text="Armazéns"           styleClass="nav-btn"/>
+                            <Button fx:id="navMenuTransferir"   text="Transferir Stock"   styleClass="nav-btn"/>
+                            <Button fx:id="navMenuStock"        text="Stock"              styleClass="nav-btn"/>
+                            <Button fx:id="navMenuCaixa"        text="Caixa"              styleClass="nav-btn"/>
+                            <Button fx:id="navMenuCompras"      text="Compras"            styleClass="nav-btn"/>
+                            <Button fx:id="navMenuFornecedores" text="Fornecedores"      styleClass="nav-btn"/>
+                        </HBox>
+
+                        <!-- Financeiro: Pagamentos | Despesas -->
+                        <HBox fx:id="navFinanceiroItems" spacing="4" alignment="CENTER_LEFT" visible="false" managed="false">
+                            <Button fx:id="navMenuPagamentos" text="Pagamentos" styleClass="nav-btn"/>
+                            <Button fx:id="navMenuDespesas" text="Despesas"     styleClass="nav-btn"/>
+                        </HBox>
+
+                        <!-- Admin: Catálogos | Relatórios | Sistema -->
+                        <HBox fx:id="navAdminItems" spacing="4" alignment="CENTER_LEFT" visible="false" managed="false">
+                            <Button fx:id="navMenuCatalogos" text="Catálogos"       styleClass="nav-btn"/>
+                            <Button fx:id="navMenuRelatorios" text="Relatórios"     styleClass="nav-btn"/>
+                            <Button fx:id="navMenuSistema" text="Sistema"           styleClass="nav-btn"/>
+                        </HBox>
+                    </HBox>
+                </StackPane>
+
+                <Region HBox.hgrow="ALWAYS"/>
+
+                <!-- Right side -->
+                <HBox spacing="16" alignment="CENTER_RIGHT">
+                    <Label fx:id="cashStatusBadge" text="Caixa Fechado"
+                           style="-fx-background-color:rgba(0,0,0,0.3); -fx-text-fill:#ffffff; -fx-padding:4 12; -fx-background-radius:3; -fx-font-size:12px; -fx-font-weight:700; -fx-cursor:hand;"/>
+                    <StackPane style="-fx-padding: 0 4;">
+                        <Button fx:id="notificationBellButton" text="Notificações" styleClass="nav-icon-btn"/>
+                        <Label fx:id="notificationBadge" text="0"
+                               style="-fx-background-color:#EF4444; -fx-text-fill:white; -fx-font-size:10px; -fx-font-weight:700; -fx-background-radius:10; -fx-padding:1 5; -fx-min-width:16; -fx-alignment:center;"
+                               StackPane.alignment="TOP_RIGHT" translateX="8" translateY="-4" visible="false" managed="false"/>
+                    </StackPane>
+                    <Separator orientation="VERTICAL" style="-fx-padding: 12 0; -fx-background-color:#1D4ED8;"/>
+                    <HBox spacing="8" alignment="CENTER">
+                        <Label fx:id="userAvatar" text="A"
+                               style="-fx-background-color:#1D4ED8; -fx-text-fill:#ffffff; -fx-font-weight:700; -fx-background-radius:16; -fx-min-width:32; -fx-min-height:32; -fx-alignment:center; -fx-font-size:14px;"/>
+                        <VBox alignment="CENTER_LEFT" spacing="0">
+                            <Label fx:id="userNameLabel" text="Administrador"
+                                   style="-fx-font-weight:600; -fx-text-fill:#ffffff; -fx-font-size:13px;"/>
+                            <Label fx:id="userRoleLabel" text="ADMIN"
+                                   style="-fx-text-fill:#BFDBFE; -fx-font-size:11px;"/>
+                        </VBox>
+                        <Button fx:id="logoutButton" text="⏻ Sair" styleClass="logout-btn"/>
+                    </HBox>
+                </HBox>
+            </HBox>
+
+            <!-- Page Title Sub-bar -->
+            <HBox alignment="CENTER_LEFT" spacing="8"
+                  style="-fx-padding: 8 24; -fx-background-color:#ffffff; -fx-border-color:#E2E8F0; -fx-border-width: 1 0 0 0; -fx-min-height: 40; -fx-max-height: 40;">
+                <Label fx:id="pageTitleLabel" text="Dashboard"
+                       style="-fx-font-size:14px; -fx-font-weight:600; -fx-text-fill:#0F172A;"/>
+                <Label text="/" style="-fx-text-fill:#475569; -fx-font-size:14px;"/>
+                <Label fx:id="pageSubtitleLabel" text="Visão geral do sistema"
+                       style="-fx-font-size:13px; -fx-text-fill:#0F172A;"/>
+                <Region HBox.hgrow="ALWAYS"/>
+                <Label fx:id="welcomeText" text="Bem-vindo ao SGV."
+                       style="-fx-font-size:12px; -fx-text-fill:#0F172A;"/>
+            </HBox>
+        </VBox>
+    </top>
+
+    <!-- ══════════════════════════════════════════════
+         MAIN WORKSPACE
+         ══════════════════════════════════════════════ -->
+    <center>
+        <ScrollPane fitToWidth="true" fitToHeight="true"
+                    style="-fx-background:#F8FAFC; -fx-background-color:#F8FAFC; -fx-border-color:transparent;"
+                    hbarPolicy="NEVER">
+            <content>
+                <VBox style="-fx-padding:24; -fx-background-color:#F8FAFC;" fillWidth="true">
+                    <StackPane fx:id="contentPane" maxWidth="Infinity" VBox.vgrow="ALWAYS">
+
+                        <!-- DASHBOARD / SUMARIO -->
+                        <VBox fx:id="summaryPane" spacing="16" maxWidth="Infinity" VBox.vgrow="ALWAYS">
+                            <!-- Quick Actions -->
+                            <HBox alignment="CENTER_RIGHT" spacing="12" style="-fx-padding: 0 0 8 0;">
+                                <Button fx:id="shortcutCotacaoButton" text="Fazer Cotação"
+                                        style="-fx-background-color:#F8FAFC; -fx-text-fill:#0F172A; -fx-font-weight:700; -fx-font-size:14px; -fx-padding:10 24; -fx-background-radius:8; -fx-border-color:#E2E8F0; -fx-border-width:1; -fx-border-radius:8; -fx-cursor:hand;"/>
+                                <Button fx:id="shortcutPDVButton" text="Fazer Venda (PDV)"
+                                        style="-fx-background-color:#2563EB; -fx-text-fill:white; -fx-font-weight:700; -fx-font-size:14px; -fx-padding:10 24; -fx-background-radius:8; -fx-cursor:hand; -fx-effect:dropshadow(gaussian,rgba(37,99,235,0.25),6,0,0,2);"/>
+                            </HBox>
+
+                            <!-- KPI Row -->
+                            <GridPane hgap="16" vgap="16">
+                                <columnConstraints>
+                                    <ColumnConstraints percentWidth="25"/>
+                                    <ColumnConstraints percentWidth="25"/>
+                                    <ColumnConstraints percentWidth="25"/>
+                                    <ColumnConstraints percentWidth="25"/>
+                                </columnConstraints>
+                                <children>
+                                    <VBox GridPane.columnIndex="0" styleClass="card-pane" style="-fx-padding:20;">
+                                        <HBox spacing="14" alignment="CENTER_LEFT">
+                                            <Label text="&#128178;" styleClass="kpi-icon kpi-icon-blue"/>
+                                            <VBox spacing="4" HBox.hgrow="ALWAYS">
+                                                <Label text="Total Vendas" style="-fx-font-size:12px; -fx-text-fill:#0F172A; -fx-font-weight:600;"/>
+                                                <Label fx:id="salesLabel" text="—" style="-fx-font-size:26px; -fx-font-weight:800; -fx-text-fill:#0F172A;"/>
+                                                <Label text="Todas as operações" style="-fx-font-size:11px; -fx-text-fill:#475569;"/>
+                                            </VBox>
+                                        </HBox>
+                                    </VBox>
+                                    <VBox GridPane.columnIndex="1" styleClass="card-pane" style="-fx-padding:20;">
+                                        <HBox spacing="14" alignment="CENTER_LEFT">
+                                            <Label text="&#128230;" styleClass="kpi-icon kpi-icon-purple"/>
+                                            <VBox spacing="4" HBox.hgrow="ALWAYS">
+                                                <Label text="Total Produtos" style="-fx-font-size:12px; -fx-text-fill:#0F172A; -fx-font-weight:600;"/>
+                                                <Label fx:id="productsLabel" text="—" style="-fx-font-size:26px; -fx-font-weight:800; -fx-text-fill:#0F172A;"/>
+                                                <Label text="No catálogo" style="-fx-font-size:11px; -fx-text-fill:#475569;"/>
+                                            </VBox>
+                                        </HBox>
+                                    </VBox>
+                                    <VBox GridPane.columnIndex="2" styleClass="card-pane" style="-fx-padding:20;">
+                                        <HBox spacing="14" alignment="CENTER_LEFT">
+                                            <Label text="&#128101;" styleClass="kpi-icon kpi-icon-green"/>
+                                            <VBox spacing="4" HBox.hgrow="ALWAYS">
+                                                <Label text="Total Clientes" style="-fx-font-size:12px; -fx-text-fill:#0F172A; -fx-font-weight:600;"/>
+                                                <Label fx:id="customersLabel" text="—" style="-fx-font-size:26px; -fx-font-weight:800; -fx-text-fill:#0F172A;"/>
+                                                <Label text="Registados" style="-fx-font-size:11px; -fx-text-fill:#475569;"/>
+                                            </VBox>
+                                        </HBox>
+                                    </VBox>
+                                    <VBox GridPane.columnIndex="3" styleClass="card-pane" style="-fx-padding:20;">
+                                        <HBox spacing="14" alignment="CENTER_LEFT">
+                                            <Label text="&#127970;" styleClass="kpi-icon kpi-icon-orange"/>
+                                            <VBox spacing="4" HBox.hgrow="ALWAYS">
+                                                <Label text="Total Filiais" style="-fx-font-size:12px; -fx-text-fill:#0F172A; -fx-font-weight:600;"/>
+                                                <Label fx:id="branchesLabel" text="—" style="-fx-font-size:26px; -fx-font-weight:800; -fx-text-fill:#0F172A;"/>
+                                                <Label text="Unidades activas" style="-fx-font-size:11px; -fx-text-fill:#475569;"/>
+                                            </VBox>
+                                        </HBox>
+                                    </VBox>
+                                </children>
+                            </GridPane>
+
+                            <!-- Charts -->
+                            <HBox styleClass="card-pane" style="-fx-padding:0;">
+                                <VBox style="-fx-padding:20;" HBox.hgrow="ALWAYS">
+                                    <Label text="Vendas Diárias — Últimos 7 dias"
+                                           style="-fx-font-size:14px; -fx-font-weight:700; -fx-text-fill:#0F172A; -fx-padding:0 0 16 0;"/>
+                                    <LineChart fx:id="salesLineChart" prefHeight="280" legendVisible="false">
+                                        <xAxis><CategoryAxis side="BOTTOM"/></xAxis>
+                                        <yAxis><NumberAxis side="LEFT"/></yAxis>
+                                    </LineChart>
+                                </VBox>
+                                <Separator orientation="VERTICAL" style="-fx-background-color:#E2E8F0; -fx-padding:12 0;"/>
+                                <VBox style="-fx-padding:20;" minWidth="320">
+                                    <Label text="Vendas por Estado"
+                                           style="-fx-font-size:14px; -fx-font-weight:700; -fx-text-fill:#0F172A; -fx-padding:0 0 16 0;"/>
+                                    <PieChart fx:id="salesPieChart" prefHeight="280" legendSide="BOTTOM"/>
+                                </VBox>
+                            </HBox>
+                        </VBox>
+
+                        <!-- ESTATISTICAS DE VENDAS -->
+                        <VBox fx:id="salesStatsPane" spacing="16" visible="false" managed="false" maxWidth="Infinity" VBox.vgrow="ALWAYS"/>
+
+                        <!-- VENDAS -->
+                        <VBox fx:id="salesPane" spacing="16" visible="false" managed="false" maxWidth="Infinity" VBox.vgrow="ALWAYS"/>
+
+                        <!-- PRODUTOS -->
+                        <VBox fx:id="productsPane" spacing="16" visible="false" managed="false" maxWidth="Infinity" VBox.vgrow="ALWAYS"/>
+
+                        <!-- CLIENTES -->
+                        <VBox fx:id="customersPane" spacing="16" visible="false" managed="false" maxWidth="Infinity" VBox.vgrow="ALWAYS"/>
+
+                        <!-- STOCK -->
+                        <VBox fx:id="stockPane" spacing="16" visible="false" managed="false" maxWidth="Infinity" VBox.vgrow="ALWAYS"/>
+
+                        <!-- ARMAZENS (WAREHOUSE DASHBOARD) -->
+                        <VBox fx:id="warehousesPane" spacing="16" visible="false" managed="false" maxWidth="Infinity" VBox.vgrow="ALWAYS"/>
+
+                        <!-- TURNO / CAIXA -->
+                        <VBox fx:id="turnoCaixaPane" spacing="20" visible="false" managed="false" maxWidth="Infinity"/>
+
+                        <!-- COMPRAS / FORNECEDORES -->
+                        <VBox fx:id="comprasPane" spacing="16" visible="false" managed="false" maxWidth="Infinity" VBox.vgrow="ALWAYS"/>
+
+                        <!-- FINANCEIRO: Pagamentos | Despesas -->
+                        <VBox fx:id="financeiroPane" spacing="16" visible="false" managed="false" maxWidth="Infinity" VBox.vgrow="ALWAYS"/>
+
+                        <!-- CATÁLOGOS: Categorias | Unidades -->
+                        <VBox fx:id="catalogsPane" spacing="0" visible="false" managed="false" maxWidth="Infinity" VBox.vgrow="ALWAYS"/>
+
+                        <!-- RELATÓRIOS -->
+                        <VBox fx:id="reportsPane" spacing="0" visible="false" managed="false"
+                              maxWidth="Infinity" maxHeight="Infinity" minHeight="600" VBox.vgrow="ALWAYS"
+                              style="-fx-background-color:#F8FAFC;"/>
+
+                        <!-- UTILIZADORES -->
+                        <VBox fx:id="usersPane" spacing="16" visible="false" managed="false" maxWidth="Infinity" VBox.vgrow="ALWAYS"/>
+
+                        <!-- SISTEMA -->
+                        <VBox fx:id="sistemaPane" spacing="0" visible="false" managed="false" maxWidth="Infinity" VBox.vgrow="ALWAYS"/>
+
+                        <!-- PRODUÇÃO -->
+                        <VBox fx:id="producaoPane" spacing="16" visible="false" managed="false" maxWidth="Infinity" VBox.vgrow="ALWAYS"/>
+
+                        <!-- LOGS DO SISTEMA -->
+                        <VBox fx:id="logsPane" spacing="0" visible="false" managed="false" maxWidth="Infinity" VBox.vgrow="ALWAYS"/>
+
+                    </StackPane>
+                </VBox>
+            </content>
+        </ScrollPane>
+    </center>
+
+</BorderPane>

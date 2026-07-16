@@ -1,0 +1,67 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<?import javafx.geometry.Insets?>
+<?import javafx.scene.control.*?>
+<?import javafx.scene.layout.*?>
+
+<VBox xmlns="http://javafx.com/javafx/17" xmlns:fx="http://javafx.com/fxml/1"
+      fx:controller="com.sgv.desktop.CashSessionController"
+      spacing="20" style="-fx-padding:0; -fx-background-color:transparent;">
+
+    <HBox alignment="CENTER_LEFT" spacing="24"
+          style="-fx-background-color:#0F172A; -fx-padding:20 24; -fx-background-radius:3; -fx-border-color:#334155; -fx-border-radius:3;">
+
+        <VBox spacing="6" HBox.hgrow="ALWAYS">
+            <Label text="ESTADO DO CAIXA" style="-fx-font-weight:700; -fx-font-size:11px; -fx-text-fill:#94A3B8;"/>
+            <HBox alignment="CENTER_LEFT" spacing="12">
+                <Label fx:id="statusBadge" text="FECHADO"
+                       style="-fx-background-color:#450a0a; -fx-text-fill:#EF4444; -fx-padding:4 12; -fx-background-radius:3; -fx-font-weight:700; -fx-font-size:13px;"/>
+                <Label fx:id="openedAtLabel" text="Nenhum turno aberto."
+                       style="-fx-text-fill:#94A3B8; -fx-font-size:12px;"/>
+            </HBox>
+        </VBox>
+
+        <Separator orientation="VERTICAL" style="-fx-padding:10 0; -fx-background-color:#334155;"/>
+
+        <VBox spacing="4" minWidth="140" alignment="CENTER_RIGHT">
+            <Label text="FUNDO INICIAL" style="-fx-font-weight:700; -fx-font-size:11px; -fx-text-fill:#94A3B8;"/>
+            <Label fx:id="initialValueLabel" text="0.00"
+                   style="-fx-font-weight:700; -fx-font-size:20px; -fx-text-fill:#F8FAFC;"/>
+        </VBox>
+
+        <Separator orientation="VERTICAL" style="-fx-padding:10 0; -fx-background-color:#334155;"/>
+
+        <VBox spacing="4" minWidth="170" alignment="CENTER_RIGHT">
+            <Label text="TOTAL ATUAL NO CAIXA" style="-fx-font-weight:700; -fx-font-size:11px; -fx-text-fill:#94A3B8;"/>
+            <Label fx:id="systemValueLabel" text="0.00"
+                   style="-fx-font-weight:700; -fx-font-size:26px; -fx-text-fill:#10B981;"/>
+        </VBox>
+    </HBox>
+
+    <HBox spacing="12">
+        <Button fx:id="openSessionButton" text="Abrir Caixa"
+                style="-fx-background-color:#10B981; -fx-text-fill:white; -fx-font-weight:700; -fx-padding:9 20; -fx-background-radius:3; -fx-cursor:hand; -fx-font-size:13px;"/>
+        <Button fx:id="addMovementButton" text="Registar Entrada / Saída"
+                style="-fx-background-color:#0F172A; -fx-text-fill:#F8FAFC; -fx-font-weight:600; -fx-padding:8 20; -fx-background-radius:3; -fx-cursor:hand; -fx-border-color:#334155; -fx-border-radius:3; -fx-font-size:13px;"/>
+        <Region HBox.hgrow="ALWAYS"/>
+        <Button fx:id="closeSessionButton" text="Fechar Caixa"
+                style="-fx-background-color:#0F172A; -fx-text-fill:#EF4444; -fx-font-weight:700; -fx-padding:8 20; -fx-background-radius:3; -fx-cursor:hand; -fx-border-color:#450a0a; -fx-border-radius:3; -fx-font-size:13px;"/>
+    </HBox>
+
+    <VBox spacing="16" VBox.vgrow="ALWAYS"
+          style="-fx-background-color:#0F172A; -fx-padding:20 24; -fx-background-radius:3; -fx-border-color:#334155; -fx-border-radius:3;">
+        <Label text="MOVIMENTOS DO TURNO" style="-fx-font-weight:700; -fx-font-size:11px; -fx-text-fill:#94A3B8;"/>
+        <TableView fx:id="movementsTable" VBox.vgrow="ALWAYS"
+                   style="-fx-background-color:transparent; -fx-border-color:#334155; -fx-border-radius:3;">
+            <columns>
+                <TableColumn fx:id="timeColumn"        text="Hora"               prefWidth="150"/>
+                <TableColumn fx:id="typeColumn"        text="Tipo"               prefWidth="110"/>
+                <TableColumn fx:id="amountColumn"      text="Valor"              prefWidth="150"/>
+                <TableColumn fx:id="descriptionColumn" text="Descrição / Motivo" prefWidth="420"/>
+                <TableColumn fx:id="userColumn"        text="Operador"           prefWidth="160"/>
+            </columns>
+            <placeholder>
+                <Label text="Nenhum movimento registado neste turno" style="-fx-text-fill:#94A3B8; -fx-font-style:italic;"/>
+            </placeholder>
+        </TableView>
+    </VBox>
+</VBox>

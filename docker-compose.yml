@@ -1,0 +1,85 @@
+# =============================================
+# SGV — Docker Compose (full stack)
+# Usage: docker compose up -d
+# =============================================
+
+services:
+  # ---- Database ----
+  sgv-db:
+    image: mariadb:11.4
+    container_name: sgv-db
+    restart: unless-stopped
+    environment:
+      MARIADB_ROOT_PASSWORD: rootpass
+      MARIADB_DATABASE: sgv
+      MARIADB_USER: sgv
+      MARIADB_PASSWORD: sgv123
+    ports:
+      - "3306:3306"
+    volumes:
+      - sgv-db-data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "healthcheck.sh", "--connect", "--innodb_initialized"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - sgv-net
+
+  # ---- Redis cache ----
+  sgv-redis:
+    image: redis:7-alpine
+    container_name: sgv-redis
+    restart: unless-stopped
+    command: redis-server --appendonly yes --maxmemory 256mb --maxmemory-policy allkeys-lru
+    ports:
+      - "6379:6379"
+    volumes:
+      - sgv-redis-data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - sgv-net
+
+  # ---- Spring Boot application ----
+  sgv-app:
+    build:
+      context: ./java-sgv
+      dockerfile: ../Dockerfile
+    container_name: sgv-app
+    restart: unless-stopped
+    depends_on:
+      sgv-db:
+        condition: service_healthy
+      sgv-redis:
+        condition: service_healthy
+    environment:
+      - SPRING_PROFILES_ACTIVE=docker
+      - DB_HOST=sgv-db
+      - DB_NAME=sgv
+      - DB_USER=sgv
+      - DB_PASSWORD=sgv123
+      - REDIS_HOST=sgv-redis
+      - JWT_SECRET=docker-secret-at-least-256-bits-long-for-hs256-algorithm
+      - JWT_EXPIRATION_MS=86400000
+    ports:
+      - "8080:8080"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/actuator/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 60s
+    networks:
+      - sgv-net
+
+volumes:
+  sgv-db-data:
+  sgv-redis-data:
+
+networks:
+  sgv-net:
+    driver: bridge

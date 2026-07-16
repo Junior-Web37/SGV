@@ -1,0 +1,71 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<?import javafx.scene.control.*?>
+<?import javafx.scene.layout.*?>
+<?import javafx.geometry.Insets?>
+<VBox fx:id="rootPane" xmlns="http://javafx.com/javafx/17" xmlns:fx="http://javafx.com/fxml/1"
+      fx:controller="com.sgv.desktop.SupplierFormController"
+      spacing="0" styleClass="card-pane" style="-fx-padding:0; -fx-background-radius:8; -fx-background-color:#ffffff;"
+      prefWidth="650" prefHeight="480" stylesheets="@/styles/styles.css">
+
+    <HBox alignment="CENTER_LEFT" spacing="14"
+          style="-fx-background-color:#0F172A; -fx-padding:20 24; -fx-border-color:#E2E8F0; -fx-border-width:0 0 1 0; -fx-background-radius:3 3 0 0;">
+        <VBox spacing="4">
+            <Label text="Registo de Fornecedor" style="-fx-font-size:18px; -fx-font-weight:600; -fx-text-fill:#ffffff;"/>
+            <Label text="Preencha os dados do fornecedor" style="-fx-font-size:12px; -fx-text-fill:#94A3B8;"/>
+        </VBox>
+    </HBox>
+
+    <VBox spacing="18" style="-fx-padding:24; -fx-background-color:#ffffff; -fx-background-radius:0 0 3 3;" VBox.vgrow="ALWAYS">
+        <Label fx:id="errorLabel" text=""
+               style="-fx-text-fill:#EF4444; -fx-font-size:13px; -fx-font-weight:600; -fx-background-color:#FEE2E2; -fx-background-radius:3; -fx-padding:8 12;"
+               visible="false" managed="false"/>
+
+        <Label text="DADOS DA EMPRESA / FORNECEDOR" style="-fx-font-size:11px; -fx-font-weight:700; -fx-text-fill:#475569;"/>
+        <GridPane hgap="16" vgap="14">
+            <columnConstraints>
+                <ColumnConstraints percentWidth="50"/>
+                <ColumnConstraints percentWidth="50"/>
+            </columnConstraints>
+            <children>
+                <VBox spacing="6" GridPane.columnIndex="0" GridPane.rowIndex="0">
+                    <Label text="Nome Completo / Razão Social *" style="-fx-font-weight:600; -fx-text-fill:#0F172A; -fx-font-size:12px;"/>
+                    <TextField fx:id="nameField"
+                               style="-fx-padding:8 12; -fx-background-radius:3; -fx-border-color:#E2E8F0; -fx-border-radius:3; -fx-font-size:13px; -fx-background-color:#F8FAFC; -fx-text-fill:#0F172A;"/>
+                </VBox>
+                <VBox spacing="6" GridPane.columnIndex="1" GridPane.rowIndex="0">
+                    <Label text="NUIT" style="-fx-font-weight:600; -fx-text-fill:#0F172A; -fx-font-size:12px;"/>
+                    <TextField fx:id="nuitField"
+                               style="-fx-padding:8 12; -fx-background-radius:3; -fx-border-color:#E2E8F0; -fx-border-radius:3; -fx-font-size:13px; -fx-background-color:#F8FAFC; -fx-text-fill:#0F172A;"/>
+                </VBox>
+                <VBox spacing="6" GridPane.columnIndex="0" GridPane.rowIndex="1">
+                    <Label text="Contacto / Telefone" style="-fx-font-weight:600; -fx-text-fill:#0F172A; -fx-font-size:12px;"/>
+                    <TextField fx:id="contactField"
+                               style="-fx-padding:8 12; -fx-background-radius:3; -fx-border-color:#E2E8F0; -fx-border-radius:3; -fx-font-size:13px; -fx-background-color:#F8FAFC; -fx-text-fill:#0F172A;"/>
+                </VBox>
+                <VBox spacing="6" GridPane.columnIndex="1" GridPane.rowIndex="1">
+                    <Label text="Endereço Físico" style="-fx-font-weight:600; -fx-text-fill:#0F172A; -fx-font-size:12px;"/>
+                    <TextField fx:id="addressField"
+                               style="-fx-padding:8 12; -fx-background-radius:3; -fx-border-color:#E2E8F0; -fx-border-radius:3; -fx-font-size:13px; -fx-background-color:#F8FAFC; -fx-text-fill:#0F172A;"/>
+                </VBox>
+            </children>
+        </GridPane>
+
+        <Separator style="-fx-opacity:0.2;"/>
+        <HBox alignment="CENTER_LEFT">
+            <CheckBox fx:id="activeCheckbox" text="Fornecedor Ativo" selected="true" style="-fx-text-fill:#0F172A; -fx-font-weight:600;"/>
+        </HBox>
+
+        <Region VBox.vgrow="ALWAYS"/>
+        <Separator style="-fx-opacity:0.2;"/>
+        <HBox spacing="12" alignment="CENTER_RIGHT">
+            <Button fx:id="cancelButton" text="Cancelar" styleClass="btn-secondary-ux"
+                    style="-fx-padding:8 16; -fx-font-size:13px; -fx-background-color:#ffffff; -fx-text-fill:#0F172A; -fx-background-radius:3; -fx-cursor:hand; -fx-font-weight:600; -fx-border-color:#E2E8F0; -fx-border-radius:3;"/>
+            <StackPane>
+                <Button fx:id="saveButton" text="Salvar Fornecedor" styleClass="btn-primary-ux"
+                        style="-fx-padding:8 16; -fx-font-size:13px; -fx-background-color:#2563EB; -fx-text-fill:white; -fx-font-weight:600; -fx-background-radius:3; -fx-cursor:hand;"/>
+                <ProgressIndicator fx:id="saveSpinner" visible="false" managed="false"
+                                   style="-fx-progress-color:white; -fx-max-width:20; -fx-max-height:20;"/>
+            </StackPane>
+        </HBox>
+    </VBox>
+</VBox>

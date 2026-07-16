@@ -1,0 +1,502 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<?import javafx.geometry.Insets?>
+<?import javafx.scene.control.*?>
+<?import javafx.scene.layout.*?>
+
+<VBox xmlns="http://javafx.com/javafx/17" xmlns:fx="http://javafx.com/fxml/1"
+      fx:controller="com.sgv.desktop.SistemaModuleController"
+      spacing="0" style="-fx-background-color:#F8FAFC;"
+      VBox.vgrow="ALWAYS">
+
+    <!-- Header -->
+    <HBox alignment="CENTER_LEFT" spacing="16"
+          style="-fx-background-color:#0F172A; -fx-padding:16 24;">
+        <VBox spacing="4">
+            <Label text="Sistema"
+                   style="-fx-font-size:18px; -fx-font-weight:700; -fx-text-fill:#F8FAFC;"/>
+            <Label text="Configurações, segurança e gestão do sistema"
+                   style="-fx-font-size:12px; -fx-text-fill:#94A3B8;"/>
+        </VBox>
+        <Region HBox.hgrow="ALWAYS"/>
+    </HBox>
+
+    <!-- Tabbed Content -->
+    <TabPane fx:id="tabPane" tabClosingPolicy="UNAVAILABLE"
+             style="-fx-tab-min-height:44; -fx-tab-max-height:44; -fx-background-color:#F8FAFC;"
+             VBox.vgrow="ALWAYS">
+
+        <!-- ═══ TAB 1: CONFIGURAÇÕES DO SISTEMA ═══ -->
+        <Tab text="⚙  Configurações">
+            <ScrollPane fitToWidth="true" style="-fx-background:#F8FAFC;">
+                <VBox spacing="24" style="-fx-padding:24;" maxWidth="900">
+
+                    <!-- Empresa -->
+                    <VBox spacing="12"
+                          style="-fx-background-color:#ffffff; -fx-padding:20; -fx-background-radius:3; -fx-border-color:#E2E8F0; -fx-border-radius:3;">
+                        <Label text="DADOS DA EMPRESA" style="-fx-font-size:11px; -fx-font-weight:700; -fx-text-fill:#475569;"/>
+                        <GridPane hgap="20" vgap="16">
+                            <columnConstraints>
+                                <ColumnConstraints percentWidth="50"/>
+                                <ColumnConstraints percentWidth="50"/>
+                            </columnConstraints>
+                            <children>
+                                <VBox spacing="6" GridPane.columnIndex="0" GridPane.rowIndex="0">
+                                    <Label text="Nome da Empresa *" style="-fx-font-weight:600; -fx-text-fill:#0F172A; -fx-font-size:12px;"/>
+                                    <TextField fx:id="cfgCompanyName"
+                                               style="-fx-padding:8 12; -fx-background-radius:3; -fx-border-color:#E2E8F0; -fx-border-radius:3; -fx-font-size:13px; -fx-background-color:#F8FAFC;"/>
+                                </VBox>
+                                <VBox spacing="6" GridPane.columnIndex="1" GridPane.rowIndex="0">
+                                    <Label text="NUIT / NIF" style="-fx-font-weight:600; -fx-text-fill:#0F172A; -fx-font-size:12px;"/>
+                                    <TextField fx:id="cfgCompanyNuit"
+                                               style="-fx-padding:8 12; -fx-background-radius:3; -fx-border-color:#E2E8F0; -fx-border-radius:3; -fx-font-size:13px; -fx-background-color:#F8FAFC;"/>
+                                </VBox>
+                                <VBox spacing="6" GridPane.columnIndex="0" GridPane.rowIndex="1">
+                                    <Label text="Endereço" style="-fx-font-weight:600; -fx-text-fill:#0F172A; -fx-font-size:12px;"/>
+                                    <TextField fx:id="cfgAddress"
+                                               style="-fx-padding:8 12; -fx-background-radius:3; -fx-border-color:#E2E8F0; -fx-border-radius:3; -fx-font-size:13px; -fx-background-color:#F8FAFC;"/>
+                                </VBox>
+                                <VBox spacing="6" GridPane.columnIndex="1" GridPane.rowIndex="1">
+                                    <Label text="Telefone" style="-fx-font-weight:600; -fx-text-fill:#0F172A; -fx-font-size:12px;"/>
+                                    <TextField fx:id="cfgPhone"
+                                               style="-fx-padding:8 12; -fx-background-radius:3; -fx-border-color:#E2E8F0; -fx-border-radius:3; -fx-font-size:13px; -fx-background-color:#F8FAFC;"/>
+                                </VBox>
+                            </children>
+                        </GridPane>
+                    </VBox>
+
+                    <!-- Fiscais -->
+                    <VBox spacing="12"
+                          style="-fx-background-color:#ffffff; -fx-padding:20; -fx-background-radius:3; -fx-border-color:#E2E8F0; -fx-border-radius:3;">
+                        <Label text="CONFIGURAÇÕES FISCAIS" style="-fx-font-size:11px; -fx-font-weight:700; -fx-text-fill:#475569;"/>
+                        <GridPane hgap="20" vgap="16">
+                            <columnConstraints>
+                                <ColumnConstraints percentWidth="33"/>
+                                <ColumnConstraints percentWidth="33"/>
+                                <ColumnConstraints percentWidth="34"/>
+                            </columnConstraints>
+                            <children>
+                                <VBox spacing="6" GridPane.columnIndex="0" GridPane.rowIndex="0">
+                                    <Label text="Série de Documentos" style="-fx-font-weight:600; -fx-text-fill:#0F172A; -fx-font-size:12px;"/>
+                                    <TextField fx:id="cfgDocSerie" text="A"
+                                               style="-fx-padding:8 12; -fx-background-radius:3; -fx-border-color:#E2E8F0; -fx-border-radius:3; -fx-font-size:13px; -fx-background-color:#F8FAFC;"/>
+                                </VBox>
+                                <VBox spacing="6" GridPane.columnIndex="1" GridPane.rowIndex="0">
+                                    <Label text="Taxa IVA (%)" style="-fx-font-weight:600; -fx-text-fill:#0F172A; -fx-font-size:12px;"/>
+                                    <TextField fx:id="cfgIvaRate" text="17"
+                                               style="-fx-padding:8 12; -fx-background-radius:3; -fx-border-color:#E2E8F0; -fx-border-radius:3; -fx-font-size:13px; -fx-background-color:#F8FAFC;"/>
+                                </VBox>
+                                <VBox spacing="6" GridPane.columnIndex="2" GridPane.rowIndex="0">
+                                    <Label text="Moeda Principal" style="-fx-font-weight:600; -fx-text-fill:#0F172A; -fx-font-size:12px;"/>
+                                    <TextField fx:id="cfgCurrency" text="MZN"
+                                               style="-fx-padding:8 12; -fx-background-radius:3; -fx-border-color:#E2E8F0; -fx-border-radius:3; -fx-font-size:13px; -fx-background-color:#F8FAFC;"/>
+                                </VBox>
+                                <VBox spacing="6" GridPane.columnIndex="0" GridPane.rowIndex="1">
+                                    <Label text="Taxa Câmbio USD" style="-fx-font-weight:600; -fx-text-fill:#0F172A; -fx-font-size:12px;"/>
+                                    <TextField fx:id="cfgExchangeRate" text="74.00"
+                                               style="-fx-padding:8 12; -fx-background-radius:3; -fx-border-color:#E2E8F0; -fx-border-radius:3; -fx-font-size:13px; -fx-background-color:#F8FAFC;"/>
+                                </VBox>
+                                <VBox spacing="6" GridPane.columnIndex="1" GridPane.rowIndex="1">
+                                    <Label text="Nº Inicial Documento" style="-fx-font-weight:600; -fx-text-fill:#0F172A; -fx-font-size:12px;"/>
+                                    <TextField fx:id="cfgInitialDocNumber" text="1"
+                                               style="-fx-padding:8 12; -fx-background-radius:3; -fx-border-color:#E2E8F0; -fx-border-radius:3; -fx-font-size:13px; -fx-background-color:#F8FAFC;"/>
+                                </VBox>
+                            </children>
+                        </GridPane>
+                    </VBox>
+
+                    <!-- Operacionais -->
+                    <VBox spacing="12"
+                          style="-fx-background-color:#ffffff; -fx-padding:20; -fx-background-radius:3; -fx-border-color:#E2E8F0; -fx-border-radius:3;">
+                        <Label text="CONFIGURAÇÕES OPERACIONAIS" style="-fx-font-size:11px; -fx-font-weight:700; -fx-text-fill:#475569;"/>
+                        <GridPane hgap="20" vgap="16">
+                            <columnConstraints>
+                                <ColumnConstraints percentWidth="33"/>
+                                <ColumnConstraints percentWidth="33"/>
+                                <ColumnConstraints percentWidth="34"/>
+                            </columnConstraints>
+                            <children>
+                                <VBox spacing="6" GridPane.columnIndex="0" GridPane.rowIndex="0">
+                                    <Label text="Alerta Stock Mínimo (%)" style="-fx-font-weight:600; -fx-text-fill:#0F172A; -fx-font-size:12px;"/>
+                                    <TextField fx:id="cfgStockMinAlert" text="20"
+                                               style="-fx-padding:8 12; -fx-background-radius:3; -fx-border-color:#E2E8F0; -fx-border-radius:3; -fx-font-size:13px; -fx-background-color:#F8FAFC;"/>
+                                </VBox>
+                                <VBox spacing="6" GridPane.columnIndex="1" GridPane.rowIndex="0">
+                                    <Label text="Desconto Máximo (%)" style="-fx-font-weight:600; -fx-text-fill:#0F172A; -fx-font-size:12px;"/>
+                                    <TextField fx:id="cfgMaxDiscount" text="10"
+                                               style="-fx-padding:8 12; -fx-background-radius:3; -fx-border-color:#E2E8F0; -fx-border-radius:3; -fx-font-size:13px; -fx-background-color:#F8FAFC;"/>
+                                </VBox>
+                                <VBox spacing="6" GridPane.columnIndex="2" GridPane.rowIndex="0">
+                                    <Label text="Formato de Impressão" style="-fx-font-weight:600; -fx-text-fill:#0F172A; -fx-font-size:12px;"/>
+                                    <ComboBox fx:id="cfgPrintFormat"
+                                              style="-fx-padding:6 12; -fx-background-radius:3; -fx-border-color:#E2E8F0; -fx-border-radius:3; -fx-font-size:13px; -fx-background-color:#F8FAFC;"/>
+                                </VBox>
+                            </children>
+                        </GridPane>
+                    </VBox>
+
+                    <!-- Save -->
+                    <HBox spacing="12">
+                        <Region HBox.hgrow="ALWAYS"/>
+                        <Button fx:id="btnSaveSettings" text="Guardar Configurações"
+                                style="-fx-background-color:#10B981; -fx-text-fill:#ffffff; -fx-font-weight:700; -fx-padding:10 24; -fx-background-radius:3; -fx-cursor:hand; -fx-font-size:13px;"
+                                onAction="#onSaveSettings"/>
+                    </HBox>
+                </VBox>
+            </ScrollPane>
+        </Tab>
+
+        <!-- ═══ TAB 2: UTILIZADORES ═══ -->
+        <Tab text="👥  Utilizadores">
+            <VBox spacing="0" VBox.vgrow="ALWAYS">
+                <HBox spacing="10" alignment="CENTER_LEFT"
+                      style="-fx-padding:12 24; -fx-background-color:#ffffff; -fx-border-color:#E2E8F0; -fx-border-width:0 0 1 0;">
+                    <TextField fx:id="userSearchField" promptText="Pesquisar utilizador..."
+                               style="-fx-pref-width:300; -fx-padding:8 12; -fx-background-radius:3; -fx-border-color:#E2E8F0; -fx-border-radius:3; -fx-font-size:13px; -fx-background-color:#F8FAFC;"/>
+                    <Region HBox.hgrow="ALWAYS"/>
+                    <Button fx:id="btnNewUser" text="+  Novo Utilizador"
+                            style="-fx-background-color:#2563EB; -fx-text-fill:#ffffff; -fx-font-weight:700; -fx-padding:8 16; -fx-background-radius:3; -fx-cursor:hand; -fx-font-size:13px;"
+                            onAction="#onNewUser"/>
+                    <Button fx:id="btnNewProfile" text="+  Novo Perfil"
+                            style="-fx-background-color:#0F766E; -fx-text-fill:#ffffff; -fx-font-weight:700; -fx-padding:8 16; -fx-background-radius:3; -fx-cursor:hand; -fx-font-size:13px;"
+                            onAction="#onNewProfile"/>
+                </HBox>
+                <TableView fx:id="usersTable" VBox.vgrow="ALWAYS"
+                           style="-fx-font-size:13px; -fx-background-color:#ffffff; -fx-border-color:#E2E8F0;">
+                    <columns>
+                        <TableColumn fx:id="userIdCol"     text="ID"        prefWidth="60"/>
+                        <TableColumn fx:id="userNameCol"   text="Nome"      prefWidth="200"/>
+                        <TableColumn fx:id="userLoginCol"  text="Username"  prefWidth="140"/>
+                        <TableColumn fx:id="userEmailCol"  text="Email"     prefWidth="200"/>
+                        <TableColumn fx:id="userBranchCol" text="Filial"   prefWidth="160"/>
+                        <TableColumn fx:id="userRoleCol"   text="Função"   prefWidth="140"/>
+                        <TableColumn fx:id="userStatusCol" text="Estado"   prefWidth="100"/>
+                        <TableColumn fx:id="userActCol"    text="Acções"   prefWidth="140"/>
+                    </columns>
+                    <placeholder>
+                        <Label text="Nenhum utilizador encontrado" style="-fx-text-fill:#94A3B8; -fx-font-style:italic;"/>
+                    </placeholder>
+                </TableView>
+                <VBox spacing="12" style="-fx-padding:12 24 24 24; -fx-background-color:#ffffff; -fx-border-color:#E2E8F0; -fx-border-width:1 0 0 0;">
+                    <HBox spacing="10" alignment="CENTER_LEFT">
+                        <Label text="Perfis e permissões" style="-fx-font-size:14px; -fx-font-weight:700; -fx-text-fill:#0F172A;"/>
+                        <Region HBox.hgrow="ALWAYS"/>
+                        <Label text="Formato: PAGINA:ACAO" style="-fx-font-size:12px; -fx-text-fill:#64748B;"/>
+                    </HBox>
+                    <TableView fx:id="profilesTable" prefHeight="220"
+                               style="-fx-font-size:13px; -fx-background-color:#ffffff; -fx-border-color:#E2E8F0;">
+                        <columns>
+                            <TableColumn fx:id="profileNameCol" text="Perfil" prefWidth="160"/>
+                            <TableColumn fx:id="profileDescCol" text="Descrição" prefWidth="240"/>
+                            <TableColumn fx:id="profilePermissionsCol" text="Permissões" prefWidth="320"/>
+                        </columns>
+                        <placeholder>
+                            <Label text="Nenhum perfil encontrado" style="-fx-text-fill:#94A3B8; -fx-font-style:italic;"/>
+                        </placeholder>
+                    </TableView>
+                </VBox>
+            </VBox>
+        </Tab>
+
+        <!-- ═══ TAB 3: BACKUPS ═══ -->
+        <Tab text="💾  Backups">
+            <ScrollPane fitToWidth="true" style="-fx-background:#F8FAFC;">
+                <VBox spacing="24" style="-fx-padding:24;" maxWidth="900">
+
+                    <!-- Status do Backup -->
+                    <HBox spacing="16">
+                        <VBox spacing="0" HBox.hgrow="ALWAYS"
+                              style="-fx-background-color:#10B981; -fx-padding:20; -fx-background-radius:3;">
+                            <Label text="Último Backup" style="-fx-font-size:12px; -fx-font-weight:600; -fx-text-fill:#D1FAE5;"/>
+                            <Label fx:id="lastBackupLabel" text="Nunca realizado"
+                                   style="-fx-font-size:16px; -fx-font-weight:700; -fx-text-fill:#F8FAFC; -fx-padding:4 0 0 0;"/>
+                            <Label fx:id="lastBackupSizeLabel" text=""
+                                   style="-fx-font-size:12px; -fx-text-fill:#D1FAE5; -fx-padding:2 0 0 0;"/>
+                        </VBox>
+                        <VBox spacing="0" HBox.hgrow="ALWAYS"
+                              style="-fx-background-color:#0F172A; -fx-padding:20; -fx-background-radius:3;">
+                            <Label text="Próximo Backup Automático" style="-fx-font-size:12px; -fx-font-weight:600; -fx-text-fill:#94A3B8;"/>
+                            <Label fx:id="nextBackupLabel" text="Diário às 02:00"
+                                   style="-fx-font-size:16px; -fx-font-weight:700; -fx-text-fill:#F8FAFC; -fx-padding:4 0 0 0;"/>
+                        </VBox>
+                        <VBox spacing="0"
+                              style="-fx-background-color:#0F172A; -fx-padding:20; -fx-background-radius:3;">
+                            <Label text="Backups Retidos" style="-fx-font-size:12px; -fx-font-weight:600; -fx-text-fill:#94A3B8;"/>
+                            <Label fx:id="backupCountLabel" text="0"
+                                   style="-fx-font-size:28px; -fx-font-weight:700; -fx-text-fill:#F8FAFC; -fx-padding:4 0 0 0;"/>
+                        </VBox>
+                    </HBox>
+
+                    <!-- Ações de Backup -->
+                    <VBox spacing="12"
+                          style="-fx-background-color:#ffffff; -fx-padding:20; -fx-background-radius:3; -fx-border-color:#E2E8F0; -fx-border-radius:3;">
+                        <Label text="ACÇÕES DE BACKUP" style="-fx-font-size:11px; -fx-font-weight:700; -fx-text-fill:#475569;"/>
+                        <HBox spacing="12" alignment="CENTER_LEFT">
+                            <Button fx:id="btnBackupNow" text="▶  Criar Backup Agora"
+                                    style="-fx-background-color:#2563EB; -fx-text-fill:#ffffff; -fx-font-weight:700; -fx-padding:10 20; -fx-background-radius:3; -fx-cursor:hand; -fx-font-size:13px;"
+                                    onAction="#onBackupNow"/>
+                            <Button fx:id="btnRestoreBackup" text="↺  Restaurar Backup"
+                                    style="-fx-background-color:#ffffff; -fx-text-fill:#0F172A; -fx-font-weight:600; -fx-padding:9 20; -fx-background-radius:3; -fx-cursor:hand; -fx-font-size:13px; -fx-border-color:#E2E8F0; -fx-border-radius:3;"
+                                    onAction="#onRestoreBackup"/>
+                            <Region HBox.hgrow="ALWAYS"/>
+                            <Button fx:id="btnOpenBackupFolder" text="📁  Abrir Pasta"
+                                    style="-fx-background-color:#ffffff; -fx-text-fill:#0F172A; -fx-font-weight:600; -fx-padding:9 16; -fx-background-radius:3; -fx-cursor:hand; -fx-font-size:13px; -fx-border-color:#E2E8F0; -fx-border-radius:3;"
+                                    onAction="#onOpenBackupFolder"/>
+                        </HBox>
+                    </VBox>
+
+                    <!-- Histórico de Backups -->
+                    <VBox spacing="12"
+                          style="-fx-background-color:#ffffff; -fx-padding:20; -fx-background-radius:3; -fx-border-color:#E2E8F0; -fx-border-radius:3;">
+                        <Label text="HISTÓRICO DE BACKUPS" style="-fx-font-size:11px; -fx-font-weight:700; -fx-text-fill:#475569;"/>
+                        <TableView fx:id="backupHistoryTable" prefHeight="300"
+                                   style="-fx-font-size:13px;">
+                            <columns>
+                                <TableColumn fx:id="bkDateCol"    text="Data / Hora"      prefWidth="180"/>
+                                <TableColumn fx:id="bkFileCol"    text="Ficheiro"        prefWidth="340"/>
+                                <TableColumn fx:id="bkSizeCol"    text="Tamanho"         prefWidth="120"/>
+                                <TableColumn fx:id="bkTypeCol"    text="Tipo"            prefWidth="120"/>
+                                <TableColumn fx:id="bkActCol"     text="Acções"          prefWidth="180"/>
+                            </columns>
+                            <placeholder>
+                                <Label text="Nenhum backup encontrado" style="-fx-text-fill:#94A3B8; -fx-font-style:italic;"/>
+                            </placeholder>
+                        </TableView>
+                    </VBox>
+
+                    <!-- Programação -->
+                    <VBox spacing="12"
+                          style="-fx-background-color:#ffffff; -fx-padding:20; -fx-background-radius:3; -fx-border-color:#E2E8F0; -fx-border-radius:3;">
+                        <Label text="PROGRAMAÇÃO AUTOMÁTICA" style="-fx-font-size:11px; -fx-font-weight:700; -fx-text-fill:#475569;"/>
+                        <GridPane hgap="20" vgap="16">
+                            <columnConstraints>
+                                <ColumnConstraints percentWidth="33"/>
+                                <ColumnConstraints percentWidth="33"/>
+                                <ColumnConstraints percentWidth="34"/>
+                            </columnConstraints>
+                            <children>
+                                <VBox spacing="6" GridPane.columnIndex="0" GridPane.rowIndex="0">
+                                    <Label text="Frequência" style="-fx-font-weight:600; -fx-text-fill:#0F172A; -fx-font-size:12px;"/>
+                                    <ComboBox fx:id="backupFrequency"
+                                              style="-fx-padding:8 12; -fx-background-radius:3; -fx-border-color:#E2E8F0; -fx-border-radius:3; -fx-font-size:13px; -fx-background-color:#F8FAFC;"/>
+                                </VBox>
+                                <VBox spacing="6" GridPane.columnIndex="1" GridPane.rowIndex="0">
+                                    <Label text="Hora" style="-fx-font-weight:600; -fx-text-fill:#0F172A; -fx-font-size:12px;"/>
+                                    <TextField fx:id="backupHour" text="02:00"
+                                               style="-fx-padding:8 12; -fx-background-radius:3; -fx-border-color:#E2E8F0; -fx-border-radius:3; -fx-font-size:13px; -fx-background-color:#F8FAFC;"/>
+                                </VBox>
+                                <VBox spacing="6" GridPane.columnIndex="2" GridPane.rowIndex="0">
+                                    <Label text="Retenção (dias)" style="-fx-font-weight:600; -fx-text-fill:#0F172A; -fx-font-size:12px;"/>
+                                    <TextField fx:id="backupRetention" text="30"
+                                               style="-fx-padding:8 12; -fx-background-radius:3; -fx-border-color:#E2E8F0; -fx-border-radius:3; -fx-font-size:13px; -fx-background-color:#F8FAFC;"/>
+                                </VBox>
+                            </children>
+                        </GridPane>
+                        <HBox spacing="12" alignment="CENTER_LEFT" style="-fx-padding:12 0 0 0;">
+                            <Button fx:id="btnSaveBackupSettings" text="Guardar Programação"
+                                    style="-fx-background-color:#10B981; -fx-text-fill:#ffffff; -fx-font-weight:700; -fx-padding:8 20; -fx-background-radius:3; -fx-cursor:hand; -fx-font-size:13px;"
+                                    onAction="#onSaveBackupSettings"/>
+                        </HBox>
+                    </VBox>
+                </VBox>
+            </ScrollPane>
+        </Tab>
+
+        <!-- ═══ TAB 4: MODO TREINAMENTO ═══ -->
+        <Tab text="🎓  Modo Treinamento">
+            <ScrollPane fitToWidth="true" style="-fx-background:#F8FAFC;">
+                <VBox spacing="24" style="-fx-padding:24;" maxWidth="700" alignment="CENTER_LEFT">
+
+                    <!-- Status do Modo -->
+                    <VBox spacing="16"
+                          style="-fx-background-color:#0F172A; -fx-padding:24; -fx-background-radius:3; -fx-border-color:#334155; -fx-border-radius:3;">
+                        <HBox alignment="CENTER_LEFT" spacing="16">
+                            <VBox spacing="4" HBox.hgrow="ALWAYS">
+                                <Label text="MODO TREINAMENTO" style="-fx-font-size:11px; -fx-font-weight:700; -fx-text-fill:#94A3B8;"/>
+                                <Label text="Active o modo de treino para praticar sem afectar dados reais"
+                                       style="-fx-font-size:13px; -fx-text-fill:#F8FAFC;"/>
+                            </VBox>
+                            <Label fx:id="trainingModeStatusLabel" text="DESACTIVO"
+                                   style="-fx-background-color:#10B981; -fx-text-fill:#ffffff; -fx-padding:6 16; -fx-background-radius:3; -fx-font-weight:800; -fx-font-size:14px;"/>
+                        </HBox>
+                        <HBox spacing="12" alignment="CENTER_LEFT">
+                            <Button fx:id="btnActivateTraining" text="▶  Activar Modo Treinamento"
+                                    style="-fx-background-color:#F59E0B; -fx-text-fill:#ffffff; -fx-font-weight:700; -fx-padding:10 20; -fx-background-radius:3; -fx-cursor:hand; -fx-font-size:13px;"
+                                    onAction="#onActivateTraining"/>
+                            <Button fx:id="btnDeactivateTraining" text="■  Desactivar Modo Treinamento"
+                                    style="-fx-background-color:#ffffff; -fx-text-fill:#0F172A; -fx-font-weight:600; -fx-padding:9 20; -fx-background-radius:3; -fx-cursor:hand; -fx-font-size:13px; -fx-border-color:#334155; -fx-border-radius:3;"
+                                    onAction="#onDeactivateTraining"/>
+                        </HBox>
+                    </VBox>
+
+                    <!-- Info -->
+                    <VBox spacing="8"
+                          style="-fx-background-color:#DBEAFE; -fx-padding:16 20; -fx-background-radius:3;">
+                        <Label text="⚠  O modo de treino simula todas as operações do sistema sem alterar dados reais. As vendas, compras e movimentações são apenas demonstrativas."
+                               style="-fx-font-size:13px; -fx-text-fill:#1E40AF; -fx-font-weight:600;"/>
+                        <Label text="• Ideal para formar novos utilizadores"
+                               style="-fx-font-size:12px; -fx-text-fill:#1E40AF;"/>
+                        <Label text="• Teste processos sem risco"
+                               style="-fx-font-size:12px; -fx-text-fill:#1E40AF;"/>
+                        <Label text="• Barra de identificação amarela visível no topo do sistema"
+                               style="-fx-font-size:12px; -fx-text-fill:#1E40AF;"/>
+                    </VBox>
+
+                    <!-- Utilizadores em Treino -->
+                    <VBox spacing="12"
+                          style="-fx-background-color:#ffffff; -fx-padding:20; -fx-background-radius:3; -fx-border-color:#E2E8F0; -fx-border-radius:3;">
+                        <Label text="UTILIZADORES EM MODO TREINO" style="-fx-font-size:11px; -fx-font-weight:700; -fx-text-fill:#475569;"/>
+                        <TableView fx:id="trainingUsersTable" prefHeight="200"
+                                   style="-fx-font-size:13px;">
+                            <columns>
+                                <TableColumn fx:id="tuNameCol"    text="Nome"            prefWidth="200"/>
+                                <TableColumn fx:id="tuLoginCol"   text="Username"       prefWidth="150"/>
+                                <TableColumn fx:id="tuBranchCol"  text="Filial"        prefWidth="150"/>
+                                <TableColumn fx:id="tuSinceCol"   text="Desde"         prefWidth="160"/>
+                                <TableColumn fx:id="tuActionsCol" text="Acção"        prefWidth="100"/>
+                            </columns>
+                            <placeholder>
+                                <Label text="Nenhum utilizador em modo treino" style="-fx-text-fill:#94A3B8; -fx-font-style:italic;"/>
+                            </placeholder>
+                        </TableView>
+                    </VBox>
+                </VBox>
+            </ScrollPane>
+        </Tab>
+
+        <!-- ═══ TAB 5: LICENCIAMENTO ═══ -->
+        <Tab text="🔑  Licenciamento">
+            <ScrollPane fitToWidth="true" style="-fx-background:#F8FAFC;">
+                <VBox spacing="24" style="-fx-padding:24;" maxWidth="700" alignment="CENTER_LEFT">
+
+                    <!-- Info da Licença Actual -->
+                    <VBox spacing="12"
+                          style="-fx-background-color:#0F172A; -fx-padding:24; -fx-background-radius:3; -fx-border-color:#334155; -fx-border-radius:3;">
+                        <Label text="LICENÇA ACTUAL" style="-fx-font-size:11px; -fx-font-weight:700; -fx-text-fill:#94A3B8;"/>
+                        <GridPane hgap="16" vgap="12">
+                            <columnConstraints>
+                                <ColumnConstraints percentWidth="50"/>
+                                <ColumnConstraints percentWidth="50"/>
+                            </columnConstraints>
+                            <children>
+                                <VBox spacing="4" GridPane.columnIndex="0" GridPane.rowIndex="0">
+                                    <Label text="Tipo de Licença" style="-fx-font-size:11px; -fx-font-weight:600; -fx-text-fill:#94A3B8;"/>
+                                    <Label fx:id="licTypeLabel" text="Trial / Avaliação"
+                                           style="-fx-font-size:16px; -fx-font-weight:700; -fx-text-fill:#F8FAFC;"/>
+                                </VBox>
+                                <VBox spacing="4" GridPane.columnIndex="1" GridPane.rowIndex="0">
+                                    <Label text="Estado" style="-fx-font-size:11px; -fx-font-weight:600; -fx-text-fill:#94A3B8;"/>
+                                    <Label fx:id="licStatusLabel" text="Activa"
+                                           style="-fx-font-size:16px; -fx-font-weight:700; -fx-text-fill:#10B981;"/>
+                                </VBox>
+                                <VBox spacing="4" GridPane.columnIndex="0" GridPane.rowIndex="1">
+                                    <Label text="Validade" style="-fx-font-size:11px; -fx-font-weight:600; -fx-text-fill:#94A3B8;"/>
+                                    <Label fx:id="licExpiryLabel" text="—
+"
+                                           style="-fx-font-size:14px; -fx-font-weight:600; -fx-text-fill:#F8FAFC;"/>
+                                </VBox>
+                                <VBox spacing="4" GridPane.columnIndex="1" GridPane.rowIndex="1">
+                                    <Label text="Dias Restantes" style="-fx-font-size:11px; -fx-font-weight:600; -fx-text-fill:#94A3B8;"/>
+                                    <Label fx:id="licDaysLeftLabel" text="—
+"
+                                           style="-fx-font-size:14px; -fx-font-weight:700; -fx-text-fill:#F8FAFC;"/>
+                                </VBox>
+                                <VBox spacing="4" GridPane.columnIndex="0" GridPane.rowIndex="2">
+                                    <Label text="Licenciado para" style="-fx-font-size:11px; -fx-font-weight:600; -fx-text-fill:#94A3B8;"/>
+                                    <Label fx:id="licCompanyLabel" text="—
+"
+                                           style="-fx-font-size:14px; -fx-font-weight:600; -fx-text-fill:#F8FAFC;"/>
+                                </VBox>
+                                <VBox spacing="4" GridPane.columnIndex="1" GridPane.rowIndex="2">
+                                    <Label text="Versão" style="-fx-font-size:11px; -fx-font-weight:600; -fx-text-fill:#94A3B8;"/>
+                                    <Label text="1.0.0"
+                                           style="-fx-font-size:14px; -fx-font-weight:600; -fx-text-fill:#F8FAFC;"/>
+                                </VBox>
+                            </children>
+                        </GridPane>
+                    </VBox>
+
+                    <!-- Activar Licença -->
+                    <VBox spacing="12"
+                          style="-fx-background-color:#ffffff; -fx-padding:20; -fx-background-radius:3; -fx-border-color:#E2E8F0; -fx-border-radius:3;">
+                        <Label text="ACTIVAR NOVA LICENÇA" style="-fx-font-size:11px; -fx-font-weight:700; -fx-text-fill:#475569;"/>
+                        <VBox spacing="6">
+                            <Label text="Chave de Licença" style="-fx-font-weight:600; -fx-text-fill:#0F172A; -fx-font-size:12px;"/>
+                            <TextField fx:id="licKeyField" promptText="XXXX-XXXX-XXXX-XXXX"
+                                       style="-fx-padding:10 12; -fx-background-radius:3; -fx-border-color:#E2E8F0; -fx-border-radius:3; -fx-font-size:14px; -fx-background-color:#F8FAFC; -fx-font-family:monospace;"/>
+                        </VBox>
+                        <HBox spacing="12" alignment="CENTER_LEFT" style="-fx-padding:8 0 0 0;">
+                            <Button fx:id="btnActivateLic" text="✔  Activar Licença"
+                                    style="-fx-background-color:#2563EB; -fx-text-fill:#ffffff; -fx-font-weight:700; -fx-padding:10 20; -fx-background-radius:3; -fx-cursor:hand; -fx-font-size:13px;"
+                                    onAction="#onActivateLicense"/>
+                        </HBox>
+                    </VBox>
+
+                    <!-- Info de Sistema -->
+                    <VBox spacing="12"
+                          style="-fx-background-color:#ffffff; -fx-padding:20; -fx-background-radius:3; -fx-border-color:#E2E8F0; -fx-border-radius:3;">
+                        <Label text="IDENTIFICADORES DO SISTEMA" style="-fx-font-size:11px; -fx-font-weight:700; -fx-text-fill:#475569;"/>
+                        <VBox spacing="6">
+                            <Label text="Machine ID" style="-fx-font-weight:600; -fx-text-fill:#0F172A; -fx-font-size:12px;"/>
+                            <TextField fx:id="machineIdField" editable="false"
+                                       style="-fx-padding:8 12; -fx-background-radius:3; -fx-border-color:#E2E8F0; -fx-border-radius:3; -fx-font-size:12px; -fx-background-color:#F8FAFC; -fx-font-family:monospace;"/>
+                        </VBox>
+                        <VBox spacing="6">
+                            <Label text="Instalação ID" style="-fx-font-weight:600; -fx-text-fill:#0F172A; -fx-font-size:12px;"/>
+                            <TextField fx:id="installIdField" editable="false"
+                                       style="-fx-padding:8 12; -fx-background-radius:3; -fx-border-color:#E2E8F0; -fx-border-radius:3; -fx-font-size:12px; -fx-background-color:#F8FAFC; -fx-font-family:monospace;"/>
+                        </VBox>
+                    </VBox>
+                </VBox>
+            </ScrollPane>
+        </Tab>
+
+        <!-- ═══ TAB 6: ALTERAR SENHA ═══ -->
+        <Tab text="🔒  Alterar Senha">
+            <ScrollPane fitToWidth="true" style="-fx-background:#F8FAFC;">
+                <VBox spacing="24" style="-fx-padding:24;" maxWidth="500" alignment="CENTER_LEFT">
+
+                    <!-- Trocar Própria Senha -->
+                    <VBox spacing="16"
+                          style="-fx-background-color:#ffffff; -fx-padding:24; -fx-background-radius:3; -fx-border-color:#E2E8F0; -fx-border-radius:3;">
+                        <VBox spacing="4">
+                            <Label text="ALTERAR A SUA SENHA" style="-fx-font-size:11px; -fx-font-weight:700; -fx-text-fill:#475569;"/>
+                            <Label text="Para sua segurança, a nova senha deve ter pelo menos 6 caracteres."
+                                   style="-fx-font-size:12px; -fx-text-fill:#475569;"/>
+                        </VBox>
+                        <Separator style="-fx-opacity:0.3;"/>
+                        <VBox spacing="6">
+                            <Label text="Senha Actual *" style="-fx-font-weight:600; -fx-text-fill:#0F172A; -fx-font-size:12px;"/>
+                            <PasswordField fx:id="currentPwdField"
+                                           style="-fx-padding:10 12; -fx-background-radius:3; -fx-border-color:#E2E8F0; -fx-border-radius:3; -fx-font-size:14px; -fx-background-color:#F8FAFC;"/>
+                        </VBox>
+                        <VBox spacing="6">
+                            <Label text="Nova Senha *" style="-fx-font-weight:600; -fx-text-fill:#0F172A; -fx-font-size:12px;"/>
+                            <PasswordField fx:id="newPwdField"
+                                           style="-fx-padding:10 12; -fx-background-radius:3; -fx-border-color:#E2E8F0; -fx-border-radius:3; -fx-font-size:14px; -fx-background-color:#F8FAFC;"/>
+                        </VBox>
+                        <VBox spacing="6">
+                            <Label text="Confirmar Nova Senha *" style="-fx-font-weight:600; -fx-text-fill:#0F172A; -fx-font-size:12px;"/>
+                            <PasswordField fx:id="confirmPwdField"
+                                           style="-fx-padding:10 12; -fx-background-radius:3; -fx-border-color:#E2E8F0; -fx-border-radius:3; -fx-font-size:14px; -fx-background-color:#F8FAFC;"/>
+                        </VBox>
+                        <Label fx:id="pwdErrorLabel" text="" visible="false"
+                               style="-fx-text-fill:#EF4444; -fx-font-size:12px; -fx-font-weight:600;"/>
+                        <Button fx:id="btnChangePassword" text="Alterar Senha"
+                                style="-fx-background-color:#2563EB; -fx-text-fill:#ffffff; -fx-font-weight:700; -fx-padding:10 24; -fx-background-radius:3; -fx-cursor:hand; -fx-font-size:13px;"
+                                onAction="#onChangePassword"/>
+                    </VBox>
+
+                    <!-- Regras de Senha -->
+                    <VBox spacing="8"
+                          style="-fx-background-color:#F8FAFC; -fx-padding:16 20; -fx-background-radius:3; -fx-border-color:#E2E8F0; -fx-border-radius:3;">
+                        <Label text="REGRAS DE SENHA" style="-fx-font-size:11px; -fx-font-weight:700; -fx-text-fill:#475569;"/>
+                        <Label text="• Mínimo 6 caracteres" style="-fx-font-size:12px; -fx-text-fill:#475569;"/>
+                        <Label text="• Recomenda-se usar letras maiúsculas e números" style="-fx-font-size:12px; -fx-text-fill:#475569;"/>
+                        <Label text="• Não use a mesma senha de outros sistemas" style="-fx-font-size:12px; -fx-text-fill:#475569;"/>
+                    </VBox>
+                </VBox>
+            </ScrollPane>
+        </Tab>
+
+    </TabPane>
+</VBox>
