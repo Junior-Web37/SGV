@@ -1,12 +1,16 @@
 package com.sgv.desktop;
 
+import com.sgv.entity.AppConfig;
 import com.sgv.entity.Branch;
 import com.sgv.entity.Role;
+import com.sgv.entity.SystemBackup;
 import com.sgv.entity.User;
 import com.sgv.repository.AuditLogRepository;
 import com.sgv.repository.BranchRepository;
 import com.sgv.repository.RoleRepository;
+import com.sgv.repository.SystemBackupRepository;
 import com.sgv.repository.UserRepository;
+import com.sgv.service.AppConfigService;
 import com.sgv.service.AuditLogService;
 import com.sgv.service.DesktopAuthService;
 import javafx.application.Platform;
@@ -32,12 +36,13 @@ import javafx.util.Callback;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.io.File;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
-import java.security.MessageDigest;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.*;
@@ -45,6 +50,8 @@ import java.util.stream.Collectors;
 
 @Component
 public class SistemaModuleController {
+
+    private static final Logger log = LoggerFactory.getLogger(SistemaModuleController.class);
 
     // ─── Repositories ───────────────────────────────────────────────────────
     @Autowired private UserRepository userRepository;
@@ -54,7 +61,10 @@ public class SistemaModuleController {
     @Autowired private AuditLogService auditLogService;
     @Autowired private DesktopAuthService authService;
     @Autowired private PasswordEncoder passwordEncoder;
+    @Autowired private AppConfigService appConfigService;
+    @Autowired private SystemBackupRepository systemBackupRepository;
     @Autowired private org.springframework.context.ApplicationContext applicationContext;
+    @Autowired private com.sgv.service.LicenseService licenseService;
 
     // Current logged-in user (set from Dashboard)
     private User currentUser;
@@ -72,7 +82,6 @@ public class SistemaModuleController {
     @FXML private TextField cfgCurrency;
     @FXML private TextField cfgExchangeRate;
     @FXML private TextField cfgInitialDocNumber;
-    @FXML private TextField cfgStockMinAlert;
     @FXML private TextField cfgMaxDiscount;
     @FXML private ComboBox<String> cfgPrintFormat;
     @FXML private Button btnSaveSettings;
@@ -137,7 +146,7 @@ public class SistemaModuleController {
 
     // ─── Data ────────────────────────────────────────────────────────────────
     private final DateTimeFormatter dtf = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm");
-    private final Map<String, String> systemConfig = new HashMap<>();
+    private AppConfig appConfig;  // Configuração real da BD
     private boolean trainingModeActive = false;
     private final List<User> trainingUsers = new ArrayList<>();
 
@@ -167,7 +176,7 @@ public class SistemaModuleController {
             }
         });
 
-        userSearchField.textProperty().addListener((obs, o, n) -> loadUsers(n));
+        UiUtils.setupDebounce(userSearchField, () -> loadUsers(userSearchField.getText()), 400);
     }
 
     // ═══════════════════════════════════════════════════════════════════════════
@@ -183,19 +192,24 @@ public class SistemaModuleController {
     }
 
     private void loadConfig() {
-        cfgCompanyName.setText(systemConfig.getOrDefault("company_name", ""));
-        cfgCompanyNuit.setText(systemConfig.getOrDefault("company_nuit", ""));
-        cfgAddress.setText(systemConfig.getOrDefault("address", ""));
-        cfgPhone.setText(systemConfig.getOrDefault("phone", ""));
-        cfgDocSerie.setText(systemConfig.getOrDefault("doc_serie", "A"));
-        cfgIvaRate.setText(systemConfig.getOrDefault("iva_rate", "17"));
-        cfgCurrency.setText(systemConfig.getOrDefault("currency", "MZN"));
-        cfgExchangeRate.setText(systemConfig.getOrDefault("exchange_rate", "74.00"));
-        cfgInitialDocNumber.setText(systemConfig.getOrDefault("initial_doc_number", "1"));
-        cfgStockMinAlert.setText(systemConfig.getOrDefault("stock_min_alert", "20"));
-        cfgMaxDiscount.setText(systemConfig.getOrDefault("max_discount", "10"));
-        String fmt = systemConfig.getOrDefault("print_format", "Termica 80mm");
-        cfgPrintFormat.getSelectionModel().select(fmt);
+        // Carrega configuração real da base de dados
+        appConfig = appConfigService.get();
+        
+        // Carrega modo treino da BD
+        trainingModeActive = Boolean.TRUE.equals(appConfig.getDemoMode());
+        
+        cfgCompanyName.setText(appConfig.getCompanyName() != null ? appConfig.getCompanyName() : "");
+        cfgCompanyNuit.setText(appConfig.getCompanyNuit() != null ? appConfig.getCompanyNuit() : "");
+        cfgAddress.setText(appConfig.getCompanyAddress() != null ? appConfig.getCompanyAddress() : "");
+        cfgPhone.setText(appConfig.getCompanyPhone() != null ? appConfig.getCompanyPhone() : "");
+        cfgDocSerie.setText(appConfig.getDefaultSeries() != null ? appConfig.getDefaultSeries() : "A");
+        // Taxa IVA padrão do sistema
+        cfgIvaRate.setText(String.format("%.1f", appConfig.getDefaultTaxRate() != null ? appConfig.getDefaultTaxRate() : 16.0));
+        cfgCurrency.setText(appConfig.getDefaultCurrency() != null ? appConfig.getDefaultCurrency() : "MZN");
+        cfgExchangeRate.setText(String.format("%.2f", appConfig.getExchangeRate()));
+        cfgInitialDocNumber.setText(appConfig.getInitialDocumentNumber() != null ? String.valueOf(appConfig.getInitialDocumentNumber()) : "1");
+        cfgMaxDiscount.setText(String.format("%.0f", appConfig.getMaxDiscountPercent() != null ? appConfig.getMaxDiscountPercent() : 10.0));
+        cfgPrintFormat.getSelectionModel().select(appConfig.getThermalPrinterWidth() != null && appConfig.getThermalPrinterWidth() == 80 ? "Termica 80mm" : "A4");
     }
 
     @FXML
@@ -204,22 +218,67 @@ public class SistemaModuleController {
             showAlert(Alert.AlertType.WARNING, "Nome da empresa é obrigatório.");
             return;
         }
-        systemConfig.put("company_name", cfgCompanyName.getText());
-        systemConfig.put("company_nuit", cfgCompanyNuit.getText());
-        systemConfig.put("address", cfgAddress.getText());
-        systemConfig.put("phone", cfgPhone.getText());
-        systemConfig.put("doc_serie", cfgDocSerie.getText());
-        systemConfig.put("iva_rate", cfgIvaRate.getText());
-        systemConfig.put("currency", cfgCurrency.getText());
-        systemConfig.put("exchange_rate", cfgExchangeRate.getText());
-        systemConfig.put("initial_doc_number", cfgInitialDocNumber.getText());
-        systemConfig.put("stock_min_alert", cfgStockMinAlert.getText());
-        systemConfig.put("max_discount", cfgMaxDiscount.getText());
-        systemConfig.put("print_format", cfgPrintFormat.getValue());
-
-        auditLogService.log(null, "EDITAR", "configuracoes", null,
-            "Configurações do sistema actualizadas por " + (currentUser != null ? currentUser.getUsername() : "desconhecido"));
-        showAlert(Alert.AlertType.INFORMATION, "Configurações guardadas com sucesso!");
+        
+        // Atualiza a configuração real na base de dados
+        appConfig.setCompanyName(cfgCompanyName.getText().trim());
+        appConfig.setCompanyNuit(cfgCompanyNuit.getText().trim());
+        appConfig.setCompanyAddress(cfgAddress.getText().trim());
+        appConfig.setCompanyPhone(cfgPhone.getText().trim());
+        appConfig.setDefaultSeries(cfgDocSerie.getText().trim().toUpperCase());
+        
+        // Taxa IVA - guarda como double
+        try {
+            double taxRate = Double.parseDouble(cfgIvaRate.getText().trim().replace(",", "."));
+            appConfig.setDefaultTaxRate(taxRate);
+        } catch (NumberFormatException e) {
+            appConfig.setDefaultTaxRate(16.0); // Padrão Moçambique
+        }
+        
+        appConfig.setDefaultCurrency(cfgCurrency.getText().trim().toUpperCase());
+        
+        // Taxa de câmbio
+        try {
+            double exchRate = Double.parseDouble(cfgExchangeRate.getText().trim().replace(",", "."));
+            appConfig.setExchangeRate(exchRate);
+        } catch (NumberFormatException e) {
+            appConfig.setExchangeRate(74.0);
+        }
+        
+        // Número inicial de documentos
+        try {
+            long initialNum = Long.parseLong(cfgInitialDocNumber.getText().trim());
+            appConfig.setInitialDocumentNumber(initialNum);
+        } catch (NumberFormatException e) {
+            appConfig.setInitialDocumentNumber(1L);
+        }
+        
+        // Largura da impressora térmica
+        String printFormat = cfgPrintFormat.getValue();
+        if (printFormat != null && printFormat.contains("80")) {
+            appConfig.setThermalPrinterWidth(80);
+        } else if (printFormat != null && printFormat.contains("A5")) {
+            appConfig.setThermalPrinterWidth(58);
+        } else {
+            appConfig.setThermalPrinterWidth(80); // Padrão
+        }
+        
+        // Desconto máximo
+        try {
+            double maxDisc = Double.parseDouble(cfgMaxDiscount.getText().trim().replace(",", "."));
+            appConfig.setMaxDiscountPercent(maxDisc);
+        } catch (NumberFormatException e) {
+            appConfig.setMaxDiscountPercent(10.0);
+        }
+        
+        // Salva na base de dados
+        try {
+            appConfigService.save(appConfig);
+            auditLogService.log(null, "EDITAR", "configuracoes", null,
+                "Configurações do sistema actualizadas por " + (currentUser != null ? currentUser.getUsername() : "desconhecido"));
+            showAlert(Alert.AlertType.INFORMATION, "Configurações guardadas com sucesso!");
+        } catch (Exception e) {
+            showAlert(Alert.AlertType.ERROR, "Erro ao guardar configurações: " + e.getMessage());
+        }
     }
 
     // ═══════════════════════════════════════════════════════════════════════════
@@ -307,7 +366,7 @@ public class SistemaModuleController {
                 ).collect(Collectors.toList());
             usersTable.setItems(FXCollections.observableArrayList(filtered));
         } catch (Exception e) {
-            System.err.println("Erro ao carregar utilizadores: " + e.getMessage());
+            log.error("Erro ao carregar utilizadores: {}", e.getMessage(), e);
         }
     }
 
@@ -315,7 +374,7 @@ public class SistemaModuleController {
         try {
             profilesTable.setItems(FXCollections.observableArrayList(roleRepository.findAll()));
         } catch (Exception e) {
-            System.err.println("Erro ao carregar perfis: " + e.getMessage());
+            log.error("Erro ao carregar perfis: {}", e.getMessage(), e);
         }
     }
 
@@ -347,7 +406,7 @@ public class SistemaModuleController {
             ctrl.setOnSave(() -> loadUsers(userSearchField.getText()));
             openModal(root);
         } catch (Exception ex) {
-            ex.printStackTrace();
+            log.error("Erro ao abrir formulário de utilizador", ex);
             showAlert(Alert.AlertType.ERROR, "Erro ao abrir formulário: " + ex.getMessage());
         }
     }
@@ -388,7 +447,7 @@ public class SistemaModuleController {
                 Role target = role != null ? role : new Role();
                 target.setName(name);
                 target.setDescription(descriptionField.getText());
-                Set<String> permissions = Arrays.stream(permissionsArea.getText().split(","))
+                Set<String> permissions = Arrays.stream(permissionsArea.getText().split("[,\\n]+"))
                     .map(String::trim)
                     .filter(s -> !s.isBlank())
                     .map(s -> s.toUpperCase(Locale.ROOT))
@@ -421,6 +480,10 @@ public class SistemaModuleController {
             return;
         }
         if (user == null) return;
+        if (user.isProtectedAdmin()) {
+            showAlert(Alert.AlertType.WARNING, "Este utilizador não pode ser eliminado.");
+            return;
+        }
         Alert confirm = new Alert(Alert.AlertType.CONFIRMATION);
         confirm.setTitle("Eliminar Utilizador");
         confirm.setContentText("Tem a certeza que deseja eliminar '" + user.getUsername() + "'?");
@@ -444,11 +507,13 @@ public class SistemaModuleController {
 
     private void setupBackupsTab() {
         backupFrequency.setItems(FXCollections.observableArrayList(
-            "Diário", "Semanal", "Mensal", "Desactivado"
+            "Diario", "Semanal", "Mensal", "Desactivado"
         ));
-        backupFrequency.getSelectionModel().select(0);
-        backupHour.setText("02:00");
-        backupRetention.setText("30");
+        
+        // Carrega configurações de backup da BD
+        backupFrequency.getSelectionModel().select(appConfig.getBackupFrequency() != null ? appConfig.getBackupFrequency() : "Diario");
+        backupHour.setText(appConfig.getBackupHour() != null ? appConfig.getBackupHour() : "02:00");
+        backupRetention.setText(appConfig.getBackupRetentionDays() != null ? String.valueOf(appConfig.getBackupRetentionDays()) : "30");
 
         bkDateCol.setCellValueFactory(d -> new SimpleStringProperty(
             d.getValue().dateTime.format(dtf)));
@@ -481,41 +546,33 @@ public class SistemaModuleController {
     }
 
     private void loadBackupHistory() {
-        // Scan backup directory
-        List<BackupEntry> entries = new ArrayList<>();
+        // Carrega histórico de backups da base de dados
         try {
-            Path backupDir = Paths.get("backups");
-            if (Files.exists(backupDir) && Files.isDirectory(backupDir)) {
-                Files.list(backupDir)
-                    .filter(p -> p.toString().endsWith(".db") || p.toString().endsWith(".zip") || p.toString().endsWith(".sql"))
-                    .sorted((a, b) -> { try { return b.toFile().lastModified() > a.toFile().lastModified() ? 1 : -1; } catch(Exception e) { return 0; } })
-                    .limit(50)
-                    .forEach(p -> {
-                        try {
-                            File f = p.toFile();
-                            long kb = f.length() / 1024;
-                            String size = kb > 1024 ? String.format("%.1f MB", kb / 1024.0) : kb + " KB";
-                            entries.add(new BackupEntry(
-                                java.time.LocalDateTime.ofInstant(
-                                    java.time.Instant.ofEpochMilli(f.lastModified()),
-                                    java.time.ZoneId.systemDefault()),
-                                f.getName(), size, "Automático"
-                            ));
-                        } catch (Exception ignored) {}
-                    });
+            List<SystemBackup> backups = systemBackupRepository.findAllByOrderByCreatedAtDesc();
+            
+            // Converte para BackupEntry para compatibilidade com a UI existente
+            List<BackupEntry> entries = new ArrayList<>();
+            for (SystemBackup b : backups) {
+                String sizeStr = b.getFormattedSize();
+                entries.add(new BackupEntry(b.getCreatedAt(), b.getFileName(), sizeStr, b.getBackupType()));
+            }
+            
+            backupHistoryTable.setItems(FXCollections.observableArrayList(entries));
+            backupCountLabel.setText(String.valueOf(entries.size()));
+            
+            if (!entries.isEmpty()) {
+                BackupEntry latest = entries.get(0);
+                lastBackupLabel.setText(latest.dateTime.format(dtf));
+                lastBackupSizeLabel.setText(latest.size);
+            } else {
+                lastBackupLabel.setText("Nunca realizado");
+                lastBackupSizeLabel.setText("");
             }
         } catch (Exception e) {
-            System.err.println("Erro ao carregar backups: " + e.getMessage());
-        }
-
-        backupHistoryTable.setItems(FXCollections.observableArrayList(entries));
-        backupCountLabel.setText(String.valueOf(entries.size()));
-        if (!entries.isEmpty()) {
-            BackupEntry latest = entries.get(0);
-            lastBackupLabel.setText(latest.dateTime.format(dtf));
-            lastBackupSizeLabel.setText(latest.size);
-        } else {
-            lastBackupLabel.setText("Nunca realizado");
+            log.error("Erro ao carregar backups: {}", e.getMessage(), e);
+            backupHistoryTable.setItems(FXCollections.observableArrayList());
+            backupCountLabel.setText("0");
+            lastBackupLabel.setText("Erro ao carregar");
             lastBackupSizeLabel.setText("");
         }
     }
@@ -537,6 +594,15 @@ public class SistemaModuleController {
                 if (Files.exists(dbPath)) {
                     Files.copy(dbPath, dest);
                 }
+                // Grava registo na base de dados
+                SystemBackup bk = new SystemBackup();
+                bk.setFileName(dest.getFileName().toString());
+                bk.setFilePath(dest.toAbsolutePath().toString());
+                bk.setFileSize(Files.exists(dest) ? dest.toFile().length() : 0L);
+                bk.setBackupType("MANUAL");
+                bk.setStatus("COMPLETED");
+                bk.setCreatedBy(currentUser != null ? currentUser.getUsername() : "system");
+                systemBackupRepository.save(bk);
                 auditLogService.log(null, "BACKUP", "sistema", null,
                     "Backup criado: " + dest.getFileName());
                 showAlert(Alert.AlertType.INFORMATION, "Backup criado com sucesso!\n" + dest.toAbsolutePath());
@@ -561,11 +627,78 @@ public class SistemaModuleController {
     private void onRestoreBackupFile(BackupEntry b) {
         Alert confirm = new Alert(Alert.AlertType.CONFIRMATION);
         confirm.setTitle("Restaurar Backup");
-        confirm.setContentText("Restaurar o backup '" + b.fileName + "'?\n\nAviso: A base de dados actual será substituída.");
+        confirm.setContentText("Restaurar o backup '" + b.fileName + "'?\n\nAviso: A base de dados actual será substituída. A aplicação será reiniciada.");
         Optional<ButtonType> result = confirm.showAndWait();
         if (result.isPresent() && result.get() == ButtonType.OK) {
-            showAlert(Alert.AlertType.INFORMATION,
-                "Restore: " + b.fileName + "\n\nEm produção o ficheiro será restaurado.");
+            try {
+                // Obtém o caminho do ficheiro a partir do registo na BD
+                Optional<SystemBackup> bkOpt = systemBackupRepository.findByFileName(b.fileName);
+                if (bkOpt.isEmpty()) {
+                    showAlert(Alert.AlertType.ERROR, "Registo de backup não encontrado na base de dados.");
+                    return;
+                }
+                String storedPath = bkOpt.get().getFilePath();
+                Path src = (storedPath != null && !storedPath.isBlank()) ? Paths.get(storedPath) : Paths.get("backups", b.fileName);
+                if (!Files.exists(src)) {
+                    showAlert(Alert.AlertType.ERROR, "Ficheiro de backup não encontrado:\n" + src.toAbsolutePath());
+                    return;
+                }
+
+                // Directório de dados do MariaDB (XAMPP)
+                Path mariaDataDir = Paths.get("C:\\xampp\\mysql\\data\\sgv");
+                boolean copyOk = false;
+                String errorMsg = "";
+
+                if (Files.isDirectory(mariaDataDir)) {
+                    try {
+                        // Copia o ficheiro de backup para o directório de dados do MariaDB
+                        // Procura todos os ficheiros .ibd ou .frm no directório e substitui
+                        Path dest = mariaDataDir.resolve(b.fileName);
+                        Files.copy(src, dest, java.nio.file.StandardCopyOption.REPLACE_EXISTING);
+                        copyOk = true;
+                    } catch (Exception ex) {
+                        errorMsg = ex.getMessage();
+                    }
+                } else {
+                    errorMsg = "Directório de dados do MariaDB não encontrado: " + mariaDataDir.toAbsolutePath();
+                }
+
+                // Marca o backup restaurado como RESTORED na BD
+                bkOpt.ifPresent(bk -> {
+                    bk.setStatus("RESTORED");
+                    systemBackupRepository.save(bk);
+                });
+                // Regista a operação de restore
+                SystemBackup restoreLog = new SystemBackup();
+                restoreLog.setFileName("RESTORE_" + b.fileName);
+                restoreLog.setFilePath(src.toAbsolutePath().toString());
+                restoreLog.setBackupType("RESTORE");
+                restoreLog.setStatus(copyOk ? "COMPLETED" : "FAILED");
+                restoreLog.setNotes("Restore de: " + b.fileName + " por " + (currentUser != null ? currentUser.getUsername() : "system"));
+                restoreLog.setCreatedBy(currentUser != null ? currentUser.getUsername() : "system");
+                if (!copyOk && !errorMsg.isEmpty()) {
+                    restoreLog.setErrorMessage(errorMsg);
+                }
+                systemBackupRepository.save(restoreLog);
+                auditLogService.log(null, "RESTORE", "backups", null,
+                    "Restore feito a partir de: " + b.fileName + (copyOk ? " (cópia automática)" : " (manual)"));
+
+                if (copyOk) {
+                    showAlert(Alert.AlertType.INFORMATION,
+                        "Backup '" + b.fileName + "' restaurado com sucesso!\n\nFicheiro copiado para: " + mariaDataDir.toAbsolutePath() + "\nReinicie a aplicação e o serviço MariaDB para aplicar as alterações.");
+                } else {
+                    showAlert(Alert.AlertType.WARNING,
+                        "O restore automático não foi possível.\n\n" +
+                        "Cópia manual necessária:\n" +
+                        "1. Pare o serviço MariaDB\n" +
+                        "2. Copie o ficheiro:\n   " + src.toAbsolutePath() + "\n   para\n   " + mariaDataDir.toAbsolutePath() + "\n" +
+                        "3. Reinicie o serviço MariaDB e a aplicação\n\n" +
+                        "Erro: " + (errorMsg.isEmpty() ? "Directório de dados não encontrado" : errorMsg));
+                }
+                loadBackupHistory();
+            } catch (Exception e) {
+                showAlert(Alert.AlertType.ERROR, "Erro ao restaurar backup: " + e.getMessage());
+            }
         }
     }
 
@@ -576,8 +709,12 @@ public class SistemaModuleController {
         Optional<ButtonType> result = confirm.showAndWait();
         if (result.isPresent() && result.get() == ButtonType.OK) {
             try {
+                // Elimina ficheiro
                 Path p = Paths.get("backups", b.fileName);
                 Files.deleteIfExists(p);
+                // Elimina registo da base de dados
+                systemBackupRepository.findByFileName(b.fileName)
+                    .ifPresent(systemBackupRepository::delete);
                 auditLogService.log(null, "ELIMINAR", "backups", null, "Backup eliminado: " + b.fileName);
                 loadBackupHistory();
             } catch (Exception e) {
@@ -599,11 +736,25 @@ public class SistemaModuleController {
 
     @FXML
     private void onSaveBackupSettings() {
-        showAlert(Alert.AlertType.INFORMATION,
-            "Programação de backup guardada:\n" +
-            "Frequência: " + backupFrequency.getValue() + "\n" +
-            "Hora: " + backupHour.getText() + "\n" +
-            "Retenção: " + backupRetention.getText() + " dias");
+        try {
+            appConfig.setBackupFrequency(backupFrequency.getValue());
+            appConfig.setBackupHour(backupHour.getText().trim());
+            try {
+                appConfig.setBackupRetentionDays(Integer.parseInt(backupRetention.getText().trim()));
+            } catch (NumberFormatException e) {
+                appConfig.setBackupRetentionDays(30);
+            }
+            appConfigService.save(appConfig);
+            auditLogService.log(null, "EDITAR", "backup_settings", null,
+                "Configurações de backup actualizadas por " + (currentUser != null ? currentUser.getUsername() : "desconhecido"));
+            showAlert(Alert.AlertType.INFORMATION,
+                "Programação de backup guardada:\n" +
+                "Frequência: " + backupFrequency.getValue() + "\n" +
+                "Hora: " + backupHour.getText() + "\n" +
+                "Retenção: " + backupRetention.getText() + " dias");
+        } catch (Exception e) {
+            showAlert(Alert.AlertType.ERROR, "Erro ao guardar configurações de backup: " + e.getMessage());
+        }
     }
 
     // ═══════════════════════════════════════════════════════════════════════════
@@ -658,6 +809,9 @@ public class SistemaModuleController {
             if (currentUser != null && !trainingUsers.contains(currentUser)) {
                 trainingUsers.add(currentUser);
             }
+            // Persiste na BD
+            appConfig.setDemoMode(true);
+            appConfigService.save(appConfig);
             auditLogService.log(null, "ACTIVAR", "modo_treino", null,
                 "Modo treino activado por " + (currentUser != null ? currentUser.getUsername() : "?"));
             updateTrainingStatus();
@@ -672,6 +826,9 @@ public class SistemaModuleController {
         if (trainingModeActive) {
             trainingModeActive = false;
             trainingUsers.clear();
+            // Persiste na BD
+            appConfig.setDemoMode(false);
+            appConfigService.save(appConfig);
             auditLogService.log(null, "DESACTIVAR", "modo_treino", null,
                 "Modo treino desactivado por " + (currentUser != null ? currentUser.getUsername() : "?"));
             updateTrainingStatus();
@@ -685,6 +842,9 @@ public class SistemaModuleController {
             trainingUsers.remove(user);
             if (trainingUsers.isEmpty()) {
                 trainingModeActive = false;
+                // Persiste na BD
+                appConfig.setDemoMode(false);
+                appConfigService.save(appConfig);
                 updateTrainingStatus();
             }
             loadTrainingUsers();
@@ -700,13 +860,25 @@ public class SistemaModuleController {
     }
 
     private void loadLicenseInfo() {
-        licTypeLabel.setText("Trial / Avaliação");
-        licStatusLabel.setText("Activa");
-        licExpiryLabel.setText("—");
-        licDaysLeftLabel.setText("Ilimitado");
-        licCompanyLabel.setText(systemConfig.getOrDefault("company_name", "—"));
+        com.sgv.service.LicenseService.LicenseResult result = licenseService.getCurrentLicenseStatus();
+
+        licTypeLabel.setText(result.getType());
+        if (result.isValid()) {
+            licStatusLabel.setText("Activa");
+            licStatusLabel.setStyle("-fx-text-fill:#10B981; -fx-font-weight:700;");
+        } else {
+            licStatusLabel.setText("Inactiva");
+            licStatusLabel.setStyle("-fx-text-fill:#EF4444; -fx-font-weight:700;");
+        }
+        licExpiryLabel.setText(result.getExpiryDate());
+        if (result.getDaysRemaining() == Integer.MAX_VALUE) {
+            licDaysLeftLabel.setText("Ilimitado");
+        } else {
+            licDaysLeftLabel.setText(String.valueOf(result.getDaysRemaining()) + " dias");
+        }
+        licCompanyLabel.setText(appConfig != null && appConfig.getCompanyName() != null ? appConfig.getCompanyName() : "—");
         try {
-            machineIdField.setText(getMachineId());
+            machineIdField.setText(licenseService.getMachineId());
         } catch (Exception e) {
             machineIdField.setText("Não disponível");
         }
@@ -714,19 +886,7 @@ public class SistemaModuleController {
     }
 
     private String getMachineId() {
-        try {
-            String os = System.getProperty("os.name", "");
-            String user = System.getProperty("user.name", "");
-            String dir = System.getProperty("user.dir", "");
-            String raw = os + user + dir;
-            MessageDigest md = MessageDigest.getInstance("MD5");
-            byte[] digest = md.digest(raw.getBytes());
-            StringBuilder sb = new StringBuilder();
-            for (byte b : digest) sb.append(String.format("%02X", b));
-            return sb.toString().substring(0, 20).toUpperCase();
-        } catch (Exception e) {
-            return "ERR-" + UUID.randomUUID().toString().substring(0, 8).toUpperCase();
-        }
+        return licenseService.getMachineId();
     }
 
     @FXML
@@ -736,15 +896,22 @@ public class SistemaModuleController {
             showAlert(Alert.AlertType.WARNING, "Chave de licença inválida. Verifique e tente novamente.");
             return;
         }
-        auditLogService.log(null, "ACTIVAR", "licenca", null,
-            "Licença activada: " + key.substring(0, 4) + "****");
-        licTypeLabel.setText("Comercial");
-        licStatusLabel.setText("Activa");
-        licExpiryLabel.setText("Vitalícia");
-        licDaysLeftLabel.setText("Ilimitado");
-        licKeyField.clear();
-        showAlert(Alert.AlertType.INFORMATION,
-            "Licença activada com sucesso!\n\nTipo: Comercial\nValidade: Vitalícia\n\nObrigado pela sua confiança!");
+
+        com.sgv.service.LicenseService.LicenseResult result = licenseService.activateLicense(key);
+        if (result.isValid()) {
+            auditLogService.log(null, "ACTIVAR", "licenca", null,
+                "Licença activada: tipo=" + result.getType() + ", expira=" + result.getExpiryDate());
+            loadLicenseInfo();
+            licKeyField.clear();
+            showAlert(Alert.AlertType.INFORMATION,
+                "Licença activada com sucesso!\n\n" +
+                "Tipo: " + result.getType() + "\n" +
+                "Validade: " + result.getExpiryDate() + "\n" +
+                "Dias restantes: " + (result.getDaysRemaining() == Integer.MAX_VALUE ? "Ilimitado" : result.getDaysRemaining()) +
+                "\n\nObrigado pela sua confiança!");
+        } else {
+            showAlert(Alert.AlertType.ERROR, "Licença inválida: " + result.getMessage());
+        }
     }
 
     // ═══════════════════════════════════════════════════════════════════════════
@@ -863,7 +1030,7 @@ public class SistemaModuleController {
             }
             stage.showAndWait();
         } catch (Exception e) {
-            e.printStackTrace();
+            log.error("Erro ao abrir janela", e);
             showAlert(Alert.AlertType.ERROR, "Erro ao abrir janela: " + e.getMessage());
         }
     }

@@ -7,6 +7,9 @@ import com.sgv.service.WarehouseService;
 import javafx.beans.property.SimpleStringProperty;
 import javafx.collections.FXCollections;
 import javafx.collections.ObservableList;
+import javafx.collections.transformation.FilteredList;
+import javafx.scene.input.KeyCode;
+import javafx.application.Platform;
 import javafx.fxml.FXML;
 import javafx.scene.control.*;
 import javafx.scene.layout.HBox;
@@ -15,14 +18,17 @@ import org.springframework.stereotype.Component;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.List;
 
 @Component
-public class PurchaseFormController {
+public class PurchaseFormController extends BaseFormController {
 
     @FXML private Label titleLabel;
     @FXML private TextField invoiceNumberField;
     @FXML private DatePicker invoiceDatePicker;
+    @FXML private ComboBox<Supplier> supplierCombo;
+    @FXML private ComboBox<Warehouse> warehouseCombo;
     @FXML private ComboBox<Product> productCombo;
     @FXML private TextField quantityField;
     @FXML private TextField unitCostField;
@@ -33,17 +39,15 @@ public class PurchaseFormController {
     @FXML private TableColumn<PurchaseItem, String> priceColumn;
     @FXML private TableColumn<PurchaseItem, String> totalColumn;
     @FXML private TableColumn<PurchaseItem, String> actionColumn;
-    @FXML private Label errorLabel;
     @FXML private Label subtotalLabel;
     @FXML private Label totalLabel;
-    @FXML private Button saveButton;
-    @FXML private Button cancelButton;
-    
-    @FXML private javafx.scene.layout.VBox rootPane;
-    @FXML private javafx.scene.control.ProgressIndicator saveSpinner;
+    @FXML private Label taxLabel;
+    @FXML private Label headerTotalLabel;
+    @FXML private TextArea notesField;
 
     private final PurchaseRepository purchaseRepository;
     private final ProductRepository productRepository;
+    private final SupplierRepository supplierRepository;
     private final WarehouseRepository warehouseRepository;
     private final WarehouseService warehouseService;
     private final BranchRepository branchRepository;
@@ -51,20 +55,24 @@ public class PurchaseFormController {
 
     private Purchase editingPurchase;
     private User currentUser;
-    private Runnable onSave;
     private final ObservableList<PurchaseItem> items = FXCollections.observableArrayList();
-    
-    // MVVM Data Binding Properties
-    private final javafx.beans.property.BooleanProperty formValidProperty = new javafx.beans.property.SimpleBooleanProperty(false);
+
+    private ObservableList<Product> allProducts = FXCollections.observableArrayList();
+    private FilteredList<Product> filteredProducts;
+    private final ObservableList<Product> comboDisplayList = FXCollections.observableArrayList();
+    private boolean isRefreshingProducts = false;
+    private Product lastSelectedProduct = null;
 
     public PurchaseFormController(PurchaseRepository purchaseRepository,
                                   ProductRepository productRepository,
+                                  SupplierRepository supplierRepository,
                                   WarehouseRepository warehouseRepository,
                                   WarehouseService warehouseService,
                                   BranchRepository branchRepository,
                                   SystemLogService systemLogService) {
         this.purchaseRepository = purchaseRepository;
         this.productRepository = productRepository;
+        this.supplierRepository = supplierRepository;
         this.warehouseRepository = warehouseRepository;
         this.warehouseService = warehouseService;
         this.branchRepository = branchRepository;
@@ -73,11 +81,14 @@ public class PurchaseFormController {
 
     @FXML
     public void initialize() {
-        productCombo.setItems(FXCollections.observableArrayList(productRepository.findAll()));
-        productCombo.setConverter(new javafx.util.StringConverter<>() {
-            public String toString(Product p) { return p != null ? p.getCode() + " — " + p.getName() : ""; }
-            public Product fromString(String s) { return null; }
-        });
+        editingPurchase = null;
+        currentUser = null;
+        items.clear();
+        lastSelectedProduct = null;
+        isRefreshingProducts = false;
+        onSave = null;
+        initCommonFields();
+        setupProductSearch();
         productCombo.setOnAction(e -> {
             Product p = productCombo.getValue();
             if (p != null && p.getPriceCost() != null) {
@@ -85,13 +96,19 @@ public class PurchaseFormController {
             }
         });
 
-        if (errorLabel != null) {
-            errorLabel.setText("");
-            errorLabel.setVisible(false);
-            errorLabel.setManaged(false);
-        }
-
         if (invoiceDatePicker != null) invoiceDatePicker.setValue(LocalDate.now());
+
+        supplierCombo.setItems(FXCollections.observableArrayList(supplierRepository.findAll()));
+        supplierCombo.setConverter(new javafx.util.StringConverter<>() {
+            public String toString(Supplier s) { return s != null ? s.getName() : ""; }
+            public Supplier fromString(String s) { return null; }
+        });
+
+        warehouseCombo.setItems(FXCollections.observableArrayList(warehouseRepository.findByIsActiveTrueOrderByNameAsc()));
+        warehouseCombo.setConverter(new javafx.util.StringConverter<>() {
+            public String toString(Warehouse w) { return w != null ? w.getName() : ""; }
+            public Warehouse fromString(String s) { return null; }
+        });
 
         // Table columns
         productColumn.setCellValueFactory(d -> new SimpleStringProperty(
@@ -108,11 +125,11 @@ public class PurchaseFormController {
             final Button btn = new Button("🗑");
             {
                 btn.setStyle("-fx-background-color: transparent; -fx-text-fill: #EF4444; -fx-cursor: hand;");
-                btn.setOnAction(e -> {
+                btn.setOnAction(UiUtils.safeOnAction(() -> {
                     PurchaseItem item = getTableView().getItems().get(getIndex());
                     items.remove(item);
                     updateTotals();
-                });
+                }, systemLogService, "PURCHASE_REMOVE_ITEM"));
             }
             protected void updateItem(String s, boolean empty) {
                 super.updateItem(s, empty);
@@ -122,24 +139,151 @@ public class PurchaseFormController {
 
         itemsTable.setItems(items);
 
-        addItemButton.setOnAction(e -> addItem());
-        saveButton.setOnAction(e -> save());
-        cancelButton.setOnAction(e -> close());
+        UiUtils.attachSafe(addItemButton, this::addItem, systemLogService, "PURCHASE_ADD_ITEM");
+        UiUtils.attachSafe(saveButton, this::doSave, systemLogService, "PURCHASE_SAVE");
+        UiUtils.attachSafe(cancelButton, this::doCancel, systemLogService, "PURCHASE_CANCEL");
         
-        // UX: Transição de entrada fluida (Fade-in)
-        if (rootPane != null) {
-            rootPane.setOpacity(0.0);
-            javafx.animation.FadeTransition ft = new javafx.animation.FadeTransition(javafx.util.Duration.millis(350), rootPane);
-            ft.setFromValue(0.0);
-            ft.setToValue(1.0);
-            ft.play();
-        }
+        UiUtils.applyNumericFormatter(quantityField);
+        UiUtils.applyNumericFormatter(unitCostField);
 
-        // UX/MVVM: Data-Binding do botão de salvar
-        saveButton.disableProperty().bind(formValidProperty.not());
-
-        // Setup real-time listeners
         setupRealTimeValidation();
+    }
+
+    private void setupProductSearch() {
+        allProducts.setAll(productRepository.findAllActive());
+        filteredProducts = new FilteredList<>(allProducts, p -> true);
+        productCombo.setItems(comboDisplayList);
+
+        productCombo.valueProperty().addListener((obs, oldVal, newVal) -> {
+            if (newVal != null && newVal instanceof Product) {
+                lastSelectedProduct = (Product) newVal;
+            }
+        });
+
+        productCombo.setConverter(new javafx.util.StringConverter<>() {
+            public String toString(Product p) { return p != null ? productDisplayText(p) : ""; }
+            public Product fromString(String s) { return findBestMatch(s); }
+        });
+
+        productCombo.setCellFactory(listView -> new ListCell<>() {
+            @Override protected void updateItem(Product p, boolean empty) {
+                super.updateItem(p, empty);
+                if (empty || p == null) { setText(null); setStyle(""); return; }
+                setText(productDisplayText(p));
+            }
+        });
+        productCombo.setButtonCell(new ListCell<>() {
+            @Override protected void updateItem(Product p, boolean empty) {
+                super.updateItem(p, empty);
+                setText(empty || p == null ? "" : productDisplayText(p));
+            }
+        });
+
+        productCombo.getEditor().textProperty().addListener((obs, oldVal, newVal) -> {
+            if (isRefreshingProducts) return;
+            if (productCombo.isShowing()) return;
+            String currentText = newVal != null ? newVal.trim() : "";
+            Product selected = productCombo.getSelectionModel().getSelectedItem();
+            if (selected != null && productDisplayText(selected).equals(currentText)) {
+                return;
+            }
+            if (selected != null && !productDisplayText(selected).equals(currentText)) {
+                if (currentText.length() < 60) {
+                    productCombo.getSelectionModel().clearSelection();
+                } else {
+                    return;
+                }
+            }
+            refreshProductSearchResults();
+            if (!productCombo.isShowing() && productCombo.isFocused()) productCombo.show();
+        });
+
+        productCombo.getEditor().setOnKeyPressed(e -> {
+            if (e.getCode() == KeyCode.ENTER) {
+                addItem();
+            }
+        });
+
+        quantityField.setOnKeyPressed(e -> {
+            if (e.getCode() == KeyCode.ENTER) { e.consume(); addItem(); }
+        });
+        unitCostField.setOnKeyPressed(e -> {
+            if (e.getCode() == KeyCode.ENTER) { e.consume(); addItem(); }
+        });
+    }
+
+    private String productDisplayText(Product p) {
+        if (p == null) return "";
+        String cost = p.getPriceCost() != null ? String.format("%.2f", p.getPriceCost()) : "0.00";
+        return p.getCode() + " - " + p.getName() + " (Custo: " + cost + " MT)";
+    }
+
+    private String extractCodeFromDisplayText(String text) {
+        if (text == null) return null;
+        int dashIdx = text.indexOf(" - ");
+        if (dashIdx > 0) return text.substring(0, dashIdx).trim();
+        return null;
+    }
+
+    private Product findBestMatch(String text) {
+        if (text == null || text.isBlank()) return null;
+
+        String extractedCode = extractCodeFromDisplayText(text);
+        String searchTarget = extractedCode != null ? extractedCode : text.trim();
+
+        return allProducts.stream()
+                .filter(p -> p != null)
+                .filter(p -> (p.getCode() != null && p.getCode().equalsIgnoreCase(searchTarget)) ||
+                             (p.getName() != null && p.getName().equalsIgnoreCase(searchTarget)))
+                .findFirst()
+                .orElse(null);
+    }
+
+    private void refreshProductSearchResults() {
+        if (isRefreshingProducts) return;
+        isRefreshingProducts = true;
+        try {
+            String search = productCombo.getEditor() != null ? productCombo.getEditor().getText() : null;
+            boolean emptySearch = search == null || search.isBlank();
+
+            filteredProducts.setPredicate(p -> {
+                if (emptySearch) return true;
+                String lower = search.toLowerCase();
+                return (p.getCode() != null && p.getCode().toLowerCase().contains(lower)) ||
+                       (p.getName() != null && p.getName().toLowerCase().contains(lower));
+            });
+
+            List<Product> snapshot = filteredProducts.stream()
+                    .sorted(Comparator.comparing(Product::getName, Comparator.nullsLast(String.CASE_INSENSITIVE_ORDER))
+                            .thenComparing(Product::getCode, Comparator.nullsLast(String.CASE_INSENSITIVE_ORDER)))
+                    .toList();
+
+            Product prev = productCombo.getValue();
+            if (productCombo.isShowing()) productCombo.hide();
+            comboDisplayList.setAll(snapshot);
+            if (prev != null && snapshot.stream().anyMatch(p -> p.getId().equals(prev.getId()))) {
+                productCombo.getSelectionModel().select(prev);
+            }
+            if (!emptySearch && !productCombo.isShowing() && productCombo.isFocused()) productCombo.show();
+        } finally {
+            isRefreshingProducts = false;
+        }
+    }
+
+    private Product resolveSelectedProduct() {
+        Product val = productCombo.getValue();
+        if (val != null) return val;
+        Product sel = productCombo.getSelectionModel().getSelectedItem();
+        if (sel != null) return sel;
+        if (lastSelectedProduct != null) {
+            String editorText = productCombo.getEditor() != null ? productCombo.getEditor().getText().trim() : "";
+            if (!editorText.isBlank() && productDisplayText(lastSelectedProduct).equals(editorText)) {
+                return lastSelectedProduct;
+            }
+        }
+        String text = productCombo.getEditor() != null ? productCombo.getEditor().getText().trim() : "";
+        if (!text.isBlank()) return findBestMatch(text);
+        return null;
     }
     
     private void setupRealTimeValidation() {
@@ -152,11 +296,13 @@ public class PurchaseFormController {
         javafx.application.Platform.runLater(this::validateRealTime);
     }
     
-    private void validateRealTime() {
+    @Override
+    protected void validateRealTime() {
         StringBuilder errors = new StringBuilder();
         boolean valid = true;
         
         if (invoiceNumberField.getText() == null || invoiceNumberField.getText().isBlank()) { valid = false; }
+        if (supplierCombo.getValue() == null) { valid = false; }
         if (invoiceDatePicker.getValue() == null) { valid = false; }
         if (items.isEmpty()) {
             valid = false;
@@ -175,27 +321,24 @@ public class PurchaseFormController {
     }
 
     private void addItem() {
-        Product product = productCombo.getValue();
+        Product product = resolveSelectedProduct();
         if (product == null) {
-            Alert a = new Alert(Alert.AlertType.WARNING, "Selecione um produto.", ButtonType.OK);
-            a.setHeaderText(null); a.showAndWait();
+            showError("Produto não encontrado");
             return;
         }
         double qty = 0;
         double cost = 0;
         try {
-            qty = Double.parseDouble((quantityField.getText() != null ? quantityField.getText() : "0").replace(",", "."));
+            qty = Double.parseDouble((quantityField.getText() != null ? quantityField.getText() : "1").replace(",", "."));
             cost = Double.parseDouble((unitCostField.getText() != null ? unitCostField.getText() : "0").replace(",", "."));
         } catch (Exception ex) { /* will be caught below */ }
         
         if (qty <= 0) {
-            Alert a = new Alert(Alert.AlertType.WARNING, "Quantidade deve ser maior que 0.", ButtonType.OK);
-            a.setHeaderText(null); a.showAndWait();
+            showError("Quantidade deve ser maior que 0");
             return;
         }
         if (cost < 0) {
-            Alert a = new Alert(Alert.AlertType.WARNING, "Custo não pode ser negativo.", ButtonType.OK);
-            a.setHeaderText(null); a.showAndWait();
+            showError("Custo não pode ser negativo");
             return;
         }
 
@@ -207,30 +350,62 @@ public class PurchaseFormController {
         items.add(item);
 
         productCombo.setValue(null);
-        quantityField.clear();
+        productCombo.getEditor().clear();
+        quantityField.setText("1");
         unitCostField.clear();
         updateTotals();
+        refreshProductSearchResults();
+        Platform.runLater(productCombo::requestFocus);
     }
 
     private void updateTotals() {
-        double sub = items.stream().mapToDouble(i -> i.getSubtotal() != null ? i.getSubtotal() : 0.0).sum();
+        double sub = 0.0;
+        double tax = 0.0;
+        for (PurchaseItem item : items) {
+            double lineSubtotal = item.getSubtotal() != null ? item.getSubtotal() : 0.0;
+            sub += lineSubtotal;
+            if (item.getProduct() != null) {
+                double taxRate = item.getProduct().getEffectiveTaxRate();
+                tax += lineSubtotal * (taxRate / 100.0);
+            }
+        }
         subtotalLabel.setText(String.format("%.2f MT", sub));
-        totalLabel.setText(String.format("%.2f MT", sub));
+        if (taxLabel != null) taxLabel.setText(String.format("%.2f MT", tax));
+        double total = sub + tax;
+        totalLabel.setText(String.format("%.2f MT", total));
+        if (headerTotalLabel != null) headerTotalLabel.setText(String.format("Total: %.2f", total));
     }
 
-    private void save() {
+    @Override
+    protected void doSave() {
+        if (checkTrainingBlock()) return;
         if (!formValidProperty.get()) return;
 
-        saveButton.setVisible(false);
-        if (saveSpinner != null) {
-            saveSpinner.setVisible(true);
-            saveSpinner.setManaged(true);
+        Supplier selectedSupplier = supplierCombo.getValue();
+        if (selectedSupplier == null) {
+            showError("Selecione um fornecedor antes de salvar a compra.");
+            return;
         }
-        cancelButton.setDisable(true);
-        if (errorLabel != null) {
-            errorLabel.setVisible(false);
-            errorLabel.setManaged(false);
+
+        showSaveSpinner();
+
+        final String invoiceNumber = invoiceNumberField.getText() != null ? invoiceNumberField.getText().trim() : "";
+        final Long supplierId = selectedSupplier.getId();
+        final Long excludeId = (editingPurchase != null && editingPurchase.getId() != null) ? editingPurchase.getId() : null;
+
+        List<Purchase> existing = purchaseRepository.searchByInvoice(invoiceNumber);
+        for (Purchase p : existing) {
+            boolean sameSupplier = p.getSupplier() != null && supplierId.equals(p.getSupplier().getId());
+            boolean differentId = excludeId == null || !excludeId.equals(p.getId());
+            if (sameSupplier && differentId) {
+                hideSaveSpinner();
+                showError("Já existe uma compra com este número de factura para este fornecedor.");
+                return;
+            }
         }
+
+        final boolean isEdit = editingPurchase != null && editingPurchase.getId() != null;
+        final Purchase previousPurchase = isEdit ? editingPurchase : null;
 
         javafx.concurrent.Task<Void> saveTask = new javafx.concurrent.Task<>() {
             @Override
@@ -238,35 +413,76 @@ public class PurchaseFormController {
                 Purchase p = editingPurchase != null ? editingPurchase : new Purchase();
                 p.setInvoiceNumber(invoiceNumberField.getText() != null ? invoiceNumberField.getText().trim() : "");
                 p.setState("RECEIVED");
-                p.setNotes("");
+                p.setNotes(notesField != null && notesField.getText() != null ? notesField.getText().trim() : "");
                 p.setUser(currentUser);
                 if (currentUser != null) p.setBranch(currentUser.getBranch());
+
+                Supplier managedSupplier = resolveSelectedSupplier();
+                p.setSupplier(managedSupplier);
+
                 if (invoiceDatePicker.getValue() != null)
                     p.setPurchaseDate(invoiceDatePicker.getValue().atStartOfDay());
 
-                double total = items.stream().mapToDouble(i -> i.getSubtotal() != null ? i.getSubtotal() : 0.0).sum();
-                p.setSubtotal(total);
-                p.setTotal(total);
+                double sub = 0.0;
+                double tax = 0.0;
+                for (PurchaseItem item : items) {
+                    double lineSub = item.getSubtotal() != null ? item.getSubtotal() : 0.0;
+                    sub += lineSub;
+                    if (item.getProduct() != null) {
+                        double taxRate = item.getProduct().getEffectiveTaxRate();
+                        tax += lineSub * (taxRate / 100.0);
+                    }
+                }
+                p.setSubtotal(sub);
+                p.setTotalTax(tax);
+                p.setTotal(sub + tax);
 
-                // Associate items to purchase and update stock
                 List<PurchaseItem> savedItems = new ArrayList<>();
                 for (PurchaseItem item : items) {
+                    if (item.getProduct() != null && item.getProduct().getId() != null) {
+                        Product managedProduct = productRepository.findById(item.getProduct().getId()).orElse(item.getProduct());
+                        item.setProduct(managedProduct);
+                    }
                     item.setPurchase(p);
                     savedItems.add(item);
                 }
                 p.getItems().clear();
                 p.getItems().addAll(savedItems);
 
-                Warehouse targetWarehouse = p.getTargetWarehouse();
+                Warehouse targetWarehouse = warehouseCombo.getValue();
                 if (targetWarehouse == null) {
                     targetWarehouse = warehouseRepository.findByIsActiveTrueOrderByNameAsc().stream().findFirst()
                             .orElseThrow(() -> new IllegalStateException("Nenhum armazém activo encontrado."));
                     p.setTargetWarehouse(targetWarehouse);
+                } else {
+                    Warehouse managedWarehouse = warehouseRepository.findById(targetWarehouse.getId())
+                            .orElseThrow(() -> new IllegalStateException("Armazém selecionado não existe."));
+                    p.setTargetWarehouse(managedWarehouse);
+                    targetWarehouse = managedWarehouse;
+                }
+
+                // C5: Reverse old stock before re-adding (avoid double-increment on edit)
+                if (isEdit && "RECEIVED".equals(previousPurchase.getState()) && previousPurchase.getId() != null) {
+                    Purchase fullPrevious = purchaseRepository.findByIdWithItems(previousPurchase.getId());
+                    if (fullPrevious != null && fullPrevious.getItems() != null) {
+                        Warehouse prevWarehouse = fullPrevious.getTargetWarehouse() != null
+                                ? fullPrevious.getTargetWarehouse() : targetWarehouse;
+                        for (PurchaseItem oldItem : fullPrevious.getItems()) {
+                            if (oldItem.getProduct() != null && oldItem.getQuantity() != null && oldItem.getQuantity() > 0) {
+                                warehouseService.removeStock(
+                                    prevWarehouse.getId(),
+                                    oldItem.getProduct().getId(),
+                                    oldItem.getQuantity(),
+                                    "REVERSAO-EDICAO-" + (fullPrevious.getInvoiceNumber() != null ? fullPrevious.getInvoiceNumber() : ""),
+                                    currentUser);
+                            }
+                        }
+                    }
                 }
 
                 purchaseRepository.save(p);
 
-                // Update warehouse stock for each item if state is RECEIVED
+                // Add new stock for each item
                 if ("RECEIVED".equals(p.getState())) {
                     for (PurchaseItem item : savedItems) {
                         if (item.getProduct() != null && item.getQuantity() != null && item.getQuantity() > 0) {
@@ -275,7 +491,8 @@ public class PurchaseFormController {
                                 item.getProduct().getId(),
                                 item.getQuantity(),
                                 p.getInvoiceNumber() != null ? p.getInvoiceNumber() : "COMPRA",
-                                currentUser);
+                                currentUser,
+                                item.getCostPrice());
                         }
                     }
                 }
@@ -285,23 +502,29 @@ public class PurchaseFormController {
 
         saveTask.setOnSucceeded(e -> {
             if (onSave != null) onSave.run();
-            close();
+            doCancel();
         });
 
         saveTask.setOnFailed(e -> {
             Throwable ex = saveTask.getException();
             systemLogService.logError("PURCHASE_SAVE_FAILED", "Erro ao salvar compra: " + ex.getMessage(), ex);
-            showAlert("Erro ao salvar: " + ex.getMessage());
-            
-            saveButton.setVisible(true);
-            if (saveSpinner != null) {
-                saveSpinner.setVisible(false);
-                saveSpinner.setManaged(false);
-            }
-            cancelButton.setDisable(false);
+            showError("Erro ao salvar: " + ex.getMessage());
+            hideSaveSpinner();
         });
 
         new Thread(saveTask).start();
+    }
+
+    private Supplier resolveSelectedSupplier() {
+        Supplier selectedSupplier = supplierCombo.getValue();
+        if (selectedSupplier == null) {
+            throw new IllegalStateException("Fornecedor selecionado inválido.");
+        }
+        if (selectedSupplier.getId() == null) {
+            throw new IllegalStateException("Fornecedor selecionado inválido.");
+        }
+        return supplierRepository.findById(selectedSupplier.getId())
+                .orElseThrow(() -> new IllegalStateException("Fornecedor selecionado não existe (id=" + selectedSupplier.getId() + ")"));
     }
 
     public void setPurchase(Purchase purchase) {
@@ -309,30 +532,30 @@ public class PurchaseFormController {
         if (purchase != null) {
             if (titleLabel != null) titleLabel.setText("Editar Compra");
             invoiceNumberField.setText(purchase.getInvoiceNumber() != null ? purchase.getInvoiceNumber() : "");
+            if (purchase.getSupplier() != null) {
+                Supplier managedSupplier = supplierRepository.findById(purchase.getSupplier().getId()).orElse(purchase.getSupplier());
+                supplierCombo.setValue(managedSupplier);
+            }
             if (purchase.getPurchaseDate() != null && invoiceDatePicker != null)
                 invoiceDatePicker.setValue(purchase.getPurchaseDate().toLocalDate());
+            if (purchase.getTargetWarehouse() != null) {
+                Warehouse managedWarehouse = warehouseRepository.findById(purchase.getTargetWarehouse().getId())
+                        .orElse(purchase.getTargetWarehouse());
+                warehouseCombo.setValue(managedWarehouse);
+            }
+            if (notesField != null) notesField.setText(purchase.getNotes() != null ? purchase.getNotes() : "");
             items.setAll(purchase.getItems());
             updateTotals();
         }
     }
 
     public void setCurrentUser(User user) { this.currentUser = user; }
-    public void setOnSave(Runnable onSave) { this.onSave = onSave; }
 
-    private void close() {
-        Stage stage = (Stage) saveButton.getScene().getWindow();
-        stage.close();
-    }
-
-    private void showAlert(String msg) {
-        if (errorLabel != null) {
-            errorLabel.setText(msg);
-            errorLabel.setVisible(true);
-            errorLabel.setManaged(true);
-        } else {
-            Alert alert = new Alert(Alert.AlertType.WARNING, msg, ButtonType.OK);
-            alert.setHeaderText(null);
-            alert.showAndWait();
+    private double parseDoubleSafe(String text) {
+        try {
+            return text == null || text.isBlank() ? 0.0 : Double.parseDouble(text.trim().replace(",", "."));
+        } catch (NumberFormatException e) {
+            return 0.0;
         }
     }
 }

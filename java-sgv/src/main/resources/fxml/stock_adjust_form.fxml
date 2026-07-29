@@ -8,30 +8,53 @@
       fx:controller="com.sgv.desktop.StockAdjustFormController"
       prefWidth="500" stylesheets="@/styles/styles.css">
 
-    <Label text="Ajustar Stock" style="-fx-font-size: 20px; -fx-font-weight: bold; -fx-text-fill: white;"/>
+    <Label text="Registar Perda / Dano" style="-fx-font-size: 20px; -fx-font-weight: bold; -fx-text-fill: #0F172A;"/>
+
+    <!-- Aviso informativo -->
+    <HBox style="-fx-background-color: #FEF3C7; -fx-padding: 10 14; -fx-background-radius: 6;" spacing="8" alignment="CENTER_LEFT">
+        <Label text="⚠" style="-fx-font-size: 15px; -fx-text-fill: #92400E;"/>
+        <Label text="Use este formulário apenas para registar perdas, danos ou erros de inventário. Para adicionar stock à loja, crie uma Transferência Armazém → Filial."
+               style="-fx-font-size: 12px; -fx-text-fill: #92400E; -fx-wrap-text: true;" wrapText="true" HBox.hgrow="ALWAYS"/>
+    </HBox>
 
     <VBox spacing="16">
         <HBox spacing="10">
             <Label text="Produto:" style="-fx-font-weight: 600; -fx-text-fill: #94A3B8; -fx-font-size: 13px;"/>
-            <Label fx:id="productLabel" text="-" style="-fx-font-weight: bold; -fx-text-fill: white; -fx-font-size: 13px;"/>
+            <Label fx:id="productLabel" text="-" style="-fx-font-weight: bold; -fx-text-fill: #0F172A; -fx-font-size: 13px;"/>
         </HBox>
         <HBox spacing="10">
             <Label text="Filial:" style="-fx-font-weight: 600; -fx-text-fill: #94A3B8; -fx-font-size: 13px;"/>
-            <Label fx:id="branchLabel" text="-" style="-fx-font-weight: bold; -fx-text-fill: white; -fx-font-size: 13px;"/>
+            <Label fx:id="branchLabel" text="-" style="-fx-font-weight: bold; -fx-text-fill: #0F172A; -fx-font-size: 13px;"/>
+        </HBox>
+        <HBox spacing="10">
+            <Label text="Stock Actual:" style="-fx-font-weight: 600; -fx-text-fill: #94A3B8; -fx-font-size: 13px;"/>
+            <Label fx:id="currentStockInfoLabel" text="-" style="-fx-font-weight: bold; -fx-text-fill: #0F172A; -fx-font-size: 13px;"/>
         </HBox>
 
         <HBox spacing="12">
             <VBox spacing="6" HBox.hgrow="ALWAYS">
-                <Label text="Stock Actual *" style="-fx-font-weight: 600; -fx-text-fill: #0F172A; -fx-font-size: 13px;"/>
-                <TextField fx:id="currentStockField" promptText="Ex: 50.0"
-                           style="-fx-padding: 8 12; -fx-background-radius: 4; -fx-border-color: #E2E8F0; -fx-border-radius: 4; -fx-background-color: #F8FAFC; -fx-text-fill: white; -fx-font-size: 13px;"/>
+                <Label text="Novo Stock (deve ser menor ou igual ao actual) *" style="-fx-font-weight: 600; -fx-text-fill: #0F172A; -fx-font-size: 13px;"/>
+                <TextField fx:id="currentStockField" promptText="Ex: 45.0"
+                           style="-fx-padding: 8 12; -fx-background-radius: 4; -fx-border-color: #E2E8F0; -fx-border-radius: 4; -fx-background-color: #F8FAFC; -fx-text-fill: #0F172A; -fx-font-size: 13px;"/>
             </VBox>
             <VBox spacing="6" HBox.hgrow="ALWAYS">
                 <Label text="Stock Mínimo *" style="-fx-font-weight: 600; -fx-text-fill: #0F172A; -fx-font-size: 13px;"/>
                 <TextField fx:id="minStockField" promptText="Ex: 5.0"
-                           style="-fx-padding: 8 12; -fx-background-radius: 4; -fx-border-color: #E2E8F0; -fx-border-radius: 4; -fx-background-color: #F8FAFC; -fx-text-fill: white; -fx-font-size: 13px;"/>
+                           style="-fx-padding: 8 12; -fx-background-radius: 4; -fx-border-color: #E2E8F0; -fx-border-radius: 4; -fx-background-color: #F8FAFC; -fx-text-fill: #0F172A; -fx-font-size: 13px;"/>
+            </VBox>
+            <VBox spacing="6" HBox.hgrow="ALWAYS">
+                <Label text="Stock Máximo *" style="-fx-font-weight: 600; -fx-text-fill: #0F172A; -fx-font-size: 13px;"/>
+                <TextField fx:id="maxStockField" promptText="Ex: 100.0"
+                           style="-fx-padding: 8 12; -fx-background-radius: 4; -fx-border-color: #E2E8F0; -fx-border-radius: 4; -fx-background-color: #F8FAFC; -fx-text-fill: #0F172A; -fx-font-size: 13px;"/>
             </VBox>
         </HBox>
+
+        <VBox spacing="6">
+            <Label text="Motivo da Perda/Dano *" style="-fx-font-weight: 600; -fx-text-fill: #0F172A; -fx-font-size: 13px;"/>
+            <TextArea fx:id="reasonArea" promptText="Ex: Produto danificado, roubo, erro de contagem..."
+                      style="-fx-padding: 8 12; -fx-background-radius: 4; -fx-border-color: #E2E8F0; -fx-border-radius: 4; -fx-background-color: #F8FAFC; -fx-text-fill: #0F172A; -fx-font-size: 13px;"
+                      prefHeight="70" wrapText="true"/>
+        </VBox>
     </VBox>
 
     <Label fx:id="errorLabel" textFill="#EF4444" style="-fx-font-size: 13px;" managed="false" visible="false"/>
@@ -40,8 +63,8 @@
         <Button fx:id="cancelButton" text="Cancelar" styleClass="btn-secondary-ux"
                 style="-fx-background-color: transparent; -fx-text-fill: #94A3B8; -fx-border-color: #E2E8F0; -fx-border-radius: 4; -fx-padding: 8 20; -fx-font-weight: 600; -fx-cursor: hand;"/>
         <StackPane>
-            <Button fx:id="saveButton" text="Guardar Ajuste" disable="true" styleClass="btn-primary-ux"
-                    style="-fx-background-color: #0EA5E9; -fx-text-fill: white; -fx-padding: 8 20; -fx-background-radius: 4; -fx-font-weight: bold; -fx-cursor: hand;"/>
+            <Button fx:id="saveButton" text="Registar Perda/Dano" disable="true" styleClass="btn-primary-ux"
+                    style="-fx-background-color: #EF4444; -fx-text-fill: white; -fx-padding: 8 20; -fx-background-radius: 4; -fx-font-weight: bold; -fx-cursor: hand;"/>
             <ProgressIndicator fx:id="saveSpinner" visible="false" managed="false"
                                style="-fx-progress-color:white; -fx-max-width:20; -fx-max-height:20;"/>
         </StackPane>

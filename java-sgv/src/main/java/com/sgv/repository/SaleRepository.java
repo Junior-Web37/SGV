@@ -1,9 +1,12 @@
 package com.sgv.repository;
 
 import com.sgv.entity.Sale;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.List;
 
@@ -11,6 +14,9 @@ public interface SaleRepository extends JpaRepository<Sale, Long> {
 
     @Query("SELECT s FROM Sale s LEFT JOIN FETCH s.items WHERE s.id = :id")
     Sale findByIdWithItems(@Param("id") Long id);
+
+    @Query("SELECT DISTINCT s FROM Sale s LEFT JOIN FETCH s.customer LEFT JOIN FETCH s.items ORDER BY s.createdAt DESC")
+    List<Sale> findAllWithCustomerAndItems();
 
     @Query("select max(s.documentNumber) from Sale s where s.series = :series and s.documentType = :documentType and s.branch.id = :branchId and s.documentYear = :year")
     Long findMaxDocumentNumberBySeriesAndDocumentTypeAndBranchIdAndYear(
@@ -24,7 +30,7 @@ public interface SaleRepository extends JpaRepository<Sale, Long> {
 
     List<Sale> findAllByPendingSync(Boolean pendingSync);
     
-    @Query("SELECT s FROM Sale s WHERE LOWER(s.customer.name) LIKE LOWER(CONCAT('%', :search, '%'))")
+    @Query("SELECT s FROM Sale s LEFT JOIN s.customer c WHERE LOWER(c.name) LIKE LOWER(CONCAT('%', :search, '%')) OR LOWER(s.customerNuit) LIKE LOWER(CONCAT('%', :search, '%'))")
     List<Sale> searchByCustomerName(@Param("search") String search);
     
     @Query("SELECT s FROM Sale s WHERE s.state = :state")
@@ -37,9 +43,26 @@ public interface SaleRepository extends JpaRepository<Sale, Long> {
             @Param("startDate") LocalDateTime startDate,
             @Param("endDate") LocalDateTime endDate,
             @Param("state") String state);
+
+    @Query(value = "SELECT s FROM Sale s WHERE s.createdAt BETWEEN :startDate AND :endDate AND (:state IS NULL OR s.state = :state)",
+           countQuery = "SELECT COUNT(s) FROM Sale s WHERE s.createdAt BETWEEN :startDate AND :endDate AND (:state IS NULL OR s.state = :state)")
+    Page<Sale> findByDateRangeAndState(
+            @Param("startDate") LocalDateTime startDate,
+            @Param("endDate") LocalDateTime endDate,
+            @Param("state") String state,
+            Pageable pageable);
+
+    @Query("SELECT COALESCE(SUM(s.subtotal), 0) FROM Sale s WHERE s.createdAt IS NOT NULL")
+    BigDecimal sumSubtotalAll();
+
+    @Query("SELECT COALESCE(SUM(s.totalTax), 0) FROM Sale s WHERE s.createdAt IS NOT NULL")
+    BigDecimal sumTotalTaxAll();
+
+    @Query("SELECT COALESCE(SUM(s.total), 0) FROM Sale s WHERE s.createdAt IS NOT NULL")
+    BigDecimal sumTotalAll();
     
-    @Query("SELECT s FROM Sale s WHERE " +
-           "LOWER(s.customer.name) LIKE LOWER(CONCAT('%', :search, '%')) AND " +
+    @Query("SELECT s FROM Sale s LEFT JOIN s.customer c WHERE " +
+           "(LOWER(c.name) LIKE LOWER(CONCAT('%', :search, '%')) OR LOWER(s.customerNuit) LIKE LOWER(CONCAT('%', :search, '%'))) AND " +
            "s.createdAt BETWEEN :startDate AND :endDate AND " +
            "(:state IS NULL OR s.state = :state)")
     List<Sale> findByCustomerAndDateRangeAndState(
@@ -63,10 +86,10 @@ public interface SaleRepository extends JpaRepository<Sale, Long> {
                                   @Param("state") String state);
 
     @Query("SELECT COALESCE(SUM(s.total), 0) FROM Sale s WHERE s.createdAt >= :start AND s.createdAt <= :end AND s.state != 'ANULADA'")
-    double sumTotalByDateRange(@Param("start") LocalDateTime start, @Param("end") LocalDateTime end);
+    BigDecimal sumTotalByDateRange(@Param("start") LocalDateTime start, @Param("end") LocalDateTime end);
 
     @Query("SELECT COALESCE(SUM(s.total), 0) FROM Sale s WHERE s.createdAt >= :start AND s.createdAt <= :end AND s.state = :state")
-    double sumTotalByDateRangeAndState(@Param("start") LocalDateTime start,
+    BigDecimal sumTotalByDateRangeAndState(@Param("start") LocalDateTime start,
                                        @Param("end") LocalDateTime end,
                                        @Param("state") String state);
 
@@ -92,4 +115,9 @@ public interface SaleRepository extends JpaRepository<Sale, Long> {
                                     @Param("customerNuit") String customerNuit,
                                     @Param("itemCount") int itemCount,
                                     @Param("since") LocalDateTime since);
+
+    @Query("SELECT MONTH(s.createdAt) as m, COALESCE(SUM(s.total), 0) " +
+           "FROM Sale s WHERE s.documentYear = :year AND s.state != 'ANULADA' " +
+           "GROUP BY MONTH(s.createdAt)")
+    List<Object[]> sumTotalByMonthAndYear(@Param("year") int year);
 }

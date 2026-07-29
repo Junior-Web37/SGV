@@ -185,20 +185,24 @@ public class Sale {
     public void setDemoFlag(Boolean demoFlag) { this.demoFlag = demoFlag; }
     // ─────────────────────────────────────────────────────────────────────────
 
+    @Transient
+    private boolean annulInProgress = false;
+
+    public boolean isAnnulInProgress() { return annulInProgress; }
+    public void setAnnulInProgress(boolean annulInProgress) { this.annulInProgress = annulInProgress; }
+
     @PreRemove
     public void preRemove() {
-        if ("EMITIDA".equals(state) || "ANULADA".equals(state)) {
-            throw new IllegalStateException("Não é possível remover um documento fiscal já emitido ou anulado.");
+        if ("ANULADA".equals(state) && !annulInProgress) {
+            throw new IllegalStateException("Não é possível remover um documento fiscal anulado.");
         }
     }
 
     @PreUpdate
     public void preUpdate() {
-        // @PreUpdate corre DEPOIS de setState("ANULADA") no SaleController.annul(),
-        // logo this.state já é "ANULADA" quando esta validação corre — a excepção não é lançada na anulação.
-        if ("EMITIDA".equals(state)) {
+        if ("ANULADA".equals(state) && !annulInProgress) {
             throw new IllegalStateException(
-                "Um documento fiscal EMITIDO não pode ser modificado directamente na Base de Dados. Apenas pode ser Anulado.");
+                "Um documento fiscal ANULADO não pode ser modificado. Crie um novo documento.");
         }
     }
 

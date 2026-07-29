@@ -100,7 +100,9 @@ public class AtSubmissionService {
                 if (body2.containsKey("atDocumentId")) result.put("atDocumentId", body2.get("atDocumentId"));
                 if (body2.containsKey("validationErrors")) result.put("validationErrors", body2.get("validationErrors"));
                 if (body2.containsKey("atStatus")) result.put("atStatus", body2.get("atStatus"));
-            } catch (Exception ignore) {}
+            } catch (Exception ex) {
+                log.warn("Não foi possível analisar o corpo da resposta da AT como JSON: {}", ex.getMessage());
+            }
             return result;
         } catch (Exception e) {
             log.error("Erro a submeter à AT", e);

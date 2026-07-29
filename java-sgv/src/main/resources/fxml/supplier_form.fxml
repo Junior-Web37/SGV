@@ -58,6 +58,8 @@
         <Region VBox.vgrow="ALWAYS"/>
         <Separator style="-fx-opacity:0.2;"/>
         <HBox spacing="12" alignment="CENTER_RIGHT">
+            <Button fx:id="deleteButton" text="Apagar Fornecedor"
+                    style="-fx-padding:8 16; -fx-font-size:13px; -fx-background-color:#DC2626; -fx-text-fill:white; -fx-background-radius:3; -fx-cursor:hand; -fx-font-weight:600;"/>
             <Button fx:id="cancelButton" text="Cancelar" styleClass="btn-secondary-ux"
                     style="-fx-padding:8 16; -fx-font-size:13px; -fx-background-color:#ffffff; -fx-text-fill:#0F172A; -fx-background-radius:3; -fx-cursor:hand; -fx-font-weight:600; -fx-border-color:#E2E8F0; -fx-border-radius:3;"/>
             <StackPane>

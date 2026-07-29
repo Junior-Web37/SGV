@@ -19,6 +19,10 @@ public class StockMovement {
     @JoinColumn(name = "branch_id")
     private Branch branch;
 
+    @ManyToOne
+    @JoinColumn(name = "warehouse_id")
+    private Warehouse warehouse;
+
     @Column(nullable = false)
     private String type;
     private String subtype;
@@ -42,6 +46,8 @@ public class StockMovement {
     public void setProduct(Product product) { this.product = product; }
     public Branch getBranch() { return branch; }
     public void setBranch(Branch branch) { this.branch = branch; }
+    public Warehouse getWarehouse() { return warehouse; }
+    public void setWarehouse(Warehouse warehouse) { this.warehouse = warehouse; }
     public String getType() { return type; }
     public void setType(String type) { this.type = type; }
     public String getSubtype() { return subtype; }

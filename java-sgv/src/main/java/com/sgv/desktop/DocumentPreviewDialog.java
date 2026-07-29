@@ -300,17 +300,32 @@ public class DocumentPreviewDialog {
         ));
 
         btnPrint.setOnAction(e -> {
+            btnPrint.setDisable(true);
             new Thread(() -> {
                 try (PDDocument document = Loader.loadPDF(currentPdf[0])) {
                     PrinterJob job = PrinterJob.getPrinterJob();
                     job.setPageable(new PDFPageable(document));
-                    if (job.printDialog()) {
-                        job.print();
-                    }
+                    
+                    // Executar o diálogo de impressão na thread do AWT para evitar deadlocks/congelamentos no JavaFX
+                    javax.swing.SwingUtilities.invokeLater(() -> {
+                        try {
+                            if (job.printDialog()) {
+                                job.print();
+                            }
+                        } catch (Exception ex) {
+                            Platform.runLater(() -> {
+                                Alert alert = new Alert(Alert.AlertType.ERROR, "Erro ao imprimir: " + ex.getMessage());
+                                alert.showAndWait();
+                            });
+                        } finally {
+                            Platform.runLater(() -> btnPrint.setDisable(false));
+                        }
+                    });
                 } catch (Exception ex) {
                     Platform.runLater(() -> {
-                        Alert alert = new Alert(Alert.AlertType.ERROR, "Erro ao imprimir: " + ex.getMessage());
+                        Alert alert = new Alert(Alert.AlertType.ERROR, "Erro ao carregar PDF para impressão: " + ex.getMessage());
                         alert.showAndWait();
+                        btnPrint.setDisable(false);
                     });
                 }
             }).start();

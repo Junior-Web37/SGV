@@ -45,7 +45,8 @@ public class SaleDocumentService {
             PDType1Font fontRegular = new PDType1Font(Standard14Fonts.FontName.HELVETICA);
             PDType1Font fontMono = new PDType1Font(Standard14Fonts.FontName.COURIER);
 
-            try (PDPageContentStream cs = new PDPageContentStream(doc, page)) {
+            PDPageContentStream cs = new PDPageContentStream(doc, page);
+            try {
                 float y = PAGE_HEIGHT - MARGIN;
 
                 // ─── HEADER ──────────────────────────────────────────────
@@ -141,9 +142,15 @@ public class SaleDocumentService {
 
                         y -= 14;
                         if (y < MARGIN + 80) {
-                            // Add new page if needed
+                            // Fix #2: Add new page instead of truncating
                             cs.close();
-                            break; // simplified: truncate items for now
+                            page = new PDPage(PDRectangle.A4);
+                            doc.addPage(page);
+                            cs = new PDPageContentStream(doc, page);
+                            y = PAGE_HEIGHT - MARGIN;
+                            y = drawTableHeader(cs, fontBold, y, col0, col1, col2, col3, col4, col5);
+                            drawHorizontalLine(cs, y, 0.5f);
+                            y -= 12;
                         }
                     }
                 }
@@ -215,6 +222,10 @@ public class SaleDocumentService {
                 float footerY = MARGIN + 20;
                 drawHorizontalLine(cs, footerY + 10, 0.5f);
                 drawCenteredText(cs, fontRegular, 8, "Documento processado por SGV — Sistema de Gestão de Vendas", footerY);
+            } finally {
+                if (cs != null) {
+                    cs.close();
+                }
             }
 
             doc.save(outputFile);
@@ -332,11 +343,20 @@ public class SaleDocumentService {
         cs.stroke();
     }
 
-    /** Remove characters that PDType1Font cannot encode */
+    /** Fix #9: Remove characters that PDType1Font cannot encode, using better normalization */
     private String sanitize(String text) {
         if (text == null) return "";
-        return text.replace("⚠", "!").replace("***", "***")
-                   .replaceAll("[^\u0000-\u00FF]", "?");
+        // Replace known special chars not in WinAnsi
+        text = text.replace("⚠", "!")
+                   .replace("€", "EUR")
+                   .replace("“", "\"").replace("”", "\"")
+                   .replace("‘", "'").replace("’", "'");
+        
+        // Remove accents for unsupported chars if possible, then drop the rest
+        text = java.text.Normalizer.normalize(text, java.text.Normalizer.Form.NFD)
+                   .replaceAll("\\p{M}", "");
+                   
+        return text.replaceAll("[^\u0000-\u00FF]", "?");
     }
 
     /**

@@ -4,3 +4,17 @@ target/
 .idea/
 .vscode/
 *.class
+
+# Crash logs
+hs_err_pid*.log
+replay_pid*.log
+app-crash.log
+test-output.txt
+temp-test-output.txt
+
+# Temp files
+*.tmp
+*.bak
+*.swp
+*.swo
+*~

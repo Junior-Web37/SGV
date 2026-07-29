@@ -26,9 +26,10 @@
             <Label text="DADOS DA FATURA" style="-fx-font-size:11px; -fx-font-weight:700; -fx-text-fill:#475569;"/>
             <GridPane hgap="16" vgap="16">
                 <columnConstraints>
-                    <ColumnConstraints percentWidth="33"/>
-                    <ColumnConstraints percentWidth="33"/>
-                    <ColumnConstraints percentWidth="33"/>
+                    <ColumnConstraints percentWidth="25"/>
+                    <ColumnConstraints percentWidth="25"/>
+                    <ColumnConstraints percentWidth="25"/>
+                    <ColumnConstraints percentWidth="25"/>
                 </columnConstraints>
                 <children>
                     <VBox spacing="6" GridPane.columnIndex="0" GridPane.rowIndex="0">
@@ -46,6 +47,11 @@
                         <DatePicker fx:id="invoiceDatePicker"
                                     style="-fx-pref-width:1000; -fx-background-radius:3; -fx-border-color:#E2E8F0; -fx-border-radius:3; -fx-font-size:13px; -fx-padding:3;"/>
                     </VBox>
+                    <VBox spacing="6" GridPane.columnIndex="3" GridPane.rowIndex="0">
+                        <Label text="Armazém *" style="-fx-font-weight:600; -fx-text-fill:#0F172A; -fx-font-size:12px;"/>
+                        <ComboBox fx:id="warehouseCombo"
+                                  style="-fx-pref-width:1000; -fx-background-radius:3; -fx-border-color:#E2E8F0; -fx-border-radius:3; -fx-font-size:13px; -fx-padding:4; -fx-background-color:#F8FAFC;"/>
+                    </VBox>
                 </children>
             </GridPane>
 
@@ -54,7 +60,7 @@
             <Label text="ITENS DA COMPRA" style="-fx-font-size:11px; -fx-font-weight:700; -fx-text-fill:#475569;"/>
             <HBox spacing="12" alignment="CENTER_LEFT"
                   style="-fx-background-color:#E2E8F0; -fx-padding:16; -fx-background-radius:3; -fx-border-color:#E2E8F0; -fx-border-radius:3; -fx-border-width:1;">
-                <ComboBox fx:id="productCombo" promptText="Selecionar produto..."
+                <ComboBox fx:id="productCombo" editable="true" promptText="Pesquisar produto..."
                           style="-fx-pref-width:380; -fx-background-radius:3; -fx-border-color:#E2E8F0; -fx-border-radius:3; -fx-font-size:13px; -fx-padding:4; -fx-background-color:#ffffff;"/>
                 <TextField fx:id="quantityField" promptText="Qtd"
                            style="-fx-padding:8 12; -fx-background-radius:3; -fx-border-color:#E2E8F0; -fx-border-radius:3; -fx-font-size:13px; -fx-pref-width:90; -fx-background-color:#ffffff; -fx-text-fill:#0F172A;"/>
@@ -95,6 +101,14 @@
                     </children>
                 </GridPane>
             </HBox>
+
+            <Separator style="-fx-opacity:0.2;"/>
+            <VBox spacing="6">
+                <Label text="Notas" style="-fx-font-size:11px; -fx-font-weight:700; -fx-text-fill:#475569;"/>
+                <TextArea fx:id="notesField" wrapText="true"
+                          style="-fx-padding:8 12; -fx-background-radius:3; -fx-border-color:#E2E8F0; -fx-border-radius:3; -fx-font-size:13px; -fx-background-color:#F8FAFC; -fx-text-fill:#0F172A; -fx-min-height:60; -fx-max-height:100;"
+                          promptText="Notas sobre a compra..."/>
+            </VBox>
 
             <Separator style="-fx-opacity:0.2;"/>
             <HBox spacing="12" alignment="CENTER_RIGHT">

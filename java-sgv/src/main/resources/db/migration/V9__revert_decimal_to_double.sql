@@ -1,0 +1,53 @@
+-- V9: Revert DECIMAL monetary columns back to DOUBLE
+-- The existing DB has DECIMAL(19,4) columns from a previous V7 run.
+-- JPA entities use java.lang.Double which maps to FLOAT/DOUBLE.
+-- This migration reverts all monetary columns to DOUBLE so ddl-auto=validate passes.
+
+-- PRODUCTS
+ALTER TABLE products MODIFY COLUMN price_cost DOUBLE DEFAULT 0;
+ALTER TABLE products MODIFY COLUMN price_sale DOUBLE DEFAULT 0;
+ALTER TABLE products MODIFY COLUMN price_sale_bulk DOUBLE DEFAULT 0;
+
+-- CUSTOMERS
+ALTER TABLE customers MODIFY COLUMN credit_limit DOUBLE DEFAULT 0;
+ALTER TABLE customers MODIFY COLUMN balance DOUBLE DEFAULT 0;
+
+-- EXPENSES
+ALTER TABLE expenses MODIFY COLUMN amount DOUBLE DEFAULT 0;
+
+-- PAYMENTS
+ALTER TABLE payments MODIFY COLUMN amount DOUBLE DEFAULT 0;
+
+-- SALES
+ALTER TABLE sales MODIFY COLUMN subtotal DOUBLE DEFAULT 0;
+ALTER TABLE sales MODIFY COLUMN total_discount DOUBLE DEFAULT 0;
+ALTER TABLE sales MODIFY COLUMN total_tax DOUBLE DEFAULT 0;
+ALTER TABLE sales MODIFY COLUMN total_ice DOUBLE DEFAULT 0;
+ALTER TABLE sales MODIFY COLUMN total DOUBLE DEFAULT 0;
+ALTER TABLE sales MODIFY COLUMN exchange_rate DOUBLE DEFAULT 1;
+ALTER TABLE sales MODIFY COLUMN withholding_tax_rate DOUBLE DEFAULT 0;
+ALTER TABLE sales MODIFY COLUMN withholding_tax DOUBLE DEFAULT 0;
+ALTER TABLE sales MODIFY COLUMN paid_amount DOUBLE DEFAULT 0;
+ALTER TABLE sales MODIFY COLUMN change_amount DOUBLE DEFAULT 0;
+
+-- SALE ITEMS
+ALTER TABLE sale_items MODIFY COLUMN unit_price DOUBLE DEFAULT 0;
+ALTER TABLE sale_items MODIFY COLUMN discount DOUBLE DEFAULT 0;
+ALTER TABLE sale_items MODIFY COLUMN line_base DOUBLE DEFAULT 0;
+ALTER TABLE sale_items MODIFY COLUMN line_discount DOUBLE DEFAULT 0;
+ALTER TABLE sale_items MODIFY COLUMN line_ice DOUBLE DEFAULT 0;
+ALTER TABLE sale_items MODIFY COLUMN line_tax DOUBLE DEFAULT 0;
+ALTER TABLE sale_items MODIFY COLUMN line_total DOUBLE DEFAULT 0;
+
+-- PURCHASES
+ALTER TABLE purchases MODIFY COLUMN subtotal DOUBLE DEFAULT 0;
+ALTER TABLE purchases MODIFY COLUMN total_tax DOUBLE DEFAULT 0;
+ALTER TABLE purchases MODIFY COLUMN total DOUBLE DEFAULT 0;
+
+-- PURCHASE ITEMS
+ALTER TABLE purchase_items MODIFY COLUMN cost_price DOUBLE DEFAULT 0;
+ALTER TABLE purchase_items MODIFY COLUMN subtotal DOUBLE DEFAULT 0;
+
+-- STOCK MOVEMENTS (unit_cost_price and unit_sale_price added by V7 as DECIMAL)
+ALTER TABLE stock_movements MODIFY COLUMN unit_cost_price DOUBLE DEFAULT 0;
+ALTER TABLE stock_movements MODIFY COLUMN unit_sale_price DOUBLE DEFAULT 0;

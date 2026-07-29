@@ -1,0 +1,3 @@
+-- V7: Placeholder migration — monetary columns kept as DOUBLE to match JPA entity types.
+-- The DECIMAL(19,4) migration is deferred until entity types are changed to BigDecimal.
+-- Floating-point precision risk is accepted for now; see TODO for future BigDecimal migration.

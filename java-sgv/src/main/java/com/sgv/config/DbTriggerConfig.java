@@ -17,6 +17,18 @@ public class DbTriggerConfig {
         return args -> {
             log.info("Inicializando Triggers de proteção fiscal no MariaDB...");
 
+            String databaseProductName = "unknown";
+            if (jdbcTemplate.getDataSource() != null) {
+                try (var connection = jdbcTemplate.getDataSource().getConnection()) {
+                    databaseProductName = connection.getMetaData().getDatabaseProductName();
+                }
+            }
+
+            if (databaseProductName == null || !databaseProductName.toLowerCase().contains("mysql") && !databaseProductName.toLowerCase().contains("mariadb")) {
+                log.info("Skippando aplicação de triggers MariaDB para banco de dados: {}", databaseProductName);
+                return;
+            }
+
             try {
                 // Trigger para impedir UPDATE de campos críticos em vendas emitidas/anuladas
                 jdbcTemplate.execute("DROP TRIGGER IF EXISTS trg_prevent_sales_update");
@@ -85,7 +97,7 @@ public class DbTriggerConfig {
                 log.info("Triggers de proteção fiscal aplicados com sucesso.");
             } catch (Exception e) {
                 log.error("Erro ao aplicar Triggers na Base de Dados. Verifique se está usando MariaDB/MySQL. Detalhes: " + e.getMessage());
-                // Não quebramos o arranque caso estejamos em testes com H2.
+                // Não quebramos o arranque caso a base de dados não esteja disponível ainda.
             }
         };
     }

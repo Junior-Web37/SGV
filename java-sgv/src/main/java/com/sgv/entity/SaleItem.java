@@ -130,15 +130,15 @@ public class SaleItem {
 
     @PreRemove
     public void preRemove() {
-        if (sale != null && ("EMITIDA".equals(sale.getState()) || "ANULADA".equals(sale.getState()))) {
-            throw new IllegalStateException("Não é possível remover um item de um documento fiscal já emitido ou anulado.");
+        if (sale != null && "ANULADA".equals(sale.getState()) && !sale.isAnnulInProgress()) {
+            throw new IllegalStateException("Não é possível remover um item de um documento fiscal anulado.");
         }
     }
 
     @PreUpdate
     public void preUpdate() {
-        if (sale != null && ("EMITIDA".equals(sale.getState()) || "ANULADA".equals(sale.getState()))) {
-            throw new IllegalStateException("Não é possível atualizar um item de um documento fiscal já emitido ou anulado.");
+        if (sale != null && "ANULADA".equals(sale.getState()) && !sale.isAnnulInProgress()) {
+            throw new IllegalStateException("Não é possível atualizar um item de um documento fiscal anulado.");
         }
     }
 }

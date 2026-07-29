@@ -4,75 +4,97 @@ import com.sgv.entity.StockBranch;
 import com.sgv.entity.User;
 import com.sgv.service.StockBranchService;
 import javafx.fxml.FXML;
-import javafx.scene.control.Button;
 import javafx.scene.control.Label;
+import javafx.scene.control.TextArea;
 import javafx.scene.control.TextField;
-import javafx.stage.Stage;
-import java.math.BigDecimal;
 import org.springframework.stereotype.Component;
+import java.math.BigDecimal;
 
 @Component
-public class StockAdjustFormController {
+public class StockAdjustFormController extends BaseFormController {
 
-    @FXML private javafx.scene.layout.VBox rootPane;
     @FXML private Label productLabel;
     @FXML private Label branchLabel;
+    @FXML private Label currentStockInfoLabel;
     @FXML private TextField currentStockField;
     @FXML private TextField minStockField;
-    @FXML private Label errorLabel;
-    @FXML private Button saveButton;
-    @FXML private Button cancelButton;
-    @FXML private javafx.scene.control.ProgressIndicator saveSpinner;
+    @FXML private TextField maxStockField;
+    @FXML private TextArea reasonArea;
 
     private final StockBranchService stockBranchService;
-    private Runnable onSave;
     private StockBranch editingStock;
-    private User currentUser;
-
-    private final javafx.beans.property.BooleanProperty formValidProperty = new javafx.beans.property.SimpleBooleanProperty(false);
+    private BigDecimal originalStock;
 
     public StockAdjustFormController(StockBranchService stockBranchService) {
         this.stockBranchService = stockBranchService;
     }
 
-    public void setCurrentUser(User currentUser) {
-        this.currentUser = currentUser;
-    }
-
     @FXML
     public void initialize() {
-        saveButton.setOnAction(e -> doSave());
-        cancelButton.setOnAction(e -> doCancel());
-        errorLabel.setText("");
-        errorLabel.setVisible(false);
-        errorLabel.setManaged(false);
+        editingStock = null;
+        originalStock = BigDecimal.ZERO;
+        currentUser = null;
+        onSave = null;
+        if (productLabel != null) productLabel.setText("-");
+        if (branchLabel != null) branchLabel.setText("-");
+        if (currentStockInfoLabel != null) currentStockInfoLabel.setText("-");
+        if (currentStockField != null) currentStockField.setText("");
+        if (minStockField != null) minStockField.setText("");
+        if (maxStockField != null) maxStockField.setText("");
+        if (reasonArea != null) reasonArea.setText("");
+        initCommonFields();
+        UiUtils.attachSafe(saveButton, this::doSave, null, "STOCK_ADJUST_SAVE");
+        UiUtils.attachSafe(cancelButton, this::doCancel, null, "STOCK_ADJUST_CANCEL");
 
-        if (rootPane != null) {
-            rootPane.setOpacity(0.0);
-            javafx.animation.FadeTransition ft = new javafx.animation.FadeTransition(javafx.util.Duration.millis(350), rootPane);
-            ft.setFromValue(0.0);
-            ft.setToValue(1.0);
-            ft.play();
-        }
+        UiUtils.applyNumericFormatter(currentStockField);
+        UiUtils.applyNumericFormatter(minStockField);
+        UiUtils.applyNumericFormatter(maxStockField);
 
-        saveButton.disableProperty().bind(formValidProperty.not());
-
-        javafx.beans.value.ChangeListener<String> listener = (obs, o, n) -> validateRealTime();
-        currentStockField.textProperty().addListener(listener);
-        minStockField.textProperty().addListener(listener);
+        currentStockField.textProperty().addListener((obs, o, n) -> validateRealTime());
+        minStockField.textProperty().addListener((obs, o, n) -> validateRealTime());
+        maxStockField.textProperty().addListener((obs, o, n) -> validateRealTime());
+        reasonArea.textProperty().addListener((obs, o, n) -> validateRealTime());
         javafx.application.Platform.runLater(this::validateRealTime);
     }
 
-    private void validateRealTime() {
+    @Override
+    protected void validateRealTime() {
         boolean valid = true;
-        try { Double.parseDouble(currentStockField.getText().replace(",", ".")); } catch (Exception e) { valid = false; }
-        try { Double.parseDouble(minStockField.getText().replace(",", ".")); } catch (Exception e) { valid = false; }
-        formValidProperty.set(valid);
-        if (valid) { errorLabel.setVisible(false); errorLabel.setManaged(false); }
-    }
+        try {
+            String t = currentStockField.getText();
+            if (t == null || t.isBlank()) {
+                valid = false;
+            } else {
+                BigDecimal val = new BigDecimal(t.replace(",", "."));
+                if (val.compareTo(BigDecimal.ZERO) < 0) valid = false;
+            }
+        } catch (Exception e) { valid = false; }
 
-    public void setOnSave(Runnable onSave) {
-        this.onSave = onSave;
+        try {
+            String t = minStockField.getText();
+            if (t == null || t.isBlank()) { valid = false; }
+            else { Double.parseDouble(t.replace(",", ".")); }
+        } catch (Exception e) { valid = false; }
+
+        try {
+            String t = maxStockField.getText();
+            if (t == null || t.isBlank()) { valid = false; }
+            else { Double.parseDouble(t.replace(",", ".")); }
+        } catch (Exception e) { valid = false; }
+
+        if (valid) {
+            try {
+                BigDecimal min = new BigDecimal(minStockField.getText().replace(",", "."));
+                BigDecimal max = new BigDecimal(maxStockField.getText().replace(",", "."));
+                if (min.compareTo(max) > 0) valid = false;
+            } catch (Exception e) { valid = false; }
+        }
+
+        String motivo = reasonArea.getText();
+        if (motivo == null || motivo.trim().isEmpty()) valid = false;
+
+        formValidProperty.set(valid);
+        if (valid) hideError();
     }
 
     public void setStock(StockBranch stock) {
@@ -80,59 +102,39 @@ public class StockAdjustFormController {
         if (stock != null) {
             productLabel.setText(stock.getProduct() != null ? stock.getProduct().getName() : "N/A");
             branchLabel.setText(stock.getBranch() != null ? stock.getBranch().getName() : "N/A");
-            currentStockField.setText(stock.getStockCurrentAmount() != null ? stock.getStockCurrentAmount().toPlainString() : "0.0");
+            originalStock = stock.getStockCurrentAmount() != null ? stock.getStockCurrentAmount() : BigDecimal.ZERO;
+            currentStockInfoLabel.setText(originalStock.toPlainString() + " unidades");
+            currentStockField.setText(originalStock.toPlainString());
             minStockField.setText(stock.getStockMinAmount() != null ? stock.getStockMinAmount().toPlainString() : "0.0");
+            maxStockField.setText(stock.getStockMaxAmount() != null ? stock.getStockMaxAmount().toPlainString() : "0.0");
         }
         validateRealTime();
     }
 
-    private void doSave() {
+    @Override
+    protected void doSave() {
+        if (checkTrainingBlock()) return;
         if (!formValidProperty.get() || editingStock == null) return;
-
-        saveButton.setVisible(false);
-        saveSpinner.setVisible(true);
-        saveSpinner.setManaged(true);
-        cancelButton.setDisable(true);
+        showSaveSpinner();
 
         javafx.concurrent.Task<Void> saveTask = new javafx.concurrent.Task<>() {
             @Override
-            protected Void call() throws Exception {
-                if (currentUser == null) {
-                    throw new IllegalStateException("Utilizador não autenticado.");
-                }
+            protected Void call() {
+                if (currentUser == null) throw new IllegalStateException("Utilizador não autenticado.");
                 BigDecimal current = new BigDecimal(currentStockField.getText().replace(",", "."));
                 BigDecimal min = new BigDecimal(minStockField.getText().replace(",", "."));
-                stockBranchService.adjustStock(editingStock, current, min, "AJUSTE_MANUAL", currentUser);
+                BigDecimal max = new BigDecimal(maxStockField.getText().replace(",", "."));
+                String reason = reasonArea.getText().trim();
+                String reference = "PERDA_DANO - " + reason;
+                stockBranchService.adjustStock(editingStock, current, min, max, reference, currentUser);
                 return null;
             }
         };
-
-        saveTask.setOnSucceeded(e -> {
-            if (onSave != null) onSave.run();
-            closeStage();
-        });
-
+        saveTask.setOnSucceeded(e -> { if (onSave != null) onSave.run(); doCancel(); });
         saveTask.setOnFailed(e -> {
-            errorLabel.setText("Erro ao salvar: " + saveTask.getException().getMessage());
-            errorLabel.setVisible(true);
-            errorLabel.setManaged(true);
-            saveButton.setVisible(true);
-            saveSpinner.setVisible(false);
-            saveSpinner.setManaged(false);
-            cancelButton.setDisable(false);
+            showError("Erro ao salvar: " + saveTask.getException().getMessage());
+            hideSaveSpinner();
         });
-
         new Thread(saveTask).start();
-    }
-
-    private void doCancel() {
-        closeStage();
-    }
-
-    private void closeStage() {
-        Stage stage = (Stage) saveButton.getScene().getWindow();
-        if (stage != null) {
-            stage.close();
-        }
     }
 }

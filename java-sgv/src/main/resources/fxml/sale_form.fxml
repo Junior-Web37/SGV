@@ -68,7 +68,7 @@
                 <HBox spacing="8" alignment="CENTER_LEFT">
                     <VBox spacing="1" HBox.hgrow="ALWAYS">
                         <Label text="Código / Nome do Produto" style="-fx-font-size:9px; -fx-text-fill:#2563EB; -fx-font-weight:800;"/>
-                        <ComboBox fx:id="productSearchCombo" editable="true" promptText="Pesquisar produto..."
+                        <ComboBox fx:id="productSearchCombo" editable="true" promptText="Código, nome ou código de barras..."
                                   maxWidth="Infinity"
                                   style="-fx-font-size:14px; -fx-font-weight:700; -fx-padding:6 8; -fx-background-radius:4; -fx-border-color:#2563EB; -fx-border-width:2; -fx-background-color:#ffffff;"/>
                     </VBox>

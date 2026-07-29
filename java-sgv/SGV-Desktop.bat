@@ -18,7 +18,7 @@ echo ========================================================
 echo.
 echo A iniciar o sistema...
 echo.
-"%JAVA_EXE%" -jar "%SCRIPT_DIR%target\java-sgv-0.1.0.jar" --spring.profiles.active=test
+"%JAVA_EXE%" -jar "%SCRIPT_DIR%target\java-sgv-0.1.0.jar"
 if %ERRORLEVEL% neq 0 (
     echo.
     echo Ocorreu um erro ao iniciar o SGV.

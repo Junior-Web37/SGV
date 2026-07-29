@@ -27,6 +27,10 @@ public class Purchase {
     @JoinColumn(name = "user_id")
     private User user;
 
+    @ManyToOne
+    @JoinColumn(name = "supplier_id")
+    private Supplier supplier;
+
     private LocalDateTime purchaseDate = LocalDateTime.now();
     private BigDecimal subtotal = BigDecimal.ZERO;
     private BigDecimal totalTax = BigDecimal.ZERO;
@@ -48,6 +52,8 @@ public class Purchase {
     public void setTargetWarehouse(Warehouse targetWarehouse) { this.targetWarehouse = targetWarehouse; }
     public User getUser() { return user; }
     public void setUser(User user) { this.user = user; }
+    public Supplier getSupplier() { return supplier; }
+    public void setSupplier(Supplier supplier) { this.supplier = supplier; }
     public LocalDateTime getPurchaseDate() { return purchaseDate; }
     public void setPurchaseDate(LocalDateTime purchaseDate) { this.purchaseDate = purchaseDate; }
     public Double getSubtotal() { return subtotal != null ? subtotal.doubleValue() : null; }

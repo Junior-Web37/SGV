@@ -11,28 +11,22 @@ import java.util.Optional;
 import com.sgv.service.SystemLogService;
 
 @Component
-public class CustomerFormController {
+public class CustomerFormController extends BaseFormController {
 
-    @FXML private javafx.scene.layout.VBox rootPane;
     @FXML private TextField codeField;
     @FXML private TextField nameField;
     @FXML private TextField nuitField;
     @FXML private ComboBox<String> typeCombo;
     @FXML private TextField creditLimitField;
     @FXML private TextField defaultDiscountField;
-    @FXML private Label errorLabel;
-    @FXML private Button saveButton;
-    @FXML private Button cancelButton;
-    @FXML private javafx.scene.control.ProgressIndicator saveSpinner;
+    @FXML private TextField addressField;
+    @FXML private TextField contactField;
+    @FXML private Button deleteButton;
 
     private final CustomerRepository customerRepository;
     private final SystemLogService systemLogService;
     private Customer customer;
-    private Runnable onSave;
     private boolean codeAlreadyExists = false;
-
-    // MVVM Data Binding Properties
-    private final javafx.beans.property.BooleanProperty formValidProperty = new javafx.beans.property.SimpleBooleanProperty(false);
 
     public CustomerFormController(CustomerRepository customerRepository, SystemLogService systemLogService) {
         this.customerRepository = customerRepository;
@@ -41,27 +35,21 @@ public class CustomerFormController {
 
     @FXML
     public void initialize() {
+        initCommonFields();
         typeCombo.setItems(javafx.collections.FXCollections.observableArrayList(
                 "PESSOA_FISICA", "PESSOA_JURIDICA", "EMPRESA"));
-        saveButton.setOnAction(e -> doSave());
-        cancelButton.setOnAction(e -> doCancel());
-        errorLabel.setText("");
-        errorLabel.setVisible(false);
-        errorLabel.setManaged(false);
+        UiUtils.attachSafe(saveButton, this::doSave, systemLogService, "CUSTOMER_SAVE");
+        UiUtils.attachSafe(cancelButton, this::doCancel, systemLogService, "CUSTOMER_CANCEL");
 
-        // UX: Transição de entrada fluida (Fade-in)
-        if (rootPane != null) {
-            rootPane.setOpacity(0.0);
-            javafx.animation.FadeTransition ft = new javafx.animation.FadeTransition(javafx.util.Duration.millis(350), rootPane);
-            ft.setFromValue(0.0);
-            ft.setToValue(1.0);
-            ft.play();
+        UiUtils.applyNumericFormatter(creditLimitField);
+        UiUtils.applyNumericFormatter(defaultDiscountField);
+
+        if (deleteButton != null) {
+            deleteButton.setVisible(false);
+            deleteButton.setManaged(false);
+            UiUtils.attachSafe(deleteButton, this::doDelete, systemLogService, "CUSTOMER_DELETE");
         }
 
-        // UX/MVVM: Data-Binding do botão de salvar
-        saveButton.disableProperty().bind(formValidProperty.not());
-
-        // Setup real-time listeners
         setupRealTimeValidation();
     }
 
@@ -93,11 +81,11 @@ public class CustomerFormController {
         }).start();
     }
 
-    private void validateRealTime() {
+    @Override
+    protected void validateRealTime() {
         StringBuilder errors = new StringBuilder();
         boolean valid = true;
 
-        // 1. Código: obrigatório + não duplicado
         if (codeField.getText() == null || codeField.getText().isBlank()) {
             valid = false;
         } else if (codeAlreadyExists) {
@@ -105,7 +93,6 @@ public class CustomerFormController {
             valid = false;
         }
 
-        // 2. Nome: obrigatório (mín. 3 chars)
         String name = nameField.getText();
         if (name == null || name.isBlank()) {
             valid = false;
@@ -114,11 +101,10 @@ public class CustomerFormController {
             valid = false;
         }
 
-        // 3. Limite de crédito: opcional mas se preenchido >= 0
         if (creditLimitField.getText() != null && !creditLimitField.getText().isBlank()) {
             try {
-                double limit = parseDouble(creditLimitField.getText());
-                if (limit < 0) {
+                java.math.BigDecimal limit = new java.math.BigDecimal(creditLimitField.getText().replace(",", "."));
+                if (limit.compareTo(java.math.BigDecimal.ZERO) < 0) {
                     errors.append("Limite de crédito não pode ser negativo. ");
                     valid = false;
                 }
@@ -128,11 +114,10 @@ public class CustomerFormController {
             }
         }
 
-        // 4. Desconto: opcional mas se preenchido entre 0 e 100
         if (defaultDiscountField.getText() != null && !defaultDiscountField.getText().isBlank()) {
             try {
-                double disc = parseDouble(defaultDiscountField.getText());
-                if (disc < 0 || disc > 100) {
+                java.math.BigDecimal disc = new java.math.BigDecimal(defaultDiscountField.getText().replace(",", "."));
+                if (disc.compareTo(java.math.BigDecimal.ZERO) < 0 || disc.compareTo(new java.math.BigDecimal("100")) > 0) {
                     errors.append("Desconto deve estar entre 0 e 100%. ");
                     valid = false;
                 }
@@ -142,7 +127,6 @@ public class CustomerFormController {
             }
         }
 
-        // 5. NUIT: se preenchido, deve ter 9 dígitos
         if (nuitField.getText() != null && !nuitField.getText().isBlank()) {
             String nuit = nuitField.getText().replaceAll("\\D", "");
             if (!nuit.isEmpty() && nuit.length() != 9) {
@@ -163,12 +147,18 @@ public class CustomerFormController {
     public void setCustomer(Customer c) {
         this.customer = c;
         if (c != null && c.getId() != null) {
+            if (deleteButton != null) {
+                deleteButton.setVisible(true);
+                deleteButton.setManaged(true);
+            }
             codeField.setText(c.getCode());
             nameField.setText(c.getName());
             nuitField.setText(c.getNuit() != null ? c.getNuit() : "");
             typeCombo.setValue(c.getType());
             creditLimitField.setText(c.getCreditLimit() != null ? String.valueOf(c.getCreditLimit()) : "");
             defaultDiscountField.setText(c.getDefaultDiscount() != null ? String.valueOf(c.getDefaultDiscount()) : "");
+            addressField.setText(c.getAddress() != null ? c.getAddress() : "");
+            contactField.setText(c.getContact() != null ? c.getContact() : "");
             codeField.setDisable(true);
             codeAlreadyExists = false;
         } else {
@@ -180,19 +170,42 @@ public class CustomerFormController {
         validateRealTime();
     }
 
-    public void setOnSave(Runnable callback) {
-        this.onSave = callback;
+    private void doDelete() {
+        if (customer == null || customer.getId() == null) return;
+
+        Alert alert = new Alert(Alert.AlertType.CONFIRMATION,
+                "Tem certeza que deseja apagar este cliente?", ButtonType.YES, ButtonType.NO);
+        alert.setHeaderText(null);
+        alert.setTitle("Confirmar Eliminação");
+        Optional<ButtonType> result = alert.showAndWait();
+        if (result.isEmpty() || result.get() != ButtonType.YES) return;
+
+        javafx.concurrent.Task<Void> deleteTask = new javafx.concurrent.Task<>() {
+            @Override
+            protected Void call() {
+                customerRepository.deleteById(customer.getId());
+                return null;
+            }
+        };
+        deleteTask.setOnSucceeded(e -> {
+            if (onSave != null) onSave.run();
+            Stage stage = (Stage) saveButton.getScene().getWindow();
+            stage.close();
+        });
+        deleteTask.setOnFailed(e -> {
+            Throwable ex = deleteTask.getException();
+            systemLogService.logError("CUSTOMER_DELETE_FAILED", "Erro ao apagar cliente: " + ex.getMessage(), ex);
+            showError("Erro ao apagar: " + ex.getMessage());
+        });
+        new Thread(deleteTask).start();
     }
 
-    private void doSave() {
+    @Override
+    protected void doSave() {
+        if (checkTrainingBlock()) return;
         if (!formValidProperty.get()) return;
 
-        saveButton.setVisible(false);
-        saveSpinner.setVisible(true);
-        saveSpinner.setManaged(true);
-        cancelButton.setDisable(true);
-        errorLabel.setVisible(false);
-        errorLabel.setManaged(false);
+        showSaveSpinner();
 
         javafx.concurrent.Task<Void> saveTask = new javafx.concurrent.Task<>() {
             @Override
@@ -200,9 +213,11 @@ public class CustomerFormController {
                 customer.setCode(codeField.getText().trim());
                 customer.setName(nameField.getText().trim());
                 customer.setNuit(nuitField.getText() != null ? nuitField.getText().trim() : "");
-                customer.setType(typeCombo.getValue());
-                customer.setCreditLimit(parseDoubleOrZero(creditLimitField.getText()));
-                customer.setDefaultDiscount(parseDoubleOrZero(defaultDiscountField.getText()));
+                customer.setType(typeCombo.getValue() != null ? typeCombo.getValue() : "PESSOA_FISICA");
+                customer.setCreditLimitAmount(parseBigDecimalOrZero(creditLimitField.getText()));
+                customer.setDefaultDiscountAmount(parseBigDecimalOrZero(defaultDiscountField.getText()));
+                customer.setAddress(addressField.getText() != null ? addressField.getText().trim() : "");
+                customer.setContact(contactField.getText() != null ? contactField.getText().trim() : "");
                 if (customer.getCreatedAt() == null) {
                     customer.setCreatedAt(java.time.LocalDateTime.now());
                 }
@@ -227,43 +242,18 @@ public class CustomerFormController {
             } else {
                 showError("Erro ao guardar: " + msg);
             }
-
-            saveButton.setVisible(true);
-            saveSpinner.setVisible(false);
-            saveSpinner.setManaged(false);
-            cancelButton.setDisable(false);
+            hideSaveSpinner();
         });
 
         new Thread(saveTask).start();
     }
 
-    private void showError(String msg) {
-        errorLabel.setText(msg);
-        errorLabel.setVisible(true);
-        errorLabel.setManaged(true);
-        errorLabel.setStyle("-fx-text-fill: #EF4444; -fx-font-size: 12px; -fx-font-weight: 600; -fx-padding: 4 0;");
-    }
-
-    private void hideError() {
-        errorLabel.setText("");
-        errorLabel.setVisible(false);
-        errorLabel.setManaged(false);
-    }
-
-    private double parseDouble(String text) {
-        return Double.parseDouble(text.trim().replace(",", "."));
-    }
-
-    private double parseDoubleOrZero(String text) {
+    private java.math.BigDecimal parseBigDecimalOrZero(String text) {
+        if (text == null || text.isBlank()) return java.math.BigDecimal.ZERO;
         try {
-            return text == null || text.isBlank() ? 0.0 : parseDouble(text);
-        } catch (NumberFormatException e) {
-            return 0.0;
+            return new java.math.BigDecimal(text.trim().replace(",", "."));
+        } catch (Exception e) {
+            return java.math.BigDecimal.ZERO;
         }
-    }
-
-    private void doCancel() {
-        Stage stage = (Stage) cancelButton.getScene().getWindow();
-        stage.close();
     }
 }

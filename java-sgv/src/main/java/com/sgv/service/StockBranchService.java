@@ -34,6 +34,7 @@ public class StockBranchService {
     public StockBranch adjustStock(StockBranch stockBranch,
                                    BigDecimal currentStock,
                                    BigDecimal minStock,
+                                   BigDecimal maxStock,
                                    String reference,
                                    User user) {
         requirePermission(user, "STOCK", "CREATE");
@@ -53,12 +54,15 @@ public class StockBranchService {
         if (minStock != null) {
             stockBranch.setStockMinAmount(minStock);
         }
+        if (maxStock != null) {
+            stockBranch.setStockMaxAmount(maxStock);
+        }
 
         StockBranch saved = stockBranchRepository.save(stockBranch);
 
         if (after.compareTo(before) != 0) {
-            saveMovement(saved, after.subtract(before), before, after, "AJUSTE_MANUAL", "CORRECAO_LOJA", reference, user,
-                    "Correção manual de stock da filial.");
+            saveMovement(saved, after.subtract(before), before, after, "AJUSTE_MANUAL", "PERDA_DANO", reference, user,
+                    "Perda/Dano registado na filial.");
         }
 
         return saved;
@@ -168,6 +172,40 @@ public class StockBranchService {
                 .orElse(BigDecimal.ZERO);
     }
 
+    /**
+     * Batch-load StockBranch records for a branch and list of product IDs (single query).
+     */
+    public java.util.List<StockBranch> loadStockForBranchAndProducts(Long branchId, java.util.List<Long> productIds) {
+        if (branchId == null || productIds == null || productIds.isEmpty()) {
+            return java.util.Collections.emptyList();
+        }
+        return stockBranchRepository.findByBranchIdAndProductIdIn(branchId, productIds);
+    }
+
+    /**
+     * Direct save of StockBranch — used by SaleService for batch stock decrement.
+     */
+    @org.springframework.transaction.annotation.Transactional
+    public StockBranch saveStockBranch(StockBranch sb) {
+        return stockBranchRepository.save(sb);
+    }
+
+    /**
+     * Record a stock movement — used by SaleService for batch stock decrement.
+     */
+    @org.springframework.transaction.annotation.Transactional
+    public void saveStockMovement(StockBranch stockBranch,
+                                  BigDecimal qty,
+                                  BigDecimal before,
+                                  BigDecimal after,
+                                  String type,
+                                  String subtype,
+                                  String reference,
+                                  User user) {
+        saveMovement(stockBranch, qty, before, after, type, subtype, reference, user,
+                type.equals("SAIDA") ? "Saída de stock da filial." : "Entrada de stock na filial.");
+    }
+
     private void requirePermission(User user, String page, String action) {
         if (user == null || !user.hasPermission(page, action)) {
             throw new IllegalStateException("Não tem permissão para " + page + ":" + action + ".");
@@ -187,6 +225,7 @@ public class StockBranchService {
                                        Product product,
                                        BigDecimal currentStock,
                                        BigDecimal minStock,
+                                       BigDecimal maxStock,
                                        String reference,
                                        User user) {
         if (branch == null || branch.getId() == null) {
@@ -206,6 +245,7 @@ public class StockBranchService {
                     sb.setBranch(branch);
                     sb.setStockCurrentAmount(BigDecimal.ZERO);
                     sb.setStockMinAmount(BigDecimal.ZERO);
+                    sb.setStockMaxAmount(BigDecimal.ZERO);
                     return sb;
                 });
 
@@ -214,6 +254,9 @@ public class StockBranchService {
         stockBranch.setStockCurrentAmount(after);
         if (minStock != null) {
             stockBranch.setStockMinAmount(minStock);
+        }
+        if (maxStock != null) {
+            stockBranch.setStockMaxAmount(maxStock);
         }
 
         StockBranch saved = stockBranchRepository.save(stockBranch);

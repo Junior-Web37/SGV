@@ -5,3 +5,27 @@ outputs/
 *.db
 .vscode/
 npm-debug.log
+
+# Java/Maven
+target/
+*.class
+*.jar
+*.iml
+.idea/
+
+# Logs
+*.log
+hs_err_pid*.log
+replay_pid*.log
+app-crash.log
+test-output.txt
+temp-test-output.txt
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Editor files
+*.swp
+*.swo
+*~

@@ -14,4 +14,6 @@ public interface SaleItemRepository extends JpaRepository<SaleItem, Long> {
 
     @Query("SELECT si FROM SaleItem si JOIN FETCH si.sale WHERE si.sale.createdAt >= :start AND si.sale.createdAt <= :end")
     List<SaleItem> findBySaleDateRange(@Param("start") LocalDateTime start, @Param("end") LocalDateTime end);
+
+    long countByProductId(Long productId);
 }

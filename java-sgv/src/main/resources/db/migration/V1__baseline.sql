@@ -3,10 +3,23 @@
 -- Generated from existing MariaDB sgv database
 
 -- =============================================
+-- MASTER DATA (branches first — referenced by users)
+-- =============================================
+
+CREATE TABLE IF NOT EXISTS branches (
+    id      BIGINT AUTO_INCREMENT PRIMARY KEY,
+    name    VARCHAR(255),
+    address VARCHAR(255),
+    contact VARCHAR(255),
+    nuit    VARCHAR(255),
+    is_head BIT(1) NOT NULL DEFAULT 0
+);
+
+-- =============================================
 -- USERS & AUTH
 -- =============================================
 
-CREATE TABLE users (
+CREATE TABLE IF NOT EXISTS users (
     id              BIGINT AUTO_INCREMENT PRIMARY KEY,
     username        VARCHAR(255) NOT NULL UNIQUE,
     password_hash   VARCHAR(255) NOT NULL,
@@ -20,13 +33,13 @@ CREATE TABLE users (
     CONSTRAINT fk_users_branch FOREIGN KEY (branch_id) REFERENCES branches(id)
 );
 
-CREATE TABLE roles (
+CREATE TABLE IF NOT EXISTS roles (
     id          BIGINT AUTO_INCREMENT PRIMARY KEY,
     name        VARCHAR(255) NOT NULL UNIQUE,
     description VARCHAR(255)
 );
 
-CREATE TABLE user_roles (
+CREATE TABLE IF NOT EXISTS user_roles (
     user_id BIGINT NOT NULL,
     role_id BIGINT NOT NULL,
     PRIMARY KEY (user_id, role_id),
@@ -34,31 +47,18 @@ CREATE TABLE user_roles (
     CONSTRAINT fk_user_roles_role FOREIGN KEY (role_id) REFERENCES roles(id)
 );
 
--- =============================================
--- MASTER DATA
--- =============================================
-
-CREATE TABLE branches (
-    id      BIGINT AUTO_INCREMENT PRIMARY KEY,
-    name    VARCHAR(255),
-    address VARCHAR(255),
-    contact VARCHAR(255),
-    nuit    VARCHAR(255),
-    is_head BIT(1) NOT NULL DEFAULT 0
-);
-
-CREATE TABLE categories (
+CREATE TABLE IF NOT EXISTS categories (
     id   BIGINT AUTO_INCREMENT PRIMARY KEY,
     name VARCHAR(255) NOT NULL UNIQUE
 );
 
-CREATE TABLE metric_units (
+CREATE TABLE IF NOT EXISTS metric_units (
     id          BIGINT AUTO_INCREMENT PRIMARY KEY,
     abbreviation VARCHAR(10) NOT NULL UNIQUE,
     description VARCHAR(255) NOT NULL
 );
 
-CREATE TABLE suppliers (
+CREATE TABLE IF NOT EXISTS suppliers (
     id      BIGINT AUTO_INCREMENT PRIMARY KEY,
     name    VARCHAR(255) NOT NULL,
     nuit    VARCHAR(255),
@@ -67,7 +67,7 @@ CREATE TABLE suppliers (
     active  BIT(1) DEFAULT 1
 );
 
-CREATE TABLE customers (
+CREATE TABLE IF NOT EXISTS customers (
     id                BIGINT AUTO_INCREMENT PRIMARY KEY,
     name              VARCHAR(255) NOT NULL,
     code              VARCHAR(255) UNIQUE,
@@ -86,7 +86,7 @@ CREATE TABLE customers (
 -- PRODUCTS
 -- =============================================
 
-CREATE TABLE products (
+CREATE TABLE IF NOT EXISTS products (
     id                  BIGINT AUTO_INCREMENT PRIMARY KEY,
     code                VARCHAR(255) NOT NULL UNIQUE,
     name                VARCHAR(255) NOT NULL,
@@ -112,7 +112,7 @@ CREATE TABLE products (
     CONSTRAINT fk_products_unit_bulk    FOREIGN KEY (unit_bulk_id)   REFERENCES metric_units(id)
 );
 
-CREATE TABLE product_barcodes (
+CREATE TABLE IF NOT EXISTS product_barcodes (
     id          BIGINT AUTO_INCREMENT PRIMARY KEY,
     barcode     VARCHAR(255) NOT NULL,
     quantity    DOUBLE DEFAULT 1,
@@ -124,7 +124,7 @@ CREATE TABLE product_barcodes (
 -- STOCK
 -- =============================================
 
-CREATE TABLE stock_branch (
+CREATE TABLE IF NOT EXISTS stock_branch (
     id            BIGINT AUTO_INCREMENT PRIMARY KEY,
     stock_current DOUBLE DEFAULT 0,
     stock_min     DOUBLE DEFAULT 0,
@@ -136,7 +136,7 @@ CREATE TABLE stock_branch (
     UNIQUE KEY uk_stock_branch_product (branch_id, product_id)
 );
 
-CREATE TABLE stock_movements (
+CREATE TABLE IF NOT EXISTS stock_movements (
     id            BIGINT AUTO_INCREMENT PRIMARY KEY,
     type          VARCHAR(255) NOT NULL,
     subtype       VARCHAR(255),
@@ -157,7 +157,7 @@ CREATE TABLE stock_movements (
 -- PURCHASES
 -- =============================================
 
-CREATE TABLE purchases (
+CREATE TABLE IF NOT EXISTS purchases (
     id              BIGINT AUTO_INCREMENT PRIMARY KEY,
     invoice_number  VARCHAR(255),
     purchase_date   DATETIME(6),
@@ -175,7 +175,7 @@ CREATE TABLE purchases (
     CONSTRAINT fk_purchases_user     FOREIGN KEY (user_id)     REFERENCES users(id)
 );
 
-CREATE TABLE purchase_items (
+CREATE TABLE IF NOT EXISTS purchase_items (
     id          BIGINT AUTO_INCREMENT PRIMARY KEY,
     quantity    DOUBLE DEFAULT 1,
     cost_price  DOUBLE DEFAULT 0,
@@ -190,7 +190,7 @@ CREATE TABLE purchase_items (
 -- SALES
 -- =============================================
 
-CREATE TABLE sales (
+CREATE TABLE IF NOT EXISTS sales (
     id                  BIGINT AUTO_INCREMENT PRIMARY KEY,
     series              VARCHAR(255),
     document_type       VARCHAR(255),
@@ -225,7 +225,7 @@ CREATE TABLE sales (
     UNIQUE KEY uk_sales_doc (branch_id, series, document_number, document_type, document_year)
 );
 
-CREATE TABLE sale_items (
+CREATE TABLE IF NOT EXISTS sale_items (
     id              BIGINT AUTO_INCREMENT PRIMARY KEY,
     product_code    VARCHAR(255),
     description     VARCHAR(255),
@@ -246,7 +246,7 @@ CREATE TABLE sale_items (
     CONSTRAINT fk_sale_items_sale   FOREIGN KEY (sale_id)    REFERENCES sales(id)
 );
 
-CREATE TABLE payments (
+CREATE TABLE IF NOT EXISTS payments (
     id          BIGINT AUTO_INCREMENT PRIMARY KEY,
     amount      DOUBLE,
     method      VARCHAR(255),
@@ -259,7 +259,7 @@ CREATE TABLE payments (
 -- EXPENSES
 -- =============================================
 
-CREATE TABLE expenses (
+CREATE TABLE IF NOT EXISTS expenses (
     id          BIGINT AUTO_INCREMENT PRIMARY KEY,
     description VARCHAR(255),
     category    VARCHAR(255),
@@ -279,7 +279,7 @@ CREATE TABLE expenses (
 -- PRODUCTION
 -- =============================================
 
-CREATE TABLE production_orders (
+CREATE TABLE IF NOT EXISTS production_orders (
     id            BIGINT AUTO_INCREMENT PRIMARY KEY,
     order_number  VARCHAR(255) UNIQUE,
     quantity      DOUBLE,
@@ -298,7 +298,7 @@ CREATE TABLE production_orders (
 -- CASH MANAGEMENT
 -- =============================================
 
-CREATE TABLE cash_sessions (
+CREATE TABLE IF NOT EXISTS cash_sessions (
     id              BIGINT AUTO_INCREMENT PRIMARY KEY,
     initial_value   DECIMAL(15,2),
     reported_value  DECIMAL(15,2),
@@ -313,7 +313,7 @@ CREATE TABLE cash_sessions (
     CONSTRAINT fk_cash_sessions_user   FOREIGN KEY (user_id)   REFERENCES users(id)
 );
 
-CREATE TABLE cash_movements (
+CREATE TABLE IF NOT EXISTS cash_movements (
     id          BIGINT AUTO_INCREMENT PRIMARY KEY,
     type        VARCHAR(20) NOT NULL,
     amount      DECIMAL(15,2) NOT NULL,
@@ -329,7 +329,7 @@ CREATE TABLE cash_movements (
 -- TRANSFERS
 -- =============================================
 
-CREATE TABLE transfers (
+CREATE TABLE IF NOT EXISTS transfers (
     id                  BIGINT AUTO_INCREMENT PRIMARY KEY,
     series              VARCHAR(255),
     document_number     BIGINT,
@@ -349,7 +349,7 @@ CREATE TABLE transfers (
     CONSTRAINT fk_transfers_processed_by  FOREIGN KEY (processed_by)          REFERENCES users(id)
 );
 
-CREATE TABLE transfer_items (
+CREATE TABLE IF NOT EXISTS transfer_items (
     id                  BIGINT AUTO_INCREMENT PRIMARY KEY,
     quantity            DOUBLE DEFAULT 0,
     quantity_received   DOUBLE DEFAULT 0,
@@ -363,7 +363,7 @@ CREATE TABLE transfer_items (
 -- AUDIT & SYSTEM
 -- =============================================
 
-CREATE TABLE audit_logs (
+CREATE TABLE IF NOT EXISTS audit_logs (
     id          BIGINT AUTO_INCREMENT PRIMARY KEY,
     username    VARCHAR(255),
     action      VARCHAR(255),
@@ -371,7 +371,7 @@ CREATE TABLE audit_logs (
     created_at  DATETIME(6) DEFAULT CURRENT_TIMESTAMP(6)
 );
 
-CREATE TABLE filter_presets (
+CREATE TABLE IF NOT EXISTS filter_presets (
     id          BIGINT AUTO_INCREMENT PRIMARY KEY,
     name        VARCHAR(255),
     type        VARCHAR(255),

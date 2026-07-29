@@ -116,11 +116,6 @@
                             </columnConstraints>
                             <children>
                                 <VBox spacing="6" GridPane.columnIndex="0" GridPane.rowIndex="0">
-                                    <Label text="Alerta Stock Mínimo (%)" style="-fx-font-weight:600; -fx-text-fill:#0F172A; -fx-font-size:12px;"/>
-                                    <TextField fx:id="cfgStockMinAlert" text="20"
-                                               style="-fx-padding:8 12; -fx-background-radius:3; -fx-border-color:#E2E8F0; -fx-border-radius:3; -fx-font-size:13px; -fx-background-color:#F8FAFC;"/>
-                                </VBox>
-                                <VBox spacing="6" GridPane.columnIndex="1" GridPane.rowIndex="0">
                                     <Label text="Desconto Máximo (%)" style="-fx-font-weight:600; -fx-text-fill:#0F172A; -fx-font-size:12px;"/>
                                     <TextField fx:id="cfgMaxDiscount" text="10"
                                                style="-fx-padding:8 12; -fx-background-radius:3; -fx-border-color:#E2E8F0; -fx-border-radius:3; -fx-font-size:13px; -fx-background-color:#F8FAFC;"/>

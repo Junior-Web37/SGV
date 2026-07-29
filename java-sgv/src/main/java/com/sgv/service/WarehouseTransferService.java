@@ -58,8 +58,8 @@ public class WarehouseTransferService {
     public List<WarehouseTransfer> listByStatus(String s) { return transferRepository.findByStatusOrderByCreatedAtDesc(s); }
 
     @Transactional
-    public WarehouseTransfer create(WarehouseTransfer draft, User user) {
-        requirePermission(user, "TRANSFERENCIAS", "VIEW");
+    public synchronized WarehouseTransfer create(WarehouseTransfer draft, User user) {
+        requirePermission(user, "TRANSFERENCIAS", "CREATE");
         if (draft.getWarehouse() == null || draft.getWarehouse().getId() == null)
             throw new IllegalArgumentException("Armazém de origem é obrigatório");
         if (draft.getBranch() == null || draft.getBranch().getId() == null)
@@ -190,7 +190,6 @@ public class WarehouseTransferService {
 
     @Transactional
     public WarehouseTransfer cancel(Long id, String reason, User user) {
-        requirePermission(user, "TRANSFERENCIAS", "VIEW");
         requirePermission(user, "TRANSFERENCIAS", "VIEW");
         WarehouseTransfer t = transferRepository.findById(id)
                 .orElseThrow(() -> new IllegalArgumentException("Transferência não encontrada"));

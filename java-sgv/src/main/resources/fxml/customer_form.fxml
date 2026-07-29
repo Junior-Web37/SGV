@@ -70,8 +70,30 @@
                 </children>
             </GridPane>
 
+            <Label text="DADOS DE CONTACTO" style="-fx-font-size:11px; -fx-font-weight:700; -fx-text-fill:#64748B;"/>
+            <GridPane hgap="16" vgap="16">
+                <columnConstraints>
+                    <ColumnConstraints percentWidth="50"/>
+                    <ColumnConstraints percentWidth="50"/>
+                </columnConstraints>
+                <children>
+                    <VBox spacing="6" GridPane.columnIndex="0" GridPane.rowIndex="0">
+                        <Label text="Endereço" style="-fx-font-weight:600; -fx-text-fill:#0F172A; -fx-font-size:12px;"/>
+                        <TextField fx:id="addressField"
+                                   style="-fx-padding:8 12; -fx-background-radius:3; -fx-border-color:#E2E8F0; -fx-border-radius:3; -fx-font-size:13px; -fx-background-color:#F8FAFC; -fx-text-fill:#0F172A;"/>
+                    </VBox>
+                    <VBox spacing="6" GridPane.columnIndex="1" GridPane.rowIndex="0">
+                        <Label text="Contacto / Telefone" style="-fx-font-weight:600; -fx-text-fill:#0F172A; -fx-font-size:12px;"/>
+                        <TextField fx:id="contactField"
+                                   style="-fx-padding:8 12; -fx-background-radius:3; -fx-border-color:#E2E8F0; -fx-border-radius:3; -fx-font-size:13px; -fx-background-color:#F8FAFC; -fx-text-fill:#0F172A;"/>
+                    </VBox>
+                </children>
+            </GridPane>
+
 
             <HBox spacing="12" alignment="CENTER_RIGHT">
+                <Button fx:id="deleteButton" text="Apagar Cliente"
+                        style="-fx-padding:8 16; -fx-font-size:13px; -fx-background-color:#DC2626; -fx-text-fill:white; -fx-background-radius:3; -fx-cursor:hand; -fx-font-weight:600;"/>
                 <Button fx:id="cancelButton" text="Cancelar" styleClass="btn-secondary-ux"
                         style="-fx-padding:8 16; -fx-font-size:13px; -fx-background-color:#ffffff; -fx-text-fill:#0F172A; -fx-background-radius:3; -fx-cursor:hand; -fx-font-weight:600; -fx-border-color:#E2E8F0; -fx-border-radius:3;"/>
                 <StackPane>

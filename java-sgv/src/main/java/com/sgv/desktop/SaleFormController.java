@@ -9,10 +9,10 @@ import javafx.scene.control.*;
 import javafx.scene.control.cell.PropertyValueFactory;
 import javafx.scene.layout.VBox;
 import javafx.scene.input.KeyCode;
+import javafx.scene.input.KeyEvent;
 import javafx.application.Platform;
 import javafx.collections.ObservableList;
 import javafx.collections.transformation.FilteredList;
-import javafx.collections.transformation.SortedList;
 import javafx.util.StringConverter;
 import javafx.stage.Stage;
 import org.springframework.stereotype.Component;
@@ -31,11 +31,14 @@ import com.sgv.service.CashSessionService;
 import com.sgv.service.SaleDocumentService;
 import com.sgv.service.SystemLogService;
 import com.sgv.service.ThermalPrintService;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 @Component
-public class SaleFormController {
+public class SaleFormController extends BaseFormController {
 
-    @FXML private VBox rootPane;
+    private static final Logger log = LoggerFactory.getLogger(SaleFormController.class);
+
     @FXML private ComboBox<String> documentTypeCombo;
     @FXML private ComboBox<Branch> branchCombo;
     @FXML private ToggleButton retailModeToggle;
@@ -63,11 +66,6 @@ public class SaleFormController {
     @FXML private Label taxLabel;
     @FXML private Label totalLabel;
     @FXML private Label headerTotalLabel;
-    @FXML private Label errorLabel;
-
-    @FXML private Button saveButton;
-    @FXML private Button cancelButton;
-    @FXML private ProgressIndicator saveSpinner;
 
     private final SaleRepository saleRepository;
     private final BranchRepository branchRepository;
@@ -82,6 +80,7 @@ public class SaleFormController {
     private final CashSessionService cashSessionService;
     private final com.sgv.service.AppConfigService appConfigService;
     private final com.sgv.service.SaleService saleService;
+    private final com.sgv.repository.ProductBarcodeRepository productBarcodeRepository;
 
     private final ObservableList<Category> categories = FXCollections.observableArrayList();
     private static final long ALL_CATEGORY_ID = Long.MIN_VALUE;
@@ -91,10 +90,8 @@ public class SaleFormController {
 
     private Sale sale;
     private User currentUser;
-    private Runnable onSave;
     
     // MVVM Data Binding Properties
-    private final javafx.beans.property.BooleanProperty formValidProperty = new javafx.beans.property.SimpleBooleanProperty(false);
     private final javafx.beans.property.BooleanProperty cashSessionValidProperty = new javafx.beans.property.SimpleBooleanProperty(false);
     
     // Toggle group for pricing mode
@@ -112,7 +109,8 @@ public class SaleFormController {
                               SystemLogService systemLogService,
                               CashSessionService cashSessionService,
                               com.sgv.service.SaleService saleService,
-                              com.sgv.service.AppConfigService appConfigService) {
+                              com.sgv.service.AppConfigService appConfigService,
+                              com.sgv.repository.ProductBarcodeRepository productBarcodeRepository) {
         this.saleRepository = saleRepository;
         this.branchRepository = branchRepository;
         this.customerRepository = customerRepository;
@@ -126,6 +124,7 @@ public class SaleFormController {
         this.cashSessionService = cashSessionService;
         this.saleService = saleService;
         this.appConfigService = appConfigService;
+        this.productBarcodeRepository = productBarcodeRepository;
     }
 
     /**
@@ -168,12 +167,38 @@ public class SaleFormController {
 
     @FXML
     public void initialize() {
+        sale = null;
+        currentUser = null;
+        onSave = null;
+        lastSelectedProduct = null;
+        isRefreshingProducts = false;
+        productPopularity.clear();
+        cashSessionValidProperty.set(false);
+        if (itemsTable != null) itemsTable.getItems().clear();
+        categories.clear();
+        initCommonFields();
+        
+        UiUtils.applyNumericFormatter(quantityField);
+        
         documentTypeCombo.setItems(FXCollections.observableArrayList(
             com.sgv.model.DocumentType.VENDA.name(),
+            com.sgv.model.DocumentType.FACTURA.name(),
             com.sgv.model.DocumentType.COTACAO.name(),
             com.sgv.model.DocumentType.ENCOMENDA.name()
         ));
         documentTypeCombo.setValue(com.sgv.model.DocumentType.VENDA.name());
+        documentTypeCombo.valueProperty().addListener((obs, oldVal, newVal) -> {
+            boolean isFactura = com.sgv.model.DocumentType.FACTURA.name().equals(newVal);
+            if (isFactura) {
+                diverseCustomerCheck.setSelected(false);
+                diverseCustomerCheck.setDisable(true);
+                if (customerCombo.getItems().isEmpty()) {
+                    customerCombo.setItems(FXCollections.observableArrayList(customerRepository.findAll()));
+                }
+            } else {
+                diverseCustomerCheck.setDisable(false);
+            }
+        });
         
         branchCombo.setItems(FXCollections.observableArrayList(branchRepository.findAll()));
         if(!branchCombo.getItems().isEmpty()) branchCombo.getSelectionModel().selectFirst();
@@ -195,8 +220,8 @@ public class SaleFormController {
         ));
         paymentMethodCombo.setValue(com.sgv.model.PaymentMethod.DINHEIRO.name());
         
-        currencyCombo.setItems(FXCollections.observableArrayList("AKZ", "USD", "EUR", "ZAR"));
-        currencyCombo.setValue("AKZ");
+        currencyCombo.setItems(FXCollections.observableArrayList("MZN", "USD", "EUR", "ZAR"));
+        currencyCombo.setValue("MZN");
 
         categories.setAll(categoryRepository.findAll().stream()
                 .sorted(Comparator.comparing(Category::getName, Comparator.nullsLast(String.CASE_INSENSITIVE_ORDER)))
@@ -243,22 +268,14 @@ public class SaleFormController {
         setupProductSearch();
         refreshProductSearchResults();
         
-        addItemButton.setOnAction(e -> handleProductSelection(productSearchCombo.getValue()));
-        saveButton.setOnAction(e -> doSave());
-        cancelButton.setOnAction(e -> doCancel());
-        errorLabel.setText("");
+        UiUtils.attachSafe(addItemButton, () -> handleProductSelection(resolveSelectedProduct()), systemLogService, "SALE_ADD_ITEM");
+        UiUtils.attachSafe(saveButton, this::doSave, systemLogService, "SALE_SAVE");
+        UiUtils.attachSafe(cancelButton, this::doCancel, systemLogService, "SALE_CANCEL");
 
-        // UX: Transição de entrada fluida (Fade-in)
-        if (rootPane != null) {
-            rootPane.setOpacity(0.0);
-            javafx.animation.FadeTransition ft = new javafx.animation.FadeTransition(javafx.util.Duration.millis(350), rootPane);
-            ft.setFromValue(0.0);
-            ft.setToValue(1.0);
-            ft.play();
-        }
-
-        // UX/MVVM: Data-Binding do botão de salvar
-        saveButton.disableProperty().bind(formValidProperty.not().or(cashSessionValidProperty.not()));
+        // Fix #6: Somente VENDA/FACTURA/RECIBO exigem sessão de caixa.
+        // Cotações e Encomendas são documentos comerciais que não movimentam caixa.
+        documentTypeCombo.valueProperty().addListener((obs, o, n) -> updateSaveButtonBinding());
+        updateSaveButtonBinding();
 
         // Setup real-time listeners for styles & validation
         setupRealTimeValidation();
@@ -287,7 +304,8 @@ public class SaleFormController {
         Platform.runLater(this::validateRealTime);
     }
     
-    private void validateRealTime() {
+    @Override
+    protected void validateRealTime() {
         boolean isValid = true;
         
         // Validar Filial
@@ -336,11 +354,11 @@ public class SaleFormController {
             private final Button btn = new Button("X");
             {
                 btn.setStyle("-fx-background-color:transparent; -fx-text-fill:#EF4444; -fx-font-weight:900; -fx-cursor:hand;");
-                btn.setOnAction(event -> {
+                btn.setOnAction(UiUtils.safeOnAction(() -> {
                     SaleItem item = getTableView().getItems().get(getIndex());
                     itemsTable.getItems().remove(item);
                     updateTotals();
-                });
+                }, systemLogService, "SALE_REMOVE_ITEM"));
             }
             @Override
             protected void updateItem(Void item, boolean empty) {
@@ -411,12 +429,21 @@ public class SaleFormController {
 
     private ObservableList<Product> allProducts = FXCollections.observableArrayList();
     private FilteredList<Product> filteredProducts;
+    private final ObservableList<Product> comboDisplayList = FXCollections.observableArrayList();
+    private boolean isRefreshingProducts = false;
+    private Product lastSelectedProduct = null;
 
     private void setupProductSearch() {
         allProducts.setAll(productRepository.findAllActive());
         filteredProducts = new FilteredList<>(allProducts, p -> true);
-        SortedList<Product> sortedProducts = new SortedList<>(filteredProducts, this::compareProductsForSearch);
-        productSearchCombo.setItems(sortedProducts);
+        
+        productSearchCombo.setItems(comboDisplayList);
+
+        productSearchCombo.valueProperty().addListener((obs, oldVal, newVal) -> {
+            if (newVal != null && newVal instanceof Product) {
+                lastSelectedProduct = (Product) newVal;
+            }
+        });
         
         productSearchCombo.setConverter(new StringConverter<Product>() {
             @Override
@@ -459,10 +486,21 @@ public class SaleFormController {
         });
         
         productSearchCombo.getEditor().textProperty().addListener((obs, oldVal, newVal) -> {
+            if (isRefreshingProducts) return;
+            if (productSearchCombo.isShowing()) return;
             String currentText = newVal != null ? newVal.trim() : "";
             Product selected = productSearchCombo.getSelectionModel().getSelectedItem();
+            if (selected != null && productDisplayText(selected).equals(currentText)) {
+                return;
+            }
             if (selected != null && !productDisplayText(selected).equals(currentText)) {
-                productSearchCombo.getSelectionModel().clearSelection();
+                // Only clear selection if this is a user-typed change (short text),
+                // NOT a ComboBox-internal reformat (long display text).
+                if (currentText.length() < 60) {
+                    productSearchCombo.getSelectionModel().clearSelection();
+                } else {
+                    return;
+                }
             }
             refreshProductSearchResults();
             if (!productSearchCombo.isShowing() && productSearchCombo.isFocused()) {
@@ -470,16 +508,101 @@ public class SaleFormController {
             }
         });
 
-        productSearchCombo.getEditor().setOnKeyPressed(e -> {
+        productSearchCombo.getEditor().addEventFilter(KeyEvent.KEY_PRESSED, e -> {
             if (e.getCode() == KeyCode.ENTER) {
                 String text = productSearchCombo.getEditor().getText().trim();
-                Product selected = findBestMatchingProduct(text);
-                if (selected == null) {
-                    selected = productSearchCombo.getValue();
+                if (tryAddByBarcode(text)) {
+                    e.consume();
+                    return;
                 }
-                handleProductSelection(selected);
+                handleProductSelection(resolveSelectedProduct());
+                e.consume();
             }
         });
+
+        // Deteção de barcode por caracteres rápidos (scanner USB emit characters in ~50ms)
+        setupBarcodeAutoDetection();
+
+        // Interceta ENTER no popup do ComboBox (dropdown aberto)
+        productSearchCombo.skinProperty().addListener((obs, oldSkin, newSkin) -> {
+            if (newSkin instanceof javafx.scene.control.skin.ComboBoxListViewSkin) {
+                javafx.scene.control.skin.ComboBoxListViewSkin<?> skin =
+                    (javafx.scene.control.skin.ComboBoxListViewSkin<?>) newSkin;
+                javafx.scene.control.ListView<?> listView =
+                    (javafx.scene.control.ListView<?>) skin.getPopupContent();
+                listView.addEventFilter(KeyEvent.KEY_PRESSED, ev -> {
+                    if (ev.getCode() == KeyCode.ENTER) {
+                        String text = productSearchCombo.getEditor().getText().trim();
+                        if (tryAddByBarcode(text)) {
+                            ev.consume();
+                            return;
+                        }
+                        Product selected = (Product) listView.getSelectionModel().getSelectedItem();
+                        if (selected != null) {
+                            handleProductSelection(selected);
+                            ev.consume();
+                        }
+                    }
+                });
+            }
+        });
+
+        quantityField.setOnKeyPressed(e -> {
+            if (e.getCode() == KeyCode.ENTER) {
+                handleProductSelection(resolveSelectedProduct());
+            }
+        });
+    }
+
+    private Product resolveSelectedProduct() {
+        // Layer 1: ComboBox value property (persists across list changes)
+        Product val = productSearchCombo.getValue();
+        if (val != null) return val;
+
+        // Layer 2: Selection model
+        Product selected = productSearchCombo.getSelectionModel().getSelectedItem();
+        if (selected != null) return selected;
+
+        // Layer 3: Last tracked selection (valueProperty listener)
+        if (lastSelectedProduct != null) {
+            String editorText = productSearchCombo.getEditor() != null ? productSearchCombo.getEditor().getText().trim() : "";
+            if (!editorText.isBlank() && productDisplayText(lastSelectedProduct).equals(editorText)) {
+                return lastSelectedProduct;
+            }
+        }
+
+        // Layer 4: Text search in allProducts (handles exact matches only)
+        String text = productSearchCombo.getEditor() != null ? productSearchCombo.getEditor().getText().trim() : "";
+        if (!text.isBlank()) {
+            // Layer 5: Extract code from display text "CODE - NAME (PRICE MT)"
+            String extractedCode = extractCodeFromDisplayText(text);
+            String searchTarget = extractedCode != null ? extractedCode : text;
+
+            selected = allProducts.stream()
+                    .filter(p -> p != null)
+                    .filter(p -> (p.getCode() != null && p.getCode().equalsIgnoreCase(searchTarget)) ||
+                                 (p.getName() != null && p.getName().equalsIgnoreCase(searchTarget)))
+                    .findFirst()
+                    .orElse(null);
+            if (selected != null) return selected;
+        }
+
+        log.debug("resolveSelectedProduct: null — editor='{}', value={}, selected={}, lastTracked={}",
+                text,
+                productSearchCombo.getValue(),
+                productSearchCombo.getSelectionModel().getSelectedItem(),
+                lastSelectedProduct);
+        return null;
+    }
+
+    private String extractCodeFromDisplayText(String text) {
+        if (text == null) return null;
+        // Format: "CODE - NAME (PRICE MT)" or "CODE - NAME (PRICE MT) - Fora de estoque (X)"
+        int dashIdx = text.indexOf(" - ");
+        if (dashIdx > 0) {
+            return text.substring(0, dashIdx).trim();
+        }
+        return null;
     }
 
     private int compareProductsForSearch(Product a, Product b) {
@@ -512,29 +635,55 @@ public class SaleFormController {
     }
 
     private void refreshProductSearchResults() {
-        String search = productSearchCombo.getEditor() != null ? productSearchCombo.getEditor().getText() : null;
-        Category category = productCategoryCombo != null ? productCategoryCombo.getValue() : null;
-        Branch branch = branchCombo != null ? branchCombo.getValue() : null;
+        if (isRefreshingProducts) return;
+        isRefreshingProducts = true;
+        try {
+            String search = productSearchCombo.getEditor() != null ? productSearchCombo.getEditor().getText() : null;
+            Category category = productCategoryCombo != null ? productCategoryCombo.getValue() : null;
+            Branch branch = branchCombo != null ? branchCombo.getValue() : null;
 
-        boolean emptySearch = search == null || search.isBlank();
-        List<Long> topIds = allProducts.stream()
-                .filter(p -> categoryMatches(p, category))
-                .sorted(Comparator.comparingInt((Product p) -> isProductAvailableInBranch(p, branch) ? 0 : 1)
-                        .thenComparingDouble((Product p) -> productPopularity.getOrDefault(p.getId(), 0.0)).reversed()
-                        .thenComparing(Product::getName, Comparator.nullsLast(String.CASE_INSENSITIVE_ORDER)))
-                .limit(POPULAR_PRODUCTS_LIMIT)
-                .map(Product::getId)
-                .collect(Collectors.toList());
+            boolean emptySearch = search == null || search.isBlank();
+            List<Long> topIds = allProducts.stream()
+                    .filter(p -> categoryMatches(p, category))
+                    .sorted(Comparator.comparingInt((Product p) -> isProductAvailableInBranch(p, branch) ? 0 : 1)
+                            .thenComparingDouble((Product p) -> productPopularity.getOrDefault(p.getId(), 0.0)).reversed()
+                            .thenComparing(Product::getName, Comparator.nullsLast(String.CASE_INSENSITIVE_ORDER)))
+                    .limit(POPULAR_PRODUCTS_LIMIT)
+                    .map(Product::getId)
+                    .collect(Collectors.toList());
 
-        filteredProducts.setPredicate(p -> {
-            if (!categoryMatches(p, category)) return false;
-            if (emptySearch) {
-                return topIds.contains(p.getId());
+            filteredProducts.setPredicate(p -> {
+                if (!categoryMatches(p, category)) return false;
+                if (emptySearch) {
+                    return topIds.contains(p.getId());
+                }
+                return productMatchesSearch(p, search);
+            });
+
+            List<Product> snapshot = filteredProducts.stream()
+                    .sorted(this::compareProductsForSearch)
+                    .collect(Collectors.toList());
+
+            Product previousSelection = productSearchCombo.getValue();
+
+            if (productSearchCombo.isShowing()) {
+                productSearchCombo.hide();
             }
-            return productMatchesSearch(p, search);
-        });
-        if (!emptySearch && !productSearchCombo.isShowing() && productSearchCombo.isFocused()) {
-            productSearchCombo.show();
+            comboDisplayList.setAll(snapshot);
+
+            if (previousSelection != null) {
+                boolean stillInList = snapshot.stream()
+                        .anyMatch(p -> p.getId().equals(previousSelection.getId()));
+                if (stillInList) {
+                    productSearchCombo.getSelectionModel().select(previousSelection);
+                }
+            }
+
+            if (!emptySearch && !productSearchCombo.isShowing() && productSearchCombo.isFocused()) {
+                productSearchCombo.show();
+            }
+        } finally {
+            isRefreshingProducts = false;
         }
     }
 
@@ -628,14 +777,15 @@ public class SaleFormController {
 
     private Product findBestMatchingProduct(String text) {
         if (text == null || text.isBlank()) return null;
-        String lower = text.toLowerCase();
 
-        return productSearchCombo.getItems().stream()
+        // Extract code from display text "CODE - NAME (PRICE MT)"
+        String extractedCode = extractCodeFromDisplayText(text);
+        String searchTarget = extractedCode != null ? extractedCode : text.trim();
+
+        return allProducts.stream()
                 .filter(p -> p != null)
-                .filter(p -> searchMatchPriority(p, text, lower) < 100)
-                .sorted(Comparator.comparingInt((Product p) -> searchMatchPriority(p, text, lower))
-                        .thenComparingDouble((Product p) -> productPopularity.getOrDefault(p.getId(), 0.0)).reversed()
-                        .thenComparing(Product::getName, Comparator.nullsLast(String.CASE_INSENSITIVE_ORDER)))
+                .filter(p -> (p.getCode() != null && p.getCode().equalsIgnoreCase(searchTarget)) ||
+                             (p.getName() != null && p.getName().equalsIgnoreCase(searchTarget)))
                 .findFirst()
                 .orElse(null);
     }
@@ -674,6 +824,101 @@ public class SaleFormController {
         }
     }
 
+    /**
+     * Tenta encontrar um produto pelo barcode e adicioná-lo automaticamente ao carrinho.
+     * Retorna true se o barcode foi reconhecido e o produto adicionado, false caso contrário.
+     */
+    private boolean tryAddByBarcode(String text) {
+        if (text == null || text.isBlank() || text.length() < 3) return false;
+        try {
+            // 1. Pesquisa na tabela product_barcodes
+            com.sgv.entity.ProductBarcode pb = productBarcodeRepository.findByBarcode(text)
+                    .orElse(productBarcodeRepository.findByBarcodeIgnoreCase(text).orElse(null));
+
+            if (pb != null && pb.getProduct() != null) {
+                Product product = pb.getProduct();
+                double qty = pb.getQuantity() != null ? pb.getQuantity() : 1.0;
+                // Usar quantidade do field se foi digitada manualmente
+                try {
+                    String qtyText = quantityField.getText().trim();
+                    if (!qtyText.isBlank()) {
+                        qty = Double.parseDouble(qtyText.replace(",", "."));
+                    }
+                } catch (NumberFormatException ignored) {}
+                handleProductSelectionWithQty(product, qty);
+                // Limpar campo de pesquisa após adicionar
+                productSearchCombo.getEditor().clear();
+                productSearchCombo.setValue(null);
+                productSearchCombo.getEditor().requestFocus();
+                return true;
+            }
+
+            // 2. Fallback: pesquisar pelo código do produto diretamente
+            Product byCode = productRepository.findByCode(text).orElse(null);
+            if (byCode != null) {
+                double qty = 1.0;
+                try {
+                    String qtyText = quantityField.getText().trim();
+                    if (!qtyText.isBlank()) {
+                        qty = Double.parseDouble(qtyText.replace(",", "."));
+                    }
+                } catch (NumberFormatException ignored) {}
+                handleProductSelectionWithQty(byCode, qty);
+                productSearchCombo.getEditor().clear();
+                productSearchCombo.setValue(null);
+                productSearchCombo.getEditor().requestFocus();
+                return true;
+            }
+        } catch (Exception e) {
+            log.warn("[BARCODE] Erro ao pesquisar barcode '{}': {}", text, e.getMessage());
+        }
+        return false;
+    }
+
+    // Estado para deteção de scanner de barcode (digitação rápida)
+    private long lastKeyTime = 0;
+    private int rapidKeyCount = 0;
+    private static final int BARCODE_MIN_LENGTH = 4;
+    private static final long BARCODE_MAX_GAP_MS = 60; // scanners digitam < 60ms entre chars
+
+    /**
+     * Configura deteção automática de barcode por velocidade de digitação.
+     * Scanners USB digitam todo o barcode em < 60ms por caracter, seguido de ENTER.
+     * Se a velocidade for de scanner, adiciona automaticamente.
+     */
+    private void setupBarcodeAutoDetection() {
+        productSearchCombo.getEditor().setOnKeyReleased(e -> {
+            long now = System.currentTimeMillis();
+            long gap = now - lastKeyTime;
+            lastKeyTime = now;
+
+            if (e.getCode() == KeyCode.ENTER) {
+                // ENTER emitido pelo scanner — já tratado pelo setOnKeyPressed, ignorar aqui
+                rapidKeyCount = 0;
+                return;
+            }
+
+            if (gap < BARCODE_MAX_GAP_MS) {
+                rapidKeyCount++;
+            } else {
+                rapidKeyCount = 1; // Reiniciar contagem se o gap foi lento (digitação humana)
+            }
+
+            // Se acumulou caracteres suficientes em velocidade de scanner, aguardar ENTER
+            // A deteção final acontece no listener de ENTER do setOnKeyPressed
+        });
+    }
+
+    /**
+     * Versão do handleProductSelection que aceita quantidade diretamente (para barcode).
+     */
+    private void handleProductSelectionWithQty(Product product, double qty) {
+        String originalText = quantityField.getText();
+        quantityField.setText(String.valueOf(qty));
+        handleProductSelection(product);
+        quantityField.setText(originalText);
+    }
+
     private void handleProductSelection(Product product) {
         errorLabel.setVisible(false);
         
@@ -681,17 +926,45 @@ public class SaleFormController {
             showError("Produto não encontrado.");
             return;
         }
+        
+        // ─── VERIFICAÇÃO: Produto inactivo não pode ser vendido ───────────────
+        if (!product.canBeSold()) {
+            showError("Produto \"" + product.getCode() + " - " + product.getName() + "\" está INACTIVO e não pode ser vendido.\n\nActive o produto primeiro no cadastro.");
+            productSearchCombo.setValue(null);
+            productSearchCombo.getEditor().clear();
+            return;
+        }
+        
         double qty = 1.0;
         try {
-            qty = Double.parseDouble(quantityField.getText().trim());
+            qty = Double.parseDouble(quantityField.getText().trim().replace(",", "."));
         } catch (NumberFormatException e) {
             qty = 1.0;
         }
+        // Fix #10: Bloquear quantidade zero ou negativa
+        if (qty <= 0) {
+            showError("A quantidade deve ser superior a zero.");
+            quantityField.requestFocus();
+            return;
+        }
         
         boolean isWholesale = wholesaleModeToggle.isSelected();
-        double unitPrice = isWholesale ? 
-                (product.getPriceSaleBulk() != null ? product.getPriceSaleBulk() : 0.0) : 
-                (product.getPriceSale() != null ? product.getPriceSale() : 0.0);
+        if (isWholesale) {
+            if (product.getPriceSaleBulk() == null || product.getPriceSaleBulk() <= 0) {
+                showError("Produto \"" + product.getName() + "\" não tem preço de grosso configurado.");
+                return;
+            }
+            double bulkMin = product.getBulkQuantity() != null ? product.getBulkQuantity() : 0.0;
+            if (bulkMin > 0 && qty < bulkMin) {
+                showError("Preço de grosso só se aplica a partir de " + (int)bulkMin + " unidades.");
+                return;
+            }
+        }
+        double unitPrice = isWholesale ? product.getPriceSaleBulk() : product.getPriceSale();
+        if (unitPrice <= 0) {
+            showError("Erro: Preço de venda inválido (0,00 MT). Configure o preço no cadastro do produto.");
+            return;
+        }
                 
         if (!validateProductQuantityForBranch(product, qty)) {
             return;
@@ -724,9 +997,11 @@ public class SaleFormController {
             item.setDescription(product.getName());
             item.setQty(qty);
             item.setUnitPrice(unitPrice);
+            item.setUnit(product.getUnit() != null ? product.getUnit().getAbbreviation() : "un");
 
-            double taxRate = product.getTaxRate() != null ? product.getTaxRate() : 0.0;
-            double iceRate = product.getIceRate() != null ? product.getIceRate() : 0.0;
+            // Usa a taxa efetiva: do produto ou o padrão do sistema
+            double taxRate = product.getEffectiveTaxRate();
+            double iceRate = product.getEffectiveIceRate();
             item.setTaxRate(taxRate);
             item.setIceRate(iceRate);
 
@@ -753,16 +1028,34 @@ public class SaleFormController {
     
     private void recalculateCartPrices() {
         boolean isWholesale = wholesaleModeToggle.isSelected();
+        boolean hasErrors = false;
         for (SaleItem item : itemsTable.getItems()) {
             Product p = item.getProduct();
             if (p != null) {
-                double newPrice = isWholesale ? 
-                    (p.getPriceSaleBulk() != null ? p.getPriceSaleBulk() : 0.0) : 
-                    (p.getPriceSale() != null ? p.getPriceSale() : 0.0);
+                if (isWholesale) {
+                    if (p.getPriceSaleBulk() == null || p.getPriceSaleBulk() <= 0) {
+                        showError("Produto \"" + p.getName() + "\" não tem preço de grosso. Remova-o ou mude para retalho.");
+                        hasErrors = true;
+                        continue;
+                    }
+                    double bulkMin = p.getBulkQuantity() != null ? p.getBulkQuantity() : 0.0;
+                    if (bulkMin > 0 && item.getQty() < bulkMin) {
+                        showError("Produto \"" + p.getName() + "\" precisa de " + (int)bulkMin + " unidades p/ preço de grosso.");
+                        hasErrors = true;
+                        continue;
+                    }
+                }
+                double newPrice = isWholesale ? p.getPriceSaleBulk() : p.getPriceSale();
+                if (newPrice <= 0) {
+                    showError("Preço inválido (0,00 MT) para \"" + p.getName() + "\". Configure o preço no cadastro.");
+                    hasErrors = true;
+                    continue;
+                }
                 item.setUnitPrice(newPrice);
                 
-                double taxRate = p.getTaxRate() != null ? p.getTaxRate() : 0.0;
-                double iceRate = p.getIceRate() != null ? p.getIceRate() : 0.0;
+                // Usa a taxa efetiva: do produto ou o padrão do sistema
+                double taxRate = p.getEffectiveTaxRate();
+                double iceRate = p.getEffectiveIceRate();
                 item.setTaxRate(taxRate);
                 item.setIceRate(iceRate);
                 
@@ -778,6 +1071,9 @@ public class SaleFormController {
         }
         itemsTable.refresh();
         updateTotals();
+        if (hasErrors) {
+            retailModeToggle.setSelected(true);
+        }
     }
 
     private void updateTotals() {
@@ -823,13 +1119,12 @@ public class SaleFormController {
             showError("Adicione ao menos um produto no carrinho");
             return false;
         }
+        String dtVal = documentTypeCombo.getValue();
+        if (com.sgv.model.DocumentType.FACTURA.name().equals(dtVal) && diverseCustomerCheck.isSelected()) {
+            showError("Factura (FA) requer um cliente com NUIT. Desative 'Cliente Diverso' e selecione o cliente.");
+            return false;
+        }
         return true;
-    }
-    
-    private void showError(String msg) {
-        errorLabel.setText(msg);
-        errorLabel.setVisible(true);
-        errorLabel.setManaged(true);
     }
 
     private void refreshCashSessionAvailability() {
@@ -851,25 +1146,26 @@ public class SaleFormController {
         errorLabel.setManaged(false);
     }
 
-    private void doSave() {
+    @Override
+    protected void doSave() {
+        if (checkTrainingBlock()) return;
         if (!validate()) return;
 
-        // ── Bloqueio por sessão de caixa ─────────────────────────────────────
-        // A venda só pode ser registada quando o turno de caixa estiver aberto
-        // e ainda não tenha sido fechado no dia atual.
-        refreshCashSessionAvailability();
-        if (!cashSessionValidProperty.get()) {
-            systemLogService.logSystem("CAIXA_FECHADO", "Venda bloqueada — sessão de caixa inválida.");
-            return;
+        // Fix #6: Bloquear sessão de caixa apenas para vendas fiscais
+        com.sgv.model.DocumentType dtCheck = com.sgv.model.DocumentType.fromString(documentTypeCombo.getValue());
+        boolean requiresCashSession = dtCheck == com.sgv.model.DocumentType.VENDA
+                || dtCheck == com.sgv.model.DocumentType.FACTURA
+                || dtCheck == com.sgv.model.DocumentType.RECIBO;
+        if (requiresCashSession) {
+            refreshCashSessionAvailability();
+            if (!cashSessionValidProperty.get()) {
+                systemLogService.logSystem("CAIXA_FECHADO", "Venda bloqueada — sessão de caixa inválida.");
+                return;
+            }
         }
 
         // Mostrar spinner e ocultar o botão
-        saveButton.setVisible(false);
-        saveSpinner.setVisible(true);
-        saveSpinner.setManaged(true);
-        cancelButton.setDisable(true);
-        errorLabel.setVisible(false);
-        errorLabel.setManaged(false);
+        showSaveSpinner();
 
         // Prepare sale object for background processing and delegate to SaleService
         sale.setDocumentType(com.sgv.model.DocumentType.fromString(documentTypeCombo.getValue()).name());
@@ -896,10 +1192,45 @@ public class SaleFormController {
         sale.setItems(new java.util.ArrayList<>(itemsTable.getItems()));
 
         com.sgv.model.DocumentType dt = com.sgv.model.DocumentType.fromString(sale.getDocumentType());
-        if (dt == com.sgv.model.DocumentType.COTACAO) {
-            sale.setState(com.sgv.model.SaleState.COTACAO_ABERTA.name());
-        } else if (dt == com.sgv.model.DocumentType.ENCOMENDA) {
-            sale.setState(com.sgv.model.SaleState.ENCOMENDA_ABERTA.name());
+        if (dt == com.sgv.model.DocumentType.COTACAO || dt == com.sgv.model.DocumentType.ENCOMENDA) {
+            sale.setState(dt == com.sgv.model.DocumentType.COTACAO
+                ? com.sgv.model.SaleState.COTACAO_ABERTA.name()
+                : com.sgv.model.SaleState.ENCOMENDA_ABERTA.name());
+
+            // Fix #1: Aviso de stock insuficiente para cotações (não bloqueante)
+            Branch b = branchCombo.getValue();
+            if (b != null) {
+                StringBuilder stockWarnings = new StringBuilder();
+                for (SaleItem cartItem : itemsTable.getItems()) {
+                    if (cartItem.getProduct() == null) continue;
+                    if (Boolean.TRUE.equals(cartItem.getProduct().getService())) continue;
+                    try {
+                        java.util.Optional<com.sgv.entity.StockBranch> sbOpt =
+                                stockBranchService.findByProductIdAndBranchId(cartItem.getProduct().getId(), b.getId());
+                        java.math.BigDecimal avail = sbOpt.map(s -> s.getStockCurrentAmount() != null
+                                ? s.getStockCurrentAmount() : java.math.BigDecimal.ZERO)
+                                .orElse(java.math.BigDecimal.ZERO);
+                        java.math.BigDecimal needed = java.math.BigDecimal.valueOf(cartItem.getQty() != null ? cartItem.getQty() : 0);
+                        if (avail.compareTo(needed) < 0) {
+                            stockWarnings.append("\n• ").append(cartItem.getProductCode())
+                                .append(" (disponível: ").append(avail.toPlainString())
+                                .append(", pedido: ").append(needed.toPlainString()).append(")");
+                        }
+                    } catch (Exception ignored) {}
+                }
+                if (stockWarnings.length() > 0) {
+                    javafx.application.Platform.runLater(() -> {
+                        javafx.scene.control.Alert alert = new javafx.scene.control.Alert(
+                            javafx.scene.control.Alert.AlertType.WARNING);
+                        alert.setTitle("Aviso de Stock");
+                        alert.setHeaderText("Stock insuficiente no momento da cotação");
+                        alert.setContentText("Os seguintes produtos podem não ter stock suficiente quando a cotação for convertida em venda:" + stockWarnings);
+                        alert.showAndWait();
+                    });
+                }
+            }
+        } else if (dt == com.sgv.model.DocumentType.VENDA || dt == com.sgv.model.DocumentType.FACTURA || dt == com.sgv.model.DocumentType.RECIBO) {
+            sale.setState(com.sgv.model.SaleState.PAGO.name());
         } else {
             sale.setState(com.sgv.model.SaleState.EMITIDA.name());
         }
@@ -915,53 +1246,56 @@ public class SaleFormController {
 
         saveTask.setOnSucceeded(e -> {
             File pdf = saveTask.getValue();
-            if (pdf != null) {
+            try {
+                systemLogService.logUserAction("Sistema", "VENDA_CRIADA", "Venda/Documento gravado com sucesso.");
+            } catch (Exception ex) {
+                log.error("Erro ao registar acção de venda", ex);
+            }
+
+            javafx.application.Platform.runLater(() -> {
                 try {
-                    systemLogService.logUserAction("Sistema", "VENDA_CRIADA", "Venda/Documento gravado com sucesso.");
-                    javafx.application.Platform.runLater(() -> {
+                    if (pdf != null) {
                         javafx.scene.control.Label successLabel = new javafx.scene.control.Label("Operação concluída com sucesso!");
                         successLabel.setStyle("-fx-background-color: #4CAF50; -fx-text-fill: white; -fx-padding: 10px; -fx-font-size: 14px; -fx-font-weight: bold; -fx-alignment: center;");
                         successLabel.setMaxWidth(Double.MAX_VALUE);
                         rootPane.getChildren().add(0, successLabel);
-                        
+
                         javafx.animation.PauseTransition delay = new javafx.animation.PauseTransition(javafx.util.Duration.seconds(3));
                         delay.setOnFinished(ev -> rootPane.getChildren().remove(successLabel));
                         delay.play();
-                        
+
+                        // Fix #4: Passar os geradores para permitir troca de formato no preview
                         com.sgv.desktop.DocumentPreviewDialog.show(
                             pdf,
                             sale.getDocumentType(),
-                            atDefaultFormat(sale.getDocumentType())
+                            atDefaultFormat(sale.getDocumentType()),
+                            sale,
+                            s -> { try { return thermalPrintService.printReceipt(s); } catch (Exception ex) { log.error("Thermal gen failed", ex); return null; } },
+                            s -> { try { return saleDocumentService.generateDocument(s); } catch (Exception ex) { log.error("A4 gen failed", ex); return null; } }
                         );
-                        if (onSave != null) onSave.run();
-                        resetForm();
-                    });
+                    }
+                    // Fix #8: Chamar onSave antes do resetForm para evitar NPE de timing
+                    if (onSave != null) onSave.run();
                 } catch (Exception ex) {
-                    systemLogService.logError("PDF_OPEN_FAILED", "Falha ao preparar visualização.", ex);
+                    log.error("Erro ao mostrar preview do PDF", ex);
+                    systemLogService.logError("PDF_OPEN_FAILED", "Falha ao preparar visualização: " + ex.getMessage(), ex);
+                } finally {
+                    resetForm();
                 }
-            }
+            });
         });
 
         saveTask.setOnFailed(e -> {
             Throwable ex = saveTask.getException();
             systemLogService.logError("SALE_SAVE_FAILED", "Erro ao salvar a operação (" + documentTypeCombo.getValue() + "): " + ex.getMessage(), ex);
             showError("Erro ao salvar a operação: " + ex.getMessage());
-            ex.printStackTrace();
+            log.error("Erro ao salvar venda", ex);
             
-            // Reverter UI em caso de erro
-            saveButton.setVisible(true);
-            saveSpinner.setVisible(false);
-            saveSpinner.setManaged(false);
-            cancelButton.setDisable(false);
+            hideSaveSpinner();
         });
 
         // Executa a tarefa numa nova Thread para não travar a UI
         new Thread(saveTask).start();
-    }
-
-    private void doCancel() {
-        Stage stage = (Stage) cancelButton.getScene().getWindow();
-        stage.close();
     }
 
     private void resetForm() {
@@ -970,13 +1304,27 @@ public class SaleFormController {
         quantityField.clear();
         productSearchCombo.setValue(null);
         
-        saveButton.setVisible(true);
-        saveSpinner.setVisible(false);
-        saveSpinner.setManaged(false);
-        cancelButton.setDisable(false);
-        errorLabel.setVisible(false);
-        errorLabel.setManaged(false);
+        hideSaveSpinner();
+        hideError();
         
         updateTotals();
+    }
+
+    /**
+     * Fix #6: Liga o botão Guardar ao cashSession apenas para tipos fiscais (VENDA/FACTURA/RECIBO).
+     * Cotações e Encomendas podem ser emitidas sem sessão de caixa aberta.
+     */
+    private void updateSaveButtonBinding() {
+        saveButton.disableProperty().unbind();
+        String type = documentTypeCombo.getValue();
+        boolean isFiscalSale = type == null
+                || "VENDA".equalsIgnoreCase(type)
+                || "FACTURA".equalsIgnoreCase(type)
+                || "RECIBO".equalsIgnoreCase(type);
+        if (isFiscalSale) {
+            saveButton.disableProperty().bind(formValidProperty.not().or(cashSessionValidProperty.not()));
+        } else {
+            saveButton.disableProperty().bind(formValidProperty.not());
+        }
     }
 }

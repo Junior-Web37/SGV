@@ -5,6 +5,7 @@ import com.sgv.repository.*;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
 
@@ -47,7 +48,6 @@ public class WarehouseService {
 
     /**
      * Adiciona stock ao armazém (entrada — compra de fornecedor).
-     * Cria o StockWarehouse se não existir; regista StockMovement tipo "ENTRADA_ARMAZEM".
      */
     @Transactional
     public StockWarehouse addStock(Long warehouseId, Long productId, double qty, String reference, User user) {
@@ -70,7 +70,9 @@ public class WarehouseService {
         sw.setStockCurrentAmount(before.add(quantity));
         sw = stockWarehouseRepository.save(sw);
 
-        // Regista movimento
+        product.setLastMovementAt(LocalDateTime.now());
+        productRepository.save(product);
+
         StockMovement mov = new StockMovement();
         mov.setType("ENTRADA_ARMAZEM");
         mov.setSubtype("COMPRA");
@@ -78,10 +80,55 @@ public class WarehouseService {
         mov.setStockBeforeAmount(before);
         mov.setStockAfterAmount(sw.getStockCurrentAmount() != null ? sw.getStockCurrentAmount() : java.math.BigDecimal.ZERO);
         mov.setProduct(product);
+        mov.setWarehouse(wh);
         mov.setUnitCostPrice(product.getPriceCost());
         mov.setUnitSalePrice(product.getPriceSale());
         mov.setNotes("Entrada de stock");
-        // O campo "branch" no StockMovement fica null porque não é movimento de filial
+        mov.setReference(reference);
+        mov.setUser(user);
+        stockMovementRepository.save(mov);
+
+        return sw;
+    }
+
+    /**
+     * Sobrecarga que aceita o custo de compra real (da fatura).
+     */
+    @Transactional
+    public StockWarehouse addStock(Long warehouseId, Long productId, double qty, String reference, User user, Double purchaseCostPrice) {
+        if (qty <= 0) throw new IllegalArgumentException("Quantidade deve ser > 0");
+        Warehouse wh = warehouseRepository.findById(warehouseId)
+                .orElseThrow(() -> new IllegalArgumentException("Armazém não encontrado"));
+        Product product = productRepository.findById(productId)
+                .orElseThrow(() -> new IllegalArgumentException("Produto não encontrado"));
+
+        StockWarehouse sw = stockWarehouseRepository.findByWarehouseIdAndProductId(warehouseId, productId)
+                .orElseGet(() -> {
+                    StockWarehouse n = new StockWarehouse();
+                    n.setWarehouse(wh);
+                    n.setProduct(product);
+                    n.setStockCurrentAmount(java.math.BigDecimal.ZERO);
+                    return n;
+                });
+        java.math.BigDecimal quantity = java.math.BigDecimal.valueOf(qty);
+        java.math.BigDecimal before = sw.getStockCurrentAmount() != null ? sw.getStockCurrentAmount() : java.math.BigDecimal.ZERO;
+        sw.setStockCurrentAmount(before.add(quantity));
+        sw = stockWarehouseRepository.save(sw);
+
+        product.setLastMovementAt(LocalDateTime.now());
+        productRepository.save(product);
+
+        StockMovement mov = new StockMovement();
+        mov.setType("ENTRADA_ARMAZEM");
+        mov.setSubtype("COMPRA");
+        mov.setQtyAmount(quantity);
+        mov.setStockBeforeAmount(before);
+        mov.setStockAfterAmount(sw.getStockCurrentAmount() != null ? sw.getStockCurrentAmount() : java.math.BigDecimal.ZERO);
+        mov.setProduct(product);
+        mov.setWarehouse(wh);
+        mov.setUnitCostPrice(purchaseCostPrice != null ? purchaseCostPrice : product.getPriceCost());
+        mov.setUnitSalePrice(product.getPriceSale());
+        mov.setNotes("Entrada de stock");
         mov.setReference(reference);
         mov.setUser(user);
         stockMovementRepository.save(mov);
@@ -91,7 +138,6 @@ public class WarehouseService {
 
     /**
      * Remove stock do armazém (saída para transferência).
-     * Lança excepção se stock insuficiente.
      */
     @Transactional
     public StockWarehouse removeStock(Long warehouseId, Long productId, double qty, String reference, User user) {
@@ -108,7 +154,7 @@ public class WarehouseService {
         sw = stockWarehouseRepository.save(sw);
 
         Product product = sw.getProduct();
-        product.setLastMovementAt(java.time.LocalDateTime.now());
+        product.setLastMovementAt(LocalDateTime.now());
         productRepository.save(product);
 
         StockMovement mov = new StockMovement();
@@ -118,6 +164,7 @@ public class WarehouseService {
         mov.setStockBeforeAmount(before);
         mov.setStockAfterAmount(sw.getStockCurrentAmount() != null ? sw.getStockCurrentAmount() : java.math.BigDecimal.ZERO);
         mov.setProduct(product);
+        mov.setWarehouse(sw.getWarehouse());
         mov.setUnitCostPrice(product.getPriceCost());
         mov.setUnitSalePrice(product.getPriceSale());
         mov.setNotes("Saída de stock");

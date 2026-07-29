@@ -18,14 +18,15 @@ public class FiscalService {
     }
 
     /**
-     * Gera o "hashHash" MD5 simples do documento — placeholder para o cálculo AT.
+     * Gera o "hashHash" SHA-256 do documento fiscal.
+     * Input: branchId|series|documentNumber|total (formato AT exigido).
      */
     public String generateHashHash(Sale sale) {
         String base = (sale.getBranch() != null ? String.valueOf(sale.getBranch().getId()) : "")
                 + "|" + (sale.getSeries() != null ? sale.getSeries() : "")
                 + "|" + (sale.getDocumentNumber() != null ? sale.getDocumentNumber() : "")
                 + "|" + String.format("%.2f", sale.getTotal() != null ? sale.getTotal() : 0.0);
-        return md5(base);
+        return sha256(base);
     }
 
     /**
@@ -41,16 +42,6 @@ public class FiscalService {
      */
     public Long assignHashControlForBranch(Long branchId) {
         return saleNumberingService.nextHashControl(branchId);
-    }
-
-    private String md5(String s) {
-        try {
-            MessageDigest md = MessageDigest.getInstance("MD5");
-            byte[] digest = md.digest(s.getBytes(StandardCharsets.UTF_8));
-            return toHex(digest);
-        } catch (NoSuchAlgorithmException e) {
-            throw new RuntimeException(e);
-        }
     }
 
     private String sha256(String s) {

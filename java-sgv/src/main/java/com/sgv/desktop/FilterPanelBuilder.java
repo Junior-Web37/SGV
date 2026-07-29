@@ -14,7 +14,7 @@ public class FilterPanelBuilder {
 
     public static record ProductFilterCriteria(String search, String category) {}
     public static record CustomerFilterCriteria(String search, String type) {}
-    public static record SalesFilterCriteria(String search, LocalDate startDate, LocalDate endDate, String state) {}
+    public static record SalesFilterCriteria(String search, LocalDate startDate, LocalDate endDate, String state, String documentType) {}
 
     public static VBox createProductFilterPanel(Consumer<ProductFilterCriteria> onFilter, Runnable onClear) {
         VBox panel = new VBox();
@@ -48,17 +48,17 @@ public class FilterPanelBuilder {
 
         Button filterButton = new Button("Filtrar");
         filterButton.setStyle("-fx-padding: 6 16; -fx-background-color: #3498db; -fx-text-fill: white;");
-        filterButton.setOnAction(e -> onFilter.accept(new ProductFilterCriteria(
+        filterButton.setOnAction(UiUtils.safeOnAction(() -> onFilter.accept(new ProductFilterCriteria(
             searchField.getText(),
-            categoryCombo.getValue())));
+            categoryCombo.getValue())), null, "FILTER_PRODUCT"));
 
         Button clearButton = new Button("Limpar");
         clearButton.setStyle("-fx-padding: 6 16; -fx-background-color: #95a5a6; -fx-text-fill: white;");
-        clearButton.setOnAction(e -> {
+        clearButton.setOnAction(UiUtils.safeOnAction(() -> {
             searchField.clear();
             categoryCombo.setValue(null);
             onClear.run();
-        });
+        }, null, "FILTER_PRODUCT_CLEAR"));
 
         filterRow.getChildren().addAll(searchField, categoryCombo, filterButton, clearButton);
         HBox presetRow = new HBox(8);
@@ -101,17 +101,17 @@ public class FilterPanelBuilder {
 
         Button filterButton = new Button("Filtrar");
         filterButton.setStyle("-fx-padding: 6 16; -fx-background-color: #3498db; -fx-text-fill: white;");
-        filterButton.setOnAction(e -> onFilter.accept(new CustomerFilterCriteria(
+        filterButton.setOnAction(UiUtils.safeOnAction(() -> onFilter.accept(new CustomerFilterCriteria(
             searchField.getText(),
-            typeCombo.getValue())));
+            typeCombo.getValue())), null, "FILTER_CUSTOMER"));
 
         Button clearButton = new Button("Limpar");
         clearButton.setStyle("-fx-padding: 6 16; -fx-background-color: #95a5a6; -fx-text-fill: white;");
-        clearButton.setOnAction(e -> {
+        clearButton.setOnAction(UiUtils.safeOnAction(() -> {
             searchField.clear();
             typeCombo.setValue(null);
             onClear.run();
-        });
+        }, null, "FILTER_CUSTOMER_CLEAR"));
 
         filterRow.getChildren().addAll(searchField, typeCombo, filterButton, clearButton);
         HBox presetRow = new HBox(8);
@@ -149,10 +149,17 @@ public class FilterPanelBuilder {
 
         ComboBox<String> stateCombo = new ComboBox<>();
         stateCombo.setId("salesStateCombo");
-        stateCombo.getItems().addAll("Todos", "EMITIDA", "ANULADA");
+        stateCombo.getItems().addAll("Todos", "EMITIDA", "PAGO", "ANULADA", "COTACAO_ABERTA", "COTACAO_PAGA", "ENCOMENDA_ABERTA");
         stateCombo.setValue("Todos");
         stateCombo.setPromptText("Estado");
         stateCombo.setPrefWidth(120);
+
+        ComboBox<String> docTypeCombo = new ComboBox<>();
+        docTypeCombo.setId("salesDocTypeCombo");
+        docTypeCombo.getItems().addAll("Todos", "VENDA", "FACTURA", "RECIBO", "COTACAO", "ENCOMENDA", "NC", "ND");
+        docTypeCombo.setValue("Todos");
+        docTypeCombo.setPromptText("Tipo");
+        docTypeCombo.setPrefWidth(110);
 
         ComboBox<String> presetCombo = new ComboBox<>();
         presetCombo.setId("salesPresetCombo");
@@ -165,23 +172,25 @@ public class FilterPanelBuilder {
 
         Button filterButton = new Button("Filtrar");
         filterButton.setStyle("-fx-padding: 6 16; -fx-background-color: #3498db; -fx-text-fill: white;");
-        filterButton.setOnAction(e -> onFilter.accept(new SalesFilterCriteria(
+        filterButton.setOnAction(UiUtils.safeOnAction(() -> onFilter.accept(new SalesFilterCriteria(
             searchField.getText(),
             startDatePicker.getValue(),
             endDatePicker.getValue(),
-            stateCombo.getValue())));
+            stateCombo.getValue(),
+            docTypeCombo.getValue())), null, "FILTER_SALES"));
 
         Button clearButton = new Button("Limpar");
         clearButton.setStyle("-fx-padding: 6 16; -fx-background-color: #95a5a6; -fx-text-fill: white;");
-        clearButton.setOnAction(e -> {
+        clearButton.setOnAction(UiUtils.safeOnAction(() -> {
             searchField.clear();
             startDatePicker.setValue(null);
             endDatePicker.setValue(null);
             stateCombo.setValue(null);
+            docTypeCombo.setValue(null);
             onClear.run();
-        });
+        }, null, "FILTER_SALES_CLEAR"));
 
-        filterRow.getChildren().addAll(searchField, startDatePicker, endDatePicker, stateCombo, filterButton, clearButton);
+        filterRow.getChildren().addAll(searchField, startDatePicker, endDatePicker, docTypeCombo, stateCombo, filterButton, clearButton);
         HBox presetRow = new HBox(8);
         presetRow.getChildren().addAll(presetCombo, savePresetButton, deletePresetButton);
         panel.getChildren().addAll(filterLabel, presetRow, filterRow);

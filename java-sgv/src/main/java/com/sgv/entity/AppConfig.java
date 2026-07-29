@@ -29,12 +29,20 @@ public class AppConfig {
     // ─── Configurações operacionais ───────────────────────────────────────────
     /** Série inicial (ex: "A") */
     private String defaultSeries = "A";
+    /** Taxa IVA padrão do sistema (ex: 16.0 para Moçambique) */
+    private Double defaultTaxRate = 16.0;
+    /** Taxa ICE padrão do sistema (ex: 0.0) */
+    private Double defaultIceRate = 0.0;
     /** Número inicial da série (ex: 1) */
     private Long initialDocumentNumber = 1L;
     /** Moeda padrão */
     private String defaultCurrency = "MZN";
     /** NUIT para consumidor final */
     private String consumerFinalNuit = "999999999";
+    /** Percentagem para alerta de stock mínimo (ex: 20 = alerta quando stock < 20%) */
+    private Double stockMinAlertPercent = 20.0;
+    /** Desconto máximo permitido (%) */
+    private Double maxDiscountPercent = 10.0;
 
     // ─── Flags de funcionalidade ───────────────────────────────────────────────
     private Boolean demoMode = false;
@@ -54,11 +62,25 @@ public class AppConfig {
     private String thermalPrinterName;
     private Integer thermalPrinterWidth = 80;
 
+    // ─── Taxa de câmbio ─────────────────────────────────────────────────────────
+    private Double exchangeRate = 74.0;
+
+    // ─── Agendamento de backups ─────────────────────────────────────────────────
+    private String backupFrequency = "Diario";
+    private String backupHour = "02:00";
+    private Integer backupRetentionDays = 30;
+
     // ─── Auditoria ─────────────────────────────────────────────────────────────
     private Boolean setupCompleted = false;
     private LocalDateTime setupCompletedAt;
     private LocalDateTime createdAt = LocalDateTime.now();
     private LocalDateTime updatedAt = LocalDateTime.now();
+
+    // ─── Licenciamento ────────────────────────────────────────────────────────
+    private String licenseKey;
+    private String licenseType;
+    private String licenseExpiry;
+    private LocalDateTime licenseActivatedAt;
 
     @PreUpdate
     public void preUpdate() {
@@ -85,6 +107,10 @@ public class AppConfig {
     public void setLicenseNumber(String licenseNumber) { this.licenseNumber = licenseNumber; }
     public String getDefaultSeries() { return defaultSeries; }
     public void setDefaultSeries(String defaultSeries) { this.defaultSeries = defaultSeries; }
+    public Double getDefaultTaxRate() { return defaultTaxRate != null ? defaultTaxRate : 16.0; }
+    public void setDefaultTaxRate(Double defaultTaxRate) { this.defaultTaxRate = defaultTaxRate; }
+    public Double getDefaultIceRate() { return defaultIceRate != null ? defaultIceRate : 0.0; }
+    public void setDefaultIceRate(Double defaultIceRate) { this.defaultIceRate = defaultIceRate; }
     public Long getInitialDocumentNumber() { return initialDocumentNumber; }
     public void setInitialDocumentNumber(Long initialDocumentNumber) { this.initialDocumentNumber = initialDocumentNumber; }
     public String getDefaultCurrency() { return defaultCurrency; }
@@ -121,4 +147,32 @@ public class AppConfig {
     public void setCreatedAt(LocalDateTime createdAt) { this.createdAt = createdAt; }
     public LocalDateTime getUpdatedAt() { return updatedAt; }
     public void setUpdatedAt(LocalDateTime updatedAt) { this.updatedAt = updatedAt; }
+    
+    // ─── Operacionais: Stock e Desconto ─────────────────────────────────────
+    public Double getStockMinAlertPercent() { return stockMinAlertPercent != null ? stockMinAlertPercent : 20.0; }
+    public void setStockMinAlertPercent(Double stockMinAlertPercent) { this.stockMinAlertPercent = stockMinAlertPercent; }
+    
+    public Double getMaxDiscountPercent() { return maxDiscountPercent != null ? maxDiscountPercent : 10.0; }
+    public void setMaxDiscountPercent(Double maxDiscountPercent) { this.maxDiscountPercent = maxDiscountPercent; }
+    
+    public Double getExchangeRate() { return exchangeRate != null ? exchangeRate : 74.0; }
+    public void setExchangeRate(Double exchangeRate) { this.exchangeRate = exchangeRate; }
+    
+    public String getBackupFrequency() { return backupFrequency; }
+    public void setBackupFrequency(String backupFrequency) { this.backupFrequency = backupFrequency; }
+    
+    public String getBackupHour() { return backupHour; }
+    public void setBackupHour(String backupHour) { this.backupHour = backupHour; }
+    
+    public Integer getBackupRetentionDays() { return backupRetentionDays; }
+    public void setBackupRetentionDays(Integer backupRetentionDays) { this.backupRetentionDays = backupRetentionDays; }
+    
+    public String getLicenseKey() { return licenseKey; }
+    public void setLicenseKey(String licenseKey) { this.licenseKey = licenseKey; }
+    public String getLicenseType() { return licenseType; }
+    public void setLicenseType(String licenseType) { this.licenseType = licenseType; }
+    public String getLicenseExpiry() { return licenseExpiry; }
+    public void setLicenseExpiry(String licenseExpiry) { this.licenseExpiry = licenseExpiry; }
+    public LocalDateTime getLicenseActivatedAt() { return licenseActivatedAt; }
+    public void setLicenseActivatedAt(LocalDateTime licenseActivatedAt) { this.licenseActivatedAt = licenseActivatedAt; }
 }

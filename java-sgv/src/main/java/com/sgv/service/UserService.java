@@ -21,17 +21,11 @@ public class UserService implements UserDetailsService {
     private final UserRepository userRepository;
     private final RoleRepository roleRepository;
     private final PasswordEncoder passwordEncoder;
-    private final String ghostUsername;
-    private final String ghostPassword;
 
-    public UserService(UserRepository userRepository, RoleRepository roleRepository, PasswordEncoder passwordEncoder,
-                       @org.springframework.beans.factory.annotation.Value("${superadmin.username:superadmin}") String ghostUsername,
-                       @org.springframework.beans.factory.annotation.Value("${superadmin.password:SuperSecret123!}") String ghostPassword) {
+    public UserService(UserRepository userRepository, RoleRepository roleRepository, PasswordEncoder passwordEncoder) {
         this.userRepository = userRepository;
         this.roleRepository = roleRepository;
         this.passwordEncoder = passwordEncoder;
-        this.ghostUsername = ghostUsername;
-        this.ghostPassword = ghostPassword;
     }
 
     public User register(String username, String rawPassword, String fullName) {
@@ -82,13 +76,6 @@ public class UserService implements UserDetailsService {
 
     @Override
     public UserDetails loadUserByUsername(String username) throws UsernameNotFoundException {
-        // ghost superadmin (not persisted) support
-        if (username != null && username.equalsIgnoreCase(ghostUsername)) {
-            List<SimpleGrantedAuthority> auths = List.of(new SimpleGrantedAuthority("ROLE_SUPERADMIN"), new SimpleGrantedAuthority("ROLE_ACTIVE"));
-            String encoded = passwordEncoder.encode(ghostPassword);
-            return new org.springframework.security.core.userdetails.User(ghostUsername, encoded, auths);
-        }
-
         User u = userRepository.findByUsername(username).orElseThrow(() -> new UsernameNotFoundException("User not found"));
         List<SimpleGrantedAuthority> auths = u.getRoles().stream()
                 .map(role -> new SimpleGrantedAuthority("ROLE_" + role.getName()))

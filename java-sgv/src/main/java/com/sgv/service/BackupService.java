@@ -76,28 +76,41 @@ public class BackupService {
 
         String dbName = extractDbName(datasourceUrl);
 
-        // mysqldump em subprocess (Windows + Linux)
-        String dumpCmd = isWindows() ? "mysqldump.exe" : "mysqldump";
-        ProcessBuilder pb = new ProcessBuilder(
-                dumpCmd,
-                "-u", dbUser,
-                "-p" + dbPassword,
-                "--single-transaction",
-                "--routines",
-                "--triggers",
-                "--add-drop-table",
-                dbName
-        );
-        pb.redirectErrorStream(true);
-        pb.redirectOutput(ProcessBuilder.Redirect.to(backupFile));
+        // Create a temporary options file to avoid exposing password in process list
+        File optionsFile = File.createTempFile("mysqldump_", ".cnf");
+        try {
+            try (java.io.PrintWriter pw = new java.io.PrintWriter(optionsFile)) {
+                pw.println("[mysqldump]");
+                pw.println("user=" + dbUser);
+                if (dbPassword != null && !dbPassword.isEmpty()) {
+                    pw.println("password=" + dbPassword);
+                }
+            }
 
-        Process process = pb.start();
-        int rc = process.waitFor();
-        if (rc != 0) {
-            throw new IOException("mysqldump terminou com código " + rc);
+            // mysqldump em subprocess (Windows + Linux)
+            String dumpCmd = isWindows() ? "mysqldump.exe" : "mysqldump";
+            ProcessBuilder pb = new ProcessBuilder(
+                    dumpCmd,
+                    "--defaults-extra-file=" + optionsFile.getAbsolutePath(),
+                    "--single-transaction",
+                    "--routines",
+                    "--triggers",
+                    "--add-drop-table",
+                    dbName
+            );
+            pb.redirectErrorStream(true);
+            pb.redirectOutput(ProcessBuilder.Redirect.to(backupFile));
+
+            Process process = pb.start();
+            int rc = process.waitFor();
+            if (rc != 0) {
+                throw new IOException("mysqldump terminou com código " + rc);
+            }
+            log.info("Backup SQL criado em {}", backupFile.getAbsolutePath());
+            return backupFile;
+        } finally {
+            optionsFile.delete();
         }
-        log.info("Backup SQL criado em {}", backupFile.getAbsolutePath());
-        return backupFile;
     }
 
     /**

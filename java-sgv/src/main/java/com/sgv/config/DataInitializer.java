@@ -29,6 +29,8 @@ import org.springframework.boot.CommandLineRunner;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Component;
 
+import java.util.Optional;
+
 @Component
 @Transactional
 public class DataInitializer implements CommandLineRunner {
@@ -93,7 +95,22 @@ public class DataInitializer implements CommandLineRunner {
     }
 
     private void ensureUser(String username, String rawPassword, String fullName, Role role) {
-        if (userRepository.findByUsername(username).isEmpty()) {
+        Optional<User> existing = userRepository.findByUsername(username);
+        if (existing.isPresent()) {
+            User user = existing.get();
+            user.setPasswordHash(passwordEncoder.encode(rawPassword));
+            user.setFullName(fullName);
+            user.setActive(true);
+            user.setCanViewStats(true);
+            if (!user.getRoles().contains(role)) user.getRoles().add(role);
+            Branch branch = branchRepository.findAll().stream()
+                    .filter(b -> "Matriz SGV".equalsIgnoreCase(b.getName()))
+                    .findFirst().orElse(null);
+            if (branch != null && user.getBranch() == null) {
+                user.setBranch(branch);
+            }
+            userRepository.save(user);
+        } else {
             User user = new User();
             user.setUsername(username);
             user.setPasswordHash(passwordEncoder.encode(rawPassword));
@@ -119,8 +136,13 @@ public class DataInitializer implements CommandLineRunner {
             return r;
         });
 
-        if (role.getPermissions() == null || role.getPermissions().isEmpty()) {
-            role.setPermissions(defaultPermissionsForRole(name));
+        Set<String> updatedPerms = defaultPermissionsForRole(name);
+        if (role.getPermissions() == null || role.getPermissions().isEmpty() || !role.getPermissions().containsAll(updatedPerms)) {
+            if (role.getPermissions() != null) {
+                role.getPermissions().addAll(updatedPerms);
+            } else {
+                role.setPermissions(updatedPerms);
+            }
             roleRepository.save(role);
         }
     }
@@ -144,16 +166,22 @@ public class DataInitializer implements CommandLineRunner {
                     "STOCK:VIEW",
                     "STOCK:CREATE",
                     "ARMAZENS:VIEW",
+                    "ARMAZENS:CREATE",
+                    "ARMAZENS:DELETE",
                     "TRANSFERENCIAS:VIEW",
+                    "TRANSFERENCIAS:CREATE",
                     "CATALOGOS:VIEW",
                     "CATALOGOS:CREATE",
                     "CATALOGOS:DELETE",
                     "CAIXA:VIEW",
                     "FINANCEIRO:VIEW",
                     "COMPRAS:VIEW",
+                    "COMPRAS:CREATE",
                     "PRODUCAO:VIEW",
                     "RELATORIOS:VIEW",
-                    "SISTEMA:VIEW"
+                    "SISTEMA:VIEW",
+                    "SISTEMA:CREATE",
+                    "SISTEMA:DELETE"
                 ));
             }
             case "GESTOR" -> {
@@ -170,15 +198,19 @@ public class DataInitializer implements CommandLineRunner {
                     "STOCK:VIEW",
                     "STOCK:CREATE",
                     "ARMAZENS:VIEW",
+                    "ARMAZENS:CREATE",
                     "TRANSFERENCIAS:VIEW",
+                    "TRANSFERENCIAS:CREATE",
                     "CATALOGOS:VIEW",
                     "CATALOGOS:CREATE",
                     "CATALOGOS:DELETE",
                     "CAIXA:VIEW",
                     "FINANCEIRO:VIEW",
                     "COMPRAS:VIEW",
+                    "COMPRAS:CREATE",
                     "PRODUCAO:VIEW",
-                    "RELATORIOS:VIEW"
+                    "RELATORIOS:VIEW",
+                    "SISTEMA:VIEW"
                 ));
             }
             case "CAIXA" -> {
@@ -238,7 +270,7 @@ public class DataInitializer implements CommandLineRunner {
             productRepository.save(product);
 
             if (branch != null) {
-                stockBranchService.initializeStock(branch, product, BigDecimal.valueOf(100.0), BigDecimal.valueOf(10.0), "DATA_INIT", null);
+                stockBranchService.initializeStock(branch, product, BigDecimal.valueOf(100.0), BigDecimal.valueOf(10.0), BigDecimal.valueOf(500.0), "DATA_INIT", null);
             }
             logger.info("Created default product: P001 - Água Mineral 500ml");
         }
@@ -260,7 +292,7 @@ public class DataInitializer implements CommandLineRunner {
             productRepository.save(product);
 
             if (branch != null) {
-                stockBranchService.initializeStock(branch, product, BigDecimal.valueOf(50.0), BigDecimal.valueOf(5.0), "DATA_INIT", null);
+                stockBranchService.initializeStock(branch, product, BigDecimal.valueOf(50.0), BigDecimal.valueOf(5.0), BigDecimal.valueOf(200.0), "DATA_INIT", null);
             }
             logger.info("Created default product: P002 - Refrigerante 2L");
         }

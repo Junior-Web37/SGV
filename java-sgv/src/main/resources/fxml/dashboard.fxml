@@ -13,7 +13,7 @@
          TOP NAVIGATION BAR
          ══════════════════════════════════════════════ -->
     <top>
-        <VBox style="-fx-background-color:#2563EB; -fx-border-color:#1D4ED8; -fx-border-width:0 0 2 0;">
+        <VBox fx:id="topContainer" style="-fx-background-color:#2563EB; -fx-border-color:#1D4ED8; -fx-border-width:0 0 2 0;">
 
             <!-- Brand + Nav + User Row -->
             <HBox alignment="CENTER_LEFT" spacing="0"

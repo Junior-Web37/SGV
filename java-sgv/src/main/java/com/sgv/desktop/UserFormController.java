@@ -11,6 +11,7 @@ import javafx.scene.control.*;
 import javafx.stage.Stage;
 import org.springframework.stereotype.Component;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.security.crypto.password.PasswordEncoder;
 
 import java.net.URI;
 import java.net.http.HttpClient;
@@ -23,9 +24,8 @@ import java.util.Set;
 import com.sgv.service.SystemLogService;
 
 @Component
-public class UserFormController {
+public class UserFormController extends BaseFormController {
 
-    @FXML private javafx.scene.layout.VBox rootPane;
     @FXML private TextField usernameField;
     @FXML private PasswordField passwordField;
     @FXML private TextField fullNameField;
@@ -34,60 +34,42 @@ public class UserFormController {
     @FXML private ComboBox<Role> roleCombo;
     @FXML private CheckBox activeCheckbox;
     @FXML private CheckBox forcePasswordCheckbox;
-    @FXML private Label errorLabel;
-    @FXML private Button saveButton;
-    @FXML private Button cancelButton;
-    @FXML private javafx.scene.control.ProgressIndicator saveSpinner;
+    @FXML private CheckBox canViewStatsCheck;
+    @FXML private TextField commissionField;
 
     private final UserRepository userRepository;
     private final BranchRepository branchRepository;
     private final RoleRepository roleRepository;
     private final SystemLogService systemLogService;
+    private final PasswordEncoder passwordEncoder;
     private User user;
-    private Runnable onSave;
     @Value("${desktop.useRest:false}")
     private boolean useRest;
 
     private final HttpClient httpClient = HttpClient.newHttpClient();
     private final ObjectMapper objectMapper = new ObjectMapper();
 
-    // MVVM Data Binding Properties
-    private final javafx.beans.property.BooleanProperty formValidProperty = new javafx.beans.property.SimpleBooleanProperty(false);
-
     public UserFormController(UserRepository userRepository,
                               BranchRepository branchRepository,
                               RoleRepository roleRepository,
-                              SystemLogService systemLogService) {
+                              SystemLogService systemLogService,
+                              PasswordEncoder passwordEncoder) {
         this.userRepository = userRepository;
         this.branchRepository = branchRepository;
         this.roleRepository = roleRepository;
         this.systemLogService = systemLogService;
+        this.passwordEncoder = passwordEncoder;
     }
 
     @FXML
     public void initialize() {
+        initCommonFields();
         branchCombo.setItems(javafx.collections.FXCollections.observableArrayList(branchRepository.findAll()));
         roleCombo.setItems(javafx.collections.FXCollections.observableArrayList(roleRepository.findAll()));
 
-        saveButton.setOnAction(e -> doSave());
-        cancelButton.setOnAction(e -> doCancel());
-        errorLabel.setText("");
-        errorLabel.setVisible(false);
-        errorLabel.setManaged(false);
+        UiUtils.attachSafe(saveButton, this::doSave, systemLogService, "USER_SAVE");
+        UiUtils.attachSafe(cancelButton, this::doCancel, systemLogService, "USER_CANCEL");
 
-        // UX: Transição de entrada fluida (Fade-in)
-        if (rootPane != null) {
-            rootPane.setOpacity(0.0);
-            javafx.animation.FadeTransition ft = new javafx.animation.FadeTransition(javafx.util.Duration.millis(350), rootPane);
-            ft.setFromValue(0.0);
-            ft.setToValue(1.0);
-            ft.play();
-        }
-
-        // UX/MVVM: Data-Binding do botão de salvar
-        saveButton.disableProperty().bind(formValidProperty.not());
-
-        // Setup real-time listeners
         setupRealTimeValidation();
     }
 
@@ -102,11 +84,11 @@ public class UserFormController {
         javafx.application.Platform.runLater(this::validateRealTime);
     }
 
-    private void validateRealTime() {
+    @Override
+    protected void validateRealTime() {
         StringBuilder errors = new StringBuilder();
         boolean valid = true;
 
-        // 1. Username: obrigatório (mín. 4 chars, só letras/números)
         String username = usernameField.getText();
         if (username == null || username.isBlank()) {
             valid = false;
@@ -118,7 +100,6 @@ public class UserFormController {
             valid = false;
         }
 
-        // 2. Nome completo: obrigatório (mín. 3 chars)
         String fullName = fullNameField.getText();
         if (fullName == null || fullName.isBlank()) {
             valid = false;
@@ -127,7 +108,6 @@ public class UserFormController {
             valid = false;
         }
 
-        // 3. Email: opcional mas se preenchido deve ser válido
         String email = emailField.getText();
         if (email != null && !email.isBlank()) {
             if (!email.matches("^[\\w.+-]+@[\\w.-]+\\.[a-zA-Z]{2,}$")) {
@@ -136,17 +116,9 @@ public class UserFormController {
             }
         }
 
-        // 4. Role: obrigatória
-        if (roleCombo.getValue() == null) {
-            valid = false;
-        }
+        if (roleCombo.getValue() == null) { valid = false; }
+        if (branchCombo.getValue() == null) { valid = false; }
 
-        // 5. Branch: obrigatória
-        if (branchCombo.getValue() == null) {
-            valid = false;
-        }
-
-        // 6. Password: obrigatório só para novo utilizador (mín. 6 chars)
         boolean isNewUser = (user == null || user.getId() == null);
         if (isNewUser) {
             String pwd = passwordField.getText();
@@ -157,7 +129,6 @@ public class UserFormController {
                 valid = false;
             }
         } else {
-            // Para editar: password opcional, mas se preenchida >= 6 chars
             String pwd = passwordField.getText();
             if (pwd != null && !pwd.isBlank() && pwd.length() < 6) {
                 errors.append("Password muito curta (mín. 6 caracteres). ");
@@ -187,29 +158,26 @@ public class UserFormController {
             }
             activeCheckbox.setSelected(u.isActive());
             forcePasswordCheckbox.setSelected(u.isForceChangePassword());
+            canViewStatsCheck.setSelected(u.isCanViewStats());
+            commissionField.setText(String.valueOf(u.getCommissionPercent()));
             passwordField.setPromptText("Deixe vazio para manter a password actual");
         } else {
             this.user = new User();
             activeCheckbox.setSelected(true);
+            canViewStatsCheck.setSelected(false);
+            commissionField.setText("0");
             usernameField.setDisable(false);
             passwordField.setPromptText("Password (mín. 6 caracteres)");
         }
         validateRealTime();
     }
 
-    public void setOnSave(Runnable callback) {
-        this.onSave = callback;
-    }
-
-    private void doSave() {
+    @Override
+    protected void doSave() {
+        if (checkTrainingBlock()) return;
         if (!formValidProperty.get()) return;
 
-        saveButton.setVisible(false);
-        saveSpinner.setVisible(true);
-        saveSpinner.setManaged(true);
-        cancelButton.setDisable(true);
-        errorLabel.setVisible(false);
-        errorLabel.setManaged(false);
+        showSaveSpinner();
 
         javafx.concurrent.Task<Void> saveTask = new javafx.concurrent.Task<>() {
             @Override
@@ -217,31 +185,31 @@ public class UserFormController {
                 boolean isNew = user.getId() == null;
 
                 if (isNew) {
-                    // Check if username exists
                     if (userRepository.findByUsername(usernameField.getText().trim()).isPresent()) {
                         throw new Exception("Username já existe");
                     }
                     user.setUsername(usernameField.getText().trim());
-                    user.setPasswordHash(passwordField.getText()); // In real app, hash this
+                    user.setPasswordHash(passwordEncoder.encode(passwordField.getText()));
                 }
 
                 user.setFullName(fullNameField.getText().trim());
-                user.setEmail(emailField.getText() != null ? emailField.getText().trim() : "");
+                String emailText = emailField.getText() != null ? emailField.getText().trim() : "";
+                user.setEmail(emailText.isEmpty() ? null : emailText);
                 user.setBranch(branchCombo.getValue());
                 user.setActive(activeCheckbox.isSelected());
                 user.setForceChangePassword(forcePasswordCheckbox.isSelected());
+                user.setCanViewStats(canViewStatsCheck.isSelected());
+                user.setCommissionPercent(parseDoubleSafe(commissionField.getText()));
 
-                // Only update password if a new one was provided
                 String pwd = passwordField.getText();
                 if (!isNew && pwd != null && !pwd.isBlank() && pwd.length() >= 6) {
-                    user.setPasswordHash(pwd);
+                    user.setPasswordHash(passwordEncoder.encode(pwd));
                 }
 
                 Set<Role> roles = new HashSet<>();
                 roles.add(roleCombo.getValue());
                 user.setRoles(roles);
                 if (useRest) {
-                    // POST to REST API /users to create/update
                     try {
                         String url = "http://localhost:8080/api/users" + (isNew ? "" : "/" + user.getId());
                         var payload = new java.util.HashMap<String,Object>();
@@ -251,6 +219,8 @@ public class UserFormController {
                         payload.put("branchId", user.getBranch() != null ? user.getBranch().getId() : null);
                         payload.put("active", user.isActive());
                         payload.put("forceChangePassword", user.isForceChangePassword());
+                        payload.put("canViewStats", user.isCanViewStats());
+                        payload.put("commissionPercent", user.getCommissionPercent());
                         payload.put("password", (isNew ? user.getPasswordHash() : null));
                         if (user.getRoles() != null && !user.getRoles().isEmpty()) {
                             payload.put("roles", user.getRoles().stream().map(r -> r.getName()).toArray());
@@ -285,31 +255,18 @@ public class UserFormController {
             Throwable ex = saveTask.getException();
             systemLogService.logError("USER_SAVE_FAILED", "Erro ao salvar utilizador: " + ex.getMessage(), ex);
             showError("Erro ao guardar: " + (ex.getMessage() != null ? ex.getMessage() : "Erro desconhecido"));
-
-            saveButton.setVisible(true);
-            saveSpinner.setVisible(false);
-            saveSpinner.setManaged(false);
-            cancelButton.setDisable(false);
+            hideSaveSpinner();
         });
 
         new Thread(saveTask).start();
     }
 
-    private void showError(String msg) {
-        errorLabel.setText(msg);
-        errorLabel.setVisible(true);
-        errorLabel.setManaged(true);
-        errorLabel.setStyle("-fx-text-fill: #EF4444; -fx-font-size: 12px; -fx-font-weight: 600; -fx-padding: 4 0;");
-    }
-
-    private void hideError() {
-        errorLabel.setText("");
-        errorLabel.setVisible(false);
-        errorLabel.setManaged(false);
-    }
-
-    private void doCancel() {
-        Stage stage = (Stage) cancelButton.getScene().getWindow();
-        stage.close();
+    private double parseDoubleSafe(String text) {
+        if (text == null || text.isBlank()) return 0.0;
+        try {
+            return Double.parseDouble(text.trim().replace(",", "."));
+        } catch (NumberFormatException e) {
+            return 0.0;
+        }
     }
 }

@@ -17,6 +17,8 @@ import javafx.stage.Stage;
 import javafx.stage.StageStyle;
 import org.springframework.context.ApplicationContext;
 import org.springframework.stereotype.Component;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.math.BigDecimal;
 import java.time.format.DateTimeFormatter;
@@ -25,6 +27,8 @@ import java.util.Optional;
 
 @Component
 public class CashSessionController {
+
+    private static final Logger log = LoggerFactory.getLogger(CashSessionController.class);
 
     @FXML private Label statusBadge;
     @FXML private Label openedAtLabel;
@@ -69,9 +73,9 @@ public class CashSessionController {
         userColumn.setCellValueFactory(cell -> new SimpleStringProperty(
                 cell.getValue().getCreatedBy() != null ? cell.getValue().getCreatedBy().getFullName() : ""));
 
-        openSessionButton.setOnAction(e -> openSessionModal());
-        addMovementButton.setOnAction(e -> addMovementModal());
-        closeSessionButton.setOnAction(e -> closeSessionModal());
+        UiUtils.attachSafe(openSessionButton, this::openSessionModal, null, "CASH_SESSION_OPEN");
+        UiUtils.attachSafe(addMovementButton, this::addMovementModal, null, "CASH_SESSION_ADD_MOVEMENT");
+        UiUtils.attachSafe(closeSessionButton, this::closeSessionModal, null, "CASH_SESSION_CLOSE");
     }
 
     public void setCurrentUser(User user) {
@@ -146,7 +150,7 @@ public class CashSessionController {
             stage.setScene(scene);
             stage.showAndWait();
         } catch (Exception ex) {
-            ex.printStackTrace();
+            log.error("Erro inesperado", ex);
         }
     }
 
@@ -168,7 +172,7 @@ public class CashSessionController {
             stage.setScene(scene);
             stage.showAndWait();
         } catch (Exception ex) {
-            ex.printStackTrace();
+            log.error("Erro inesperado", ex);
         }
     }
 
@@ -191,7 +195,7 @@ public class CashSessionController {
             stage.setScene(scene);
             stage.showAndWait();
         } catch (Exception ex) {
-            ex.printStackTrace();
+            log.error("Erro inesperado", ex);
         }
     }
 }

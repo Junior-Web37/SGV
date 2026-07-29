@@ -1,32 +1,41 @@
-# SGV Java Scaffold
+# SGV Java Desktop App
 
-Este projecto é um scaffold inicial para o Sistema de Gestão de Vendas (SGV) com foco em Moçambique.
+Este projeto é a aplicação desktop SGV, construída com JavaFX e Spring Boot.
 
 ## Características
 
-- Spring Boot 3 + Java 17
-- Spring Security para desktop authentication
-- Usuários com roles: `ADMIN`, `GESTOR`, `CAIXA`, `CLIENTE`
-- JPA/Hibernate para persistência
-- Conexão padrão com MariaDB/XAMPP para produção local
-- Estrutura de camadas: `desktop`, `service`, `repository`, `entity`, `security`, `dto`
+- Java 21
+- JavaFX para interface desktop
+- Spring Boot para serviços de negócio e persistência
+- Spring Security com roles: `ADMIN`, `GESTOR`, `CAIXA`, `CLIENTE`
+- JPA/Hibernate para persistência com MariaDB
+- Relatórios, compras, vendas, reconciliação e backups integrados no desktop
 
 ## Como executar
 
-1. Instalar Maven e JDK 17.
-2. Iniciar o MariaDB do XAMPP.
-3. No directório `java-sgv`, executar:
+1. Instale o JDK 21 ou superior.
+2. Configure `JAVA_HOME` e certifique-se de que `mvn` está no PATH.
+3. No diretório `java-sgv`, execute:
 
 ```bash
-mvn spring-boot:run
+mvn -DskipTests package
+mvn -DskipTests javafx:run
 ```
 
-4. O sistema Java inicia em modo desktop sem servidor web.
+4. Ou use o JAR gerado:
+
+```bash
+java -jar target\java-sgv-0.1.0.jar
+```
+
+## Executar no Windows
+
+- `run.bat` — executa o app jar empacotado.
+- `run_dev.bat` — compila e executa o app com `javafx:run`.
+- `run.ps1` — helper PowerShell para rodar o app.
 
 ## Observações
 
-- A `application.properties` usa MariaDB no XAMPP como padrão.
-- O desktop Java usa serviços locais embutidos e não realiza chamadas HTTP para `localhost`.
-- Para produção, ajuste `spring.datasource.url`, `spring.datasource.username` e `spring.datasource.password`.
-- A inicialização cria os roles básicos.
-- Utilitários e ficheiros H2 foram removidos do código-fonte; quaisquer ficheiros antigos H2 foram movidos para `java-sgv/data/archived_h2`.
+- O frontend web original foi removido do repositório.
+- O aplicativo desktop inicia em modo não-web e usa o Spring Boot localmente.
+- Ajuste `application-prod.properties` se precisar conectar a uma instância MariaDB diferente.

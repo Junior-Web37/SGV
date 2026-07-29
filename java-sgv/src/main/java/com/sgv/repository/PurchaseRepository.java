@@ -14,4 +14,7 @@ public interface PurchaseRepository extends JpaRepository<Purchase, Long> {
     List<Purchase> searchByInvoice(@Param("q") String query);
 
     List<Purchase> findAllByOrderByCreatedAtDesc();
+
+    @Query("SELECT p FROM Purchase p LEFT JOIN FETCH p.items WHERE p.id = :id")
+    Purchase findByIdWithItems(@Param("id") Long id);
 }

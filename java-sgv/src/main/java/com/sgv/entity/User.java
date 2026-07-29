@@ -1,5 +1,6 @@
 package com.sgv.entity;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
 import java.util.HashSet;
 import java.util.Set;
@@ -40,6 +41,7 @@ public class User {
     public void setId(Long id) { this.id = id; }
     public String getUsername() { return username; }
     public void setUsername(String username) { this.username = username; }
+    @JsonIgnore
     public String getPasswordHash() { return passwordHash; }
     public void setPasswordHash(String passwordHash) { this.passwordHash = passwordHash; }
     public String getFullName() { return fullName; }
@@ -72,6 +74,13 @@ public class User {
         }
         return roles.stream().filter(java.util.Objects::nonNull)
                 .anyMatch(role -> "SUPERADMIN".equalsIgnoreCase(role.getName()) || role.hasPermission("*", "*"));
+    }
+
+    public boolean isProtectedAdmin() {
+        if (username != null && username.equalsIgnoreCase("admin")) {
+            return true;
+        }
+        return isSuperAdmin();
     }
 
     @Override

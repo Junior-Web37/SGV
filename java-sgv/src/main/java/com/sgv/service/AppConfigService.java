@@ -27,7 +27,11 @@ public class AppConfigService {
         // Garante que os defaults obrigatórios estão populados (defesa contra INSERT IGNORE da V2)
         boolean needsSave = false;
         if (cfg.getDefaultSeries() == null) { cfg.setDefaultSeries("A"); needsSave = true; }
+        if (cfg.getDefaultTaxRate() == null) { cfg.setDefaultTaxRate(16.0); needsSave = true; }
+        if (cfg.getDefaultIceRate() == null) { cfg.setDefaultIceRate(0.0); needsSave = true; }
         if (cfg.getDefaultCurrency() == null) { cfg.setDefaultCurrency("MZN"); needsSave = true; }
+        if (cfg.getStockMinAlertPercent() == null) { cfg.setStockMinAlertPercent(20.0); needsSave = true; }
+        if (cfg.getMaxDiscountPercent() == null) { cfg.setMaxDiscountPercent(10.0); needsSave = true; }
         if (cfg.getConsumerFinalNuit() == null) { cfg.setConsumerFinalNuit("999999999"); needsSave = true; }
         if (cfg.getInitialDocumentNumber() == null) { cfg.setInitialDocumentNumber(1L); needsSave = true; }
         if (cfg.getDuplicateWindowSeconds() == null) { cfg.setDuplicateWindowSeconds(60); needsSave = true; }

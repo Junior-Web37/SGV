@@ -27,6 +27,7 @@ public class DashboardService {
     private final StockBranchService stockBranchService;
     private final ExpenseRepository expenseRepository;
     private final ProductRepository productRepository;
+    private final CustomerRepository customerRepository;
     private final BranchRepository branchRepository;
     private final SaleItemRepository saleItemRepository;
 
@@ -34,12 +35,14 @@ public class DashboardService {
                            StockBranchService stockBranchService,
                            ExpenseRepository expenseRepository,
                            ProductRepository productRepository,
+                           CustomerRepository customerRepository,
                            BranchRepository branchRepository,
                            SaleItemRepository saleItemRepository) {
         this.saleRepository = saleRepository;
         this.stockBranchService = stockBranchService;
         this.expenseRepository = expenseRepository;
         this.productRepository = productRepository;
+        this.customerRepository = customerRepository;
         this.branchRepository = branchRepository;
         this.saleItemRepository = saleItemRepository;
     }
@@ -53,11 +56,12 @@ public class DashboardService {
         LocalDateTime toDt = to.plusDays(1).atStartOfDay();
 
         long saleCount = saleRepository.countByDateRangeAndState(fromDt, toDt, "EMITIDA");
-        double saleTotal = saleRepository.sumTotalByDateRangeAndState(fromDt, toDt, "EMITIDA");
+        BigDecimal saleTotalBD = saleRepository.sumTotalByDateRangeAndState(fromDt, toDt, "EMITIDA");
+        double saleTotal = saleTotalBD != null ? saleTotalBD.doubleValue() : 0.0;
         double expenseTotal = expenseRepository.sumAmountByDateRangeAndStates(
             fromDt.toLocalDate(), toDt.toLocalDate(),
             List.of("PAID", "PENDING"));
-        long customerCount = productRepository.count(); // proxy: product count is a quick call
+        long customerCount = customerRepository.count();
         long productCount = productRepository.count();
 
         return new DashboardStats(saleCount, saleTotal, expenseTotal, customerCount, productCount);
@@ -98,8 +102,12 @@ public class DashboardService {
         for (int m = 1; m <= 12; m++) {
             monthly.put(String.format("%02d", m), 0.0);
         }
-        // This is a simplified aggregation — full implementation would use
-        // saleRepository.findByBranchIdAndCreatedAtBetween with a projection
+        List<Object[]> results = saleRepository.sumTotalByMonthAndYear(year);
+        for (Object[] row : results) {
+            int month = ((Number) row[0]).intValue();
+            double total = ((Number) row[1]).doubleValue();
+            monthly.put(String.format("%02d", month), total);
+        }
         return monthly;
     }
 

@@ -4,7 +4,9 @@ import jakarta.persistence.*;
 import java.math.BigDecimal;
 
 @Entity
-@Table(name = "stock_branch")
+@Table(name = "stock_branch", uniqueConstraints = {
+    @UniqueConstraint(columnNames = {"product_id", "branch_id"})
+})
 public class StockBranch {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)

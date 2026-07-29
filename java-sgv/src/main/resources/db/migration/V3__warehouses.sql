@@ -30,8 +30,8 @@ CREATE TABLE IF NOT EXISTS stock_warehouse (
     UNIQUE KEY uk_stock_wh (warehouse_id, product_id)
 ) ENGINE=InnoDB;
 
-CREATE INDEX idx_stock_wh_warehouse ON stock_warehouse(warehouse_id);
-CREATE INDEX idx_stock_wh_product   ON stock_warehouse(product_id);
+CREATE INDEX IF NOT EXISTS idx_stock_wh_warehouse ON stock_warehouse(warehouse_id);
+CREATE INDEX IF NOT EXISTS idx_stock_wh_product   ON stock_warehouse(product_id);
 
 -- ─── Transferências armazém → filial ──────────────────────────────────────
 CREATE TABLE IF NOT EXISTS warehouse_transfers (
@@ -64,16 +64,33 @@ CREATE TABLE IF NOT EXISTS warehouse_transfer_items (
     CONSTRAINT fk_whti_product  FOREIGN KEY (product_id)            REFERENCES products(id)
 ) ENGINE=InnoDB;
 
-CREATE INDEX idx_wht_warehouse      ON warehouse_transfers(warehouse_id);
-CREATE INDEX idx_wht_branch         ON warehouse_transfers(branch_id);
-CREATE INDEX idx_wht_status         ON warehouse_transfers(status);
-CREATE INDEX idx_whti_transfer      ON warehouse_transfer_items(warehouse_transfer_id);
-CREATE INDEX idx_whti_product       ON warehouse_transfer_items(product_id);
+CREATE INDEX IF NOT EXISTS idx_wht_warehouse      ON warehouse_transfers(warehouse_id);
+CREATE INDEX IF NOT EXISTS idx_wht_branch         ON warehouse_transfers(branch_id);
+CREATE INDEX IF NOT EXISTS idx_wht_status         ON warehouse_transfers(status);
+CREATE INDEX IF NOT EXISTS idx_whti_transfer      ON warehouse_transfer_items(warehouse_transfer_id);
+CREATE INDEX IF NOT EXISTS idx_whti_product       ON warehouse_transfer_items(product_id);
 
 -- ─── Modificar purchases: target_warehouse_id ───────────────────────────
 ALTER TABLE purchases
-    ADD COLUMN IF NOT EXISTS target_warehouse_id BIGINT AFTER branch_id,
-    ADD CONSTRAINT fk_purchases_warehouse FOREIGN KEY (target_warehouse_id) REFERENCES warehouses(id);
+    ADD COLUMN IF NOT EXISTS target_warehouse_id BIGINT AFTER branch_id;
+
+SET @fk_exists = (
+    SELECT COUNT(*)
+    FROM information_schema.TABLE_CONSTRAINTS
+    WHERE CONSTRAINT_SCHEMA = DATABASE()
+      AND TABLE_NAME = 'purchases'
+      AND CONSTRAINT_NAME = 'fk_purchases_warehouse'
+      AND CONSTRAINT_TYPE = 'FOREIGN KEY'
+);
+
+SET @sql = IF(@fk_exists = 0,
+    'ALTER TABLE purchases ADD CONSTRAINT fk_purchases_warehouse FOREIGN KEY (target_warehouse_id) REFERENCES warehouses(id)',
+    'SELECT 1'
+);
+
+PREPARE stmt FROM @sql;
+EXECUTE stmt;
+DEALLOCATE PREPARE stmt;
 
 -- ─── Armazém demo (Matola Central) para não quebrar dados existentes ─────
 INSERT IGNORE INTO warehouses (id, code, name, nuit, address, contact, is_active, notes)

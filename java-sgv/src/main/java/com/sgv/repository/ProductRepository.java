@@ -10,18 +10,19 @@ import java.util.Optional;
 public interface ProductRepository extends JpaRepository<Product, Long> {
     Optional<Product> findByCode(String code);
 
+    List<Product> findByIdIn(List<Long> ids);
+
     @Query("SELECT p FROM Product p WHERE "
            + "LOWER(p.code) LIKE LOWER(CONCAT('%', :search, '%')) OR "
            + "LOWER(p.name) LIKE LOWER(CONCAT('%', :search, '%'))")
     List<Product> searchByCodeOrName(@Param("search") String search);
 
-    @Query("SELECT p FROM Product p WHERE "
+    @Query("SELECT p FROM Product p LEFT JOIN p.category c WHERE "
            + "LOWER(p.code) LIKE LOWER(CONCAT('%', :search, '%')) OR "
            + "LOWER(p.name) LIKE LOWER(CONCAT('%', :search, '%')) OR "
-           + "LOWER(p.category.name) LIKE LOWER(CONCAT('%', :category, '%'))")
+           + "LOWER(c.name) LIKE LOWER(CONCAT('%', :category, '%'))")
     List<Product> searchByCodeOrNameAndCategory(@Param("search") String search, @Param("category") String category);
 
-    // Active = product has been set up (name is not blank) — no dedicated 'active' column in DB
-    @Query("SELECT p FROM Product p WHERE p.name IS NOT NULL AND p.name <> ''")
+    @Query("SELECT p FROM Product p WHERE p.isActive = true AND p.name IS NOT NULL AND p.name <> ''")
     List<Product> findAllActive();
 }

@@ -5,6 +5,7 @@ public enum SaleState {
     PAGO,
     ANULADA,
     COTACAO_ABERTA,
+    COTACAO_PAGA,
     ENCOMENDA_ABERTA;
 
     public static SaleState fromString(String s) {

@@ -2,8 +2,8 @@
 setlocal
 set "SCRIPT_DIR=%~dp0"
 if not defined JAVA_HOME (
-  if exist "C:\Users\DELL\.jdk\jdk-25.0.2\bin\java.exe" (
-    set "JAVA_HOME=C:\Users\DELL\.jdk\jdk-25.0.2"
+  if exist "C:\Program Files\Eclipse Adoptium\jdk-25.0.3.9-hotspot" (
+    set "JAVA_HOME=C:\Program Files\Eclipse Adoptium\jdk-25.0.3.9-hotspot"
   )
 )
 if defined JAVA_HOME if exist "%JAVA_HOME%\bin\java.exe" (
@@ -21,6 +21,6 @@ if not exist "%JAR%" (
 )
 cd /d "%SCRIPT_DIR%"
 if not exist "data" mkdir "data"
-"%JAVA_EXE%" -jar "%JAR%" --spring.profiles.active=test
+"%JAVA_EXE%" -jar "%JAR%"
 if errorlevel 1 pause
 endlocal

@@ -1,53 +1,46 @@
 package com.sgv.service;
 
-import com.sgv.entity.Role;
 import com.sgv.entity.User;
 import com.sgv.repository.UserRepository;
-import org.springframework.beans.factory.annotation.Value;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
-
-import java.util.Set;
 
 @Service
 public class DesktopAuthService {
 
+    private static final Logger log = LoggerFactory.getLogger(DesktopAuthService.class);
+
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
-    private final String ghostUsername;
-    private final String ghostPassword;
 
     public DesktopAuthService(UserRepository userRepository,
-                              PasswordEncoder passwordEncoder,
-                              @Value("${superadmin.username:superadmin}") String ghostUsername,
-                              @Value("${superadmin.password:SuperSecret123!}") String ghostPassword) {
+                              PasswordEncoder passwordEncoder) {
         this.userRepository = userRepository;
         this.passwordEncoder = passwordEncoder;
-        this.ghostUsername = ghostUsername;
-        this.ghostPassword = ghostPassword;
     }
 
     public User authenticate(String username, String rawPassword) {
-        if (username != null && username.equalsIgnoreCase(ghostUsername)
-                && rawPassword != null && rawPassword.equals(ghostPassword)) {
-            return createGhostSuperAdmin();
+        var userOpt = userRepository.findByUsername(username);
+        if (userOpt.isEmpty()) {
+            log.warn("[AUTH] User '{}' nao encontrado na BD", username);
+            return null;
         }
-        return userRepository.findByUsername(username)
-                .filter(User::isActive)
-                .filter(user -> passwordEncoder.matches(rawPassword, user.getPasswordHash()))
-                .orElse(null);
-    }
-
-    private User createGhostSuperAdmin() {
-        User user = new User();
-        user.setUsername(ghostUsername);
-        user.setFullName("Super Admin");
-        user.setActive(true);
-        Role role = new Role();
-        role.setName("SUPERADMIN");
-        role.setDescription("Ghost superadmin with all permissions");
-        role.setPermissions(Set.of("*:*"));
-        user.setRoles(Set.of(role));
+        User user = userOpt.get();
+        if (!user.isActive()) {
+            log.warn("[AUTH] User '{}' esta inativo (active=false)", username);
+            return null;
+        }
+        String hash = user.getPasswordHash();
+        log.debug("[AUTH] User '{}' encontrado (id={}, active=true, hash_prefix={})", username, user.getId(), hash != null ? hash.substring(0, Math.min(10, hash.length())) : "null");
+        boolean matches = passwordEncoder.matches(rawPassword, hash);
+        if (!matches) {
+            log.warn("[AUTH] Password nao corresponde para user '{}' (hash_prefix={})", username, hash != null ? hash.substring(0, Math.min(20, hash.length())) : "null");
+            return null;
+        }
+        log.info("[AUTH] Autenticacao bem-sucedida para user '{}'", username);
         return user;
     }
 }
+

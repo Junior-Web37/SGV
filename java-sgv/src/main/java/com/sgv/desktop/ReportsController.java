@@ -2,6 +2,8 @@ package com.sgv.desktop;
 
 import com.sgv.entity.*;
 import com.sgv.repository.*;
+import com.sgv.service.AppConfigService;
+import com.sgv.service.SafTExportService;
 import com.sgv.service.StockBranchService;
 import javafx.application.Platform;
 import javafx.beans.property.SimpleStringProperty;
@@ -14,6 +16,10 @@ import javafx.scene.control.*;
 import javafx.scene.control.cell.PropertyValueFactory;
 import javafx.scene.layout.*;
 import javafx.util.converter.NumberStringConverter;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Component;
 
 import java.math.BigDecimal;
@@ -35,6 +41,8 @@ public class ReportsController {
     private final SaleItemRepository saleItemRepository;
     private final StockBranchService stockBranchService;
     private final TransferRepository transferRepository;
+    private final SafTExportService safTExportService;
+    private final AppConfigService appConfigService;
 
     // Vendas tab state (so filter button can access date pickers)
     private DatePicker vendasDe;
@@ -46,6 +54,28 @@ public class ReportsController {
     private Label kpiLucroLabel;
     private LineChart<String, Number> vendasChart;
 
+    // Pagination
+    private static final int PAGE_SIZE = 50;
+
+    // IVA tab pagination state
+    private int ivaPage = 0;
+    private TableView<Sale> ivaTable;
+    private Label ivaPageLabel;
+    private Button ivaPrevBtn;
+    private Button ivaNextBtn;
+    private Label ivaCountLabel;
+    private Label ivaBaseVal;
+    private Label ivaIvaVal;
+    private Label ivaTotVal;
+
+    // Stock Movimentos tab pagination state
+    private int movementsPage = 0;
+    private TableView<StockMovementRow> movementsTable;
+    private Label movementsPageLabel;
+    private Button movementsPrevBtn;
+    private Button movementsNextBtn;
+    private Label movementsCountLabel;
+
     public ReportsController(SaleRepository saleRepository,
                              ProductRepository productRepository,
                              CustomerRepository customerRepository,
@@ -53,7 +83,9 @@ public class ReportsController {
                              StockMovementRepository stockMovementRepository,
                              SaleItemRepository saleItemRepository,
                              StockBranchService stockBranchService,
-                             TransferRepository transferRepository) {
+                             TransferRepository transferRepository,
+                             SafTExportService safTExportService,
+                             AppConfigService appConfigService) {
         this.saleRepository = saleRepository;
         this.productRepository = productRepository;
         this.customerRepository = customerRepository;
@@ -62,6 +94,8 @@ public class ReportsController {
         this.saleItemRepository = saleItemRepository;
         this.stockBranchService = stockBranchService;
         this.transferRepository = transferRepository;
+        this.safTExportService = safTExportService;
+        this.appConfigService = appConfigService;
     }
 
     @FXML
@@ -215,7 +249,21 @@ public class ReportsController {
         kpiCountLabel.setText(String.valueOf(numTx));
         kpiTicketLabel.setText(fmt(ticket) + " MZN");
         kpiIvaLabel.setText(fmt(ivaCobrado) + " MZN");
-        kpiLucroLabel.setText(fmt(totalSold * 0.25) + " MZN");
+
+        Set<Long> saleIds = sales.stream().map(Sale::getId).collect(Collectors.toSet());
+        List<SaleItem> allItems = saleItemRepository.findBySaleDateRange(fromDt, toDt);
+        double totalProfit = 0.0;
+        for (SaleItem item : allItems) {
+            if (item.getSale() == null || !saleIds.contains(item.getSale().getId())) continue;
+            double lineTotal = item.getLineTotal() != null ? item.getLineTotal() : 0.0;
+            double costBasis = 0.0;
+            if (item.getProduct() != null && item.getProduct().getPriceCost() != null) {
+                double qty = item.getQty() != null ? item.getQty() : 0.0;
+                costBasis = item.getProduct().getPriceCost() * qty;
+            }
+            totalProfit += (lineTotal - costBasis);
+        }
+        kpiLucroLabel.setText(fmt(totalProfit) + " MZN");
 
         vendasChart.getData().clear();
         Map<LocalDate, Double> daily = new TreeMap<>();
@@ -391,7 +439,7 @@ public class ReportsController {
             qtyMap.merge(pid, q, Double::sum);
             revMap.merge(pid, q * p, Double::sum);
         });
-        List<Product> all = productRepository.findAll();
+        List<Product> all = productRepository.findAllActive();
         List<TopSoldRow> rows = qtyMap.entrySet().stream()
                 .sorted(Map.Entry.<Long, Double>comparingByValue().reversed()).limit(10)
                 .map(e -> {
@@ -430,25 +478,25 @@ public class ReportsController {
         content.setMaxWidth(1100);
 
         HBox kpiH = new HBox(12);
-        Label baseVal = new Label("0,00");
-        Label ivaVal  = new Label("0,00");
-        Label totVal  = new Label("0,00");
+        ivaBaseVal = new Label("0,00");
+        ivaIvaVal  = new Label("0,00");
+        ivaTotVal  = new Label("0,00");
         kpiH.getChildren().addAll(
-            kpiCard("Base Tributável",   baseVal, "#2563EB"),
-            kpiCard("IVA Cobrado (17%)", ivaVal,  "#2563EB"),
-            kpiCard("Total c/ IVA",       totVal,  "#0F172A")
+            kpiCard("Base Tributável",           ivaBaseVal, "#2563EB"),
+            kpiCard("IVA Cobrado (" + String.format("%.0f", appConfigService.get().getDefaultTaxRate()) + "%)", ivaIvaVal, "#2563EB"),
+            kpiCard("Total c/ IVA",       ivaTotVal,  "#0F172A")
         );
 
-        TableView<Sale> table = new TableView<>();
-        table.setStyle("-fx-font-size:13px; -fx-background-color:#ffffff;");
-        table.setColumnResizePolicy(TableView.UNCONSTRAINED_RESIZE_POLICY);
-        table.setPlaceholder(new Label("Nenhum documento neste período"));
+        ivaTable = new TableView<>();
+        ivaTable.setStyle("-fx-font-size:13px; -fx-background-color:#ffffff;");
+        ivaTable.setColumnResizePolicy(TableView.UNCONSTRAINED_RESIZE_POLICY);
+        ivaTable.setPlaceholder(new Label("Nenhum documento neste período"));
 
         TableColumn<Sale, String> col1 = col("Documento", 110);
         TableColumn<Sale, String> col2 = col("Data", 100);
         TableColumn<Sale, String> col3 = col("Cliente", 200);
         TableColumn<Sale, String> col4 = col("Base", 120);
-        TableColumn<Sale, String> col5 = col("IVA (17%)", 110);
+        TableColumn<Sale, String> col5 = col("IVA (" + String.format("%.0f", appConfigService.get().getDefaultTaxRate()) + "%)", 110);
         TableColumn<Sale, String> col6 = col("Total", 110);
         col1.setCellValueFactory(c -> sv(c.getValue().getSeries() + "/" + c.getValue().getDocumentNumber()));
         col2.setCellValueFactory(c -> sv(c.getValue().getCreatedAt() != null
@@ -458,7 +506,7 @@ public class ReportsController {
         col4.setCellValueFactory(c -> sv(fmtD(c.getValue().getSubtotal())));
         col5.setCellValueFactory(c -> sv(fmtD(c.getValue().getTotalTax())));
         col6.setCellValueFactory(c -> sv(fmtD(c.getValue().getTotal())));
-        table.getColumns().addAll(col1, col2, col3, col4, col5, col6);
+        ivaTable.getColumns().addAll(col1, col2, col3, col4, col5, col6);
 
         HBox toolbar = new HBox(8);
         Label title = new Label("DOCUMENTOS DO MÊS CORRENTE");
@@ -466,28 +514,57 @@ public class ReportsController {
         Region spacer = new Region();
         HBox.setHgrow(spacer, Priority.ALWAYS);
         Button export = btn("Exportar SAF-T", "#2563EB");
-        export.setOnAction(e -> showAlert("Exportação SAF-T em desenvolvimento."));
-        toolbar.getChildren().addAll(title, spacer, export);
+        export.setOnAction(e -> {
+            try {
+                List<Sale> sales = saleRepository.findAll().stream()
+                        .filter(s -> s.getCreatedAt() != null)
+                        .sorted(Comparator.comparing(Sale::getCreatedAt).reversed())
+                        .toList();
+                java.nio.file.Path outputPath = java.nio.file.Paths.get("backups", "saf_t_export_" + java.time.LocalDate.now() + ".xml");
+                java.nio.file.Files.createDirectories(outputPath.toAbsolutePath().getParent());
+                safTExportService.exportSalesToXml(sales, outputPath);
+                showAlert("Exportação SAF-T criada em: " + outputPath.toAbsolutePath());
+            } catch (Exception ex) {
+                showAlert("Não foi possível exportar SAF-T: " + ex.getMessage());
+            }
+        });
+        ivaCountLabel = new Label("0 documentos");
+        ivaCountLabel.setStyle("-fx-font-size:12px; -fx-font-weight:600; -fx-text-fill:#475569;");
+        toolbar.getChildren().addAll(title, ivaCountLabel, spacer, export);
 
-        List<Sale> sales = saleRepository.findAll().stream()
-                .filter(s -> s.getCreatedAt() != null)
-                .sorted(Comparator.comparing(Sale::getCreatedAt).reversed())
-                .collect(Collectors.toList());
-        double base = sales.stream().mapToDouble(s -> s.getSubtotal() != null ? s.getSubtotal() : 0).sum();
-        double iva  = sales.stream().mapToDouble(s -> s.getTotalTax() != null ? s.getTotalTax() : 0).sum();
-        double tot  = sales.stream().mapToDouble(s -> s.getTotal() != null ? s.getTotal() : 0).sum();
-        baseVal.setText(fmt(base) + " MZN");
-        ivaVal.setText(fmt(iva) + " MZN");
-        totVal.setText(fmt(tot) + " MZN");
-        table.setItems(FXCollections.observableArrayList(sales));
+        ivaPrevBtn = btn("← Anterior", "#2563EB");
+        ivaNextBtn = btn("Próximo →", "#2563EB");
+        ivaPageLabel = new Label("Página 1 de 1");
+        ivaPageLabel.setStyle("-fx-font-size:12px; -fx-font-weight:600; -fx-text-fill:#475569;");
+        ivaPrevBtn.setOnAction(e -> { ivaPage--; loadIvaData(); });
+        ivaNextBtn.setOnAction(e -> { ivaPage++; loadIvaData(); });
+        HBox ivaPagination = new HBox(10);
+        ivaPagination.setAlignment(javafx.geometry.Pos.CENTER);
+        ivaPagination.getChildren().addAll(ivaPrevBtn, ivaPageLabel, ivaNextBtn);
+
+        loadIvaData();
 
         VBox card1 = card("RESUMO FISCAL", kpiH);
-        VBox card2 = card("", new VBox(toolbar, table));
+        VBox card2 = card("", new VBox(toolbar, ivaTable, ivaPagination));
 
         content.getChildren().addAll(card1, card2);
         sp.setContent(content);
         tab.setContent(sp);
         return tab;
+    }
+
+    private void loadIvaData() {
+        Pageable pageable = PageRequest.of(ivaPage, PAGE_SIZE, Sort.by(Sort.Direction.DESC, "createdAt"));
+        Page<Sale> page = saleRepository.findAll(pageable);
+
+        ivaBaseVal.setText(fmt(saleRepository.sumSubtotalAll()) + " MZN");
+        ivaIvaVal.setText(fmt(saleRepository.sumTotalTaxAll()) + " MZN");
+        ivaTotVal.setText(fmt(saleRepository.sumTotalAll()) + " MZN");
+
+        ivaTable.setItems(FXCollections.observableArrayList(page.getContent()));
+        ivaCountLabel.setText(page.getTotalElements() + " documentos");
+
+        updatePaginationButtons(ivaPageLabel, ivaPrevBtn, ivaNextBtn, ivaPage, page.getTotalPages());
     }
 
     // ── TAB 5: MOVIMENTOS DE ESTOQUE ─────────────────
@@ -503,10 +580,10 @@ public class ReportsController {
         content.setStyle("-fx-padding:20;");
         content.setMaxWidth(1100);
 
-        TableView<StockMovementRow> table = new TableView<>();
-        table.setStyle("-fx-font-size:13px; -fx-background-color:#ffffff;");
-        table.setColumnResizePolicy(TableView.UNCONSTRAINED_RESIZE_POLICY);
-        table.setPlaceholder(new Label("Nenhum movimento encontrado"));
+        movementsTable = new TableView<>();
+        movementsTable.setStyle("-fx-font-size:13px; -fx-background-color:#ffffff;");
+        movementsTable.setColumnResizePolicy(TableView.UNCONSTRAINED_RESIZE_POLICY);
+        movementsTable.setPlaceholder(new Label("Nenhum movimento encontrado"));
 
         TableColumn<StockMovementRow, String> sc1 = col("Data / Hora", 140);
         TableColumn<StockMovementRow, String> sc2 = col("Produto", 200);
@@ -524,9 +601,39 @@ public class ReportsController {
         sc6.setCellValueFactory(new PropertyValueFactory<>("stockAfter"));
         sc7.setCellValueFactory(new PropertyValueFactory<>("branchName"));
         sc8.setCellValueFactory(new PropertyValueFactory<>("userName"));
-        table.getColumns().addAll(sc1, sc2, sc3, sc4, sc5, sc6, sc7, sc8);
+        movementsTable.getColumns().addAll(sc1, sc2, sc3, sc4, sc5, sc6, sc7, sc8);
 
-        List<StockMovementRow> rows = stockMovementRepository.findAll().stream()
+        movementsPrevBtn = btn("← Anterior", "#2563EB");
+        movementsNextBtn = btn("Próximo →", "#2563EB");
+        movementsPageLabel = new Label("Página 1 de 1");
+        movementsPageLabel.setStyle("-fx-font-size:12px; -fx-font-weight:600; -fx-text-fill:#475569;");
+        movementsPrevBtn.setOnAction(e -> { movementsPage--; loadMovementsData(); });
+        movementsNextBtn.setOnAction(e -> { movementsPage++; loadMovementsData(); });
+        HBox movementsPagination = new HBox(10);
+        movementsPagination.setAlignment(javafx.geometry.Pos.CENTER);
+        movementsPagination.getChildren().addAll(movementsPrevBtn, movementsPageLabel, movementsNextBtn);
+
+        HBox toolbar = new HBox(8);
+        movementsCountLabel = new Label("0 movimentos");
+        movementsCountLabel.setStyle("-fx-font-size:12px; -fx-font-weight:600; -fx-text-fill:#475569;");
+        Region spacer = new Region();
+        HBox.setHgrow(spacer, Priority.ALWAYS);
+        toolbar.getChildren().addAll(movementsCountLabel, spacer);
+
+        loadMovementsData();
+
+        VBox card = card("HISTÓRICO DE MOVIMENTOS", new VBox(toolbar, movementsTable, movementsPagination));
+        content.getChildren().addAll(card);
+        sp.setContent(content);
+        tab.setContent(sp);
+        return tab;
+    }
+
+    private void loadMovementsData() {
+        Pageable pageable = PageRequest.of(movementsPage, PAGE_SIZE, Sort.by(Sort.Direction.DESC, "createdAt"));
+        Page<StockMovement> page = stockMovementRepository.findAll(pageable);
+
+        List<StockMovementRow> rows = page.getContent().stream()
                 .map(sm -> new StockMovementRow(
                         sm.getCreatedAt() != null ? sm.getCreatedAt().format(DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm")) : "—",
                         sm.getProduct() != null ? sm.getProduct().getName() : "—",
@@ -538,20 +645,10 @@ public class ReportsController {
                         sm.getUser() != null ? sm.getUser().getUsername() : "—"
                 ))
                 .collect(Collectors.toList());
-        table.setItems(FXCollections.observableArrayList(rows));
+        movementsTable.setItems(FXCollections.observableArrayList(rows));
+        movementsCountLabel.setText(page.getTotalElements() + " movimentos");
 
-        HBox toolbar = new HBox(8);
-        Label count = new Label(rows.size() + " movimentos");
-        count.setStyle("-fx-font-size:12px; -fx-font-weight:600; -fx-text-fill:#475569;");
-        Region spacer = new Region();
-        HBox.setHgrow(spacer, Priority.ALWAYS);
-        toolbar.getChildren().addAll(count, spacer);
-
-        VBox card = card("HISTÓRICO DE MOVIMENTOS", new VBox(toolbar, table));
-        content.getChildren().addAll(card);
-        sp.setContent(content);
-        tab.setContent(sp);
-        return tab;
+        updatePaginationButtons(movementsPageLabel, movementsPrevBtn, movementsNextBtn, movementsPage, page.getTotalPages());
     }
 
     // ── TAB 6: MATRIZ DE STOCK ──────────────────────
@@ -642,7 +739,7 @@ public class ReportsController {
      * If branchFilter != null and != "Todas as Filiais", show only that branch's stock.
      */
     private List<StockMatrixRow> buildStockMatrixRows(String branchFilter, List<Branch> allBranches, List<String> branchNames) {
-        List<Product> products = productRepository.findAll();
+        List<Product> products = productRepository.findAllActive();
 
         // Pre-load all stock_branch records keyed by (productId, branchId)
         Map<Long, Map<Long, BigDecimal>> stockMap = new HashMap<>();
@@ -955,6 +1052,12 @@ public class ReportsController {
     // ══════════════════════════════════════════════════
     // UTIL
     // ══════════════════════════════════════════════════
+
+    private void updatePaginationButtons(Label label, Button prev, Button next, int currentPage, int totalPages) {
+        label.setText("Página " + (currentPage + 1) + " de " + Math.max(1, totalPages));
+        prev.setDisable(currentPage <= 0);
+        next.setDisable(currentPage >= totalPages - 1);
+    }
 
     private String fmt(double v) {
         return String.format("%,.2f", v).replace(",", "X").replace(".", ",").replace("X", ".");

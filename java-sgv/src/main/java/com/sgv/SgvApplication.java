@@ -2,8 +2,14 @@ package com.sgv;
 
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
+import org.springframework.cache.annotation.EnableCaching;
+import org.springframework.scheduling.annotation.EnableScheduling;
+import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
 
 @SpringBootApplication
+@EnableCaching
+@EnableScheduling
+@EnableMethodSecurity
 public class SgvApplication {
     public static void main(String[] args) {
         String headless = System.getProperty("sgv.headless");
