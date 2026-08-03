@@ -197,6 +197,7 @@ public class DashboardController {
     private final ApplicationContext applicationContext;
     private final TrainingModeService trainingModeService;
     private final AppConfigService appConfigService;
+    private final FilterPresetService filterPresetService;
 
     private User currentUser;
     private VBox productFilterPanel;
@@ -218,9 +219,10 @@ public class DashboardController {
                                DashboardKpiManager kpiManager,
                                CashSessionService cashSessionService,
                                SystemLogService systemLogService,
-                               ApplicationContext applicationContext,
-                               TrainingModeService trainingModeService,
-                               AppConfigService appConfigService) {
+                                ApplicationContext applicationContext,
+                                TrainingModeService trainingModeService,
+                                AppConfigService appConfigService,
+                                FilterPresetService filterPresetService) {
         this.navManager = navManager;
         this.crudManager = crudManager;
         this.kpiManager = kpiManager;
@@ -229,6 +231,7 @@ public class DashboardController {
         this.applicationContext = applicationContext;
         this.trainingModeService = trainingModeService;
         this.appConfigService = appConfigService;
+        this.filterPresetService = filterPresetService;
     }
 
     // ═══════════════════════════════════════════════════════════════════════════
@@ -362,7 +365,6 @@ public class DashboardController {
         if (navBackButton != null) UiUtils.attachSafe(navBackButton, () -> navManager.drillBack(navRootPane, navSubPane), systemLogService, "NAV_BACK");
 
         setupCrudButtons();
-        setupFilterPanels();
 
         if (notificationBellButton != null) notificationBellButton.setOnAction(e -> kpiManager.showNotificationPopup(notificationBellButton));
 
@@ -473,8 +475,9 @@ public class DashboardController {
 
     private void setupFilterPanels() {
         try {
-            if (productsFilterPane != null) {
-                productFilterPanel = FilterPanelBuilder.createProductFilterPanel(criteria -> {
+            long userId = currentUser != null && currentUser.getId() != null ? currentUser.getId() : 0L;
+            if (productsFilterPane != null && productsFilterPane.getChildren().isEmpty()) {
+                productFilterPanel = FilterPanelBuilder.createProductFilterPanel(filterPresetService, userId, criteria -> {
                     if (criteria != null && productsTable != null) {
                         if (criteria.category() != null && !criteria.category().isBlank() && !criteria.category().equals("Todos")) {
                             var list = applicationContext.getBean(ProductRepository.class).searchByCodeOrNameAndCategory(
@@ -486,8 +489,8 @@ public class DashboardController {
                 }, () -> clearProductFilter());
                 productsFilterPane.getChildren().add(productFilterPanel);
             }
-            if (customersFilterPane != null) {
-                customerFilterPanel = FilterPanelBuilder.createCustomerFilterPanel(criteria -> {
+            if (customersFilterPane != null && customersFilterPane.getChildren().isEmpty()) {
+                customerFilterPanel = FilterPanelBuilder.createCustomerFilterPanel(filterPresetService, userId, criteria -> {
                     if (criteria != null) {
                         if (criteria.type() != null && !criteria.type().isBlank() && !criteria.type().equals("Todos")) {
                             var list = applicationContext.getBean(CustomerRepository.class).searchByCodeOrNameAndType(
@@ -514,6 +517,7 @@ public class DashboardController {
         loadSales();
         loadProducts();
         loadCustomers();
+        setupFilterPanels();
         applyPermissions();
         updateTrainingBanner();
         systemLogService.logSystem("DASHBOARD_LOADED", "Painel carregado para o utilizador: " + (user != null ? user.getUsername() : "?"));
