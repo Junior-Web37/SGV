@@ -1062,6 +1062,151 @@ public class DashboardNavigationManager {
         updateCashBadge.run();
     }
 
+    public void showStockWarehousePane(Button navStockArmazem, Label pageTitleLabel, Label pageSubtitleLabel,
+                                       VBox stockArmazemPane, User currentUser,
+                                       VBox[] allPanes, Button[] allNavButtons,
+                                       Runnable updateCashBadge,
+                                       Runnable onNewPurchase, Runnable onTransfer) {
+        setActiveNav(navStockArmazem, allNavButtons);
+        pageTitleLabel.setText("Stock por Armazém");
+        pageSubtitleLabel.setText("Stock central em todos os armazéns");
+        setPaneVisibility(stockArmazemPane, allPanes);
+
+        if (stockArmazemPane.getChildren().isEmpty()) {
+            VBox main = new VBox(0);
+            main.setStyle("-fx-background-color: #F8FAFC;");
+
+            HBox toolbar = new HBox(10);
+            toolbar.setStyle("-fx-background-color: #ffffff; -fx-padding: 12 16; -fx-border-color: #E2E8F0; -fx-border-width: 0 0 1 0;");
+
+            Button btnReceber = makeActionButton("Receber Compra", "#10B981", "#ffffff");
+            Button btnTransferir = makeActionButton("Transferir para Filial", "#2563EB", "#ffffff");
+            Button btnAtualizar = makeActionButton("Atualizar", "#475569", "#ffffff");
+
+            ComboBox<Warehouse> warehouseFilter = new ComboBox<>();
+            warehouseFilter.setPromptText("Todos os armazéns");
+            warehouseFilter.setPrefWidth(220);
+            warehouseFilter.setStyle("-fx-font-size: 13px; -fx-font-weight: 600; -fx-background-color: #F8FAFC;");
+
+            Region spacer = new Region();
+            HBox.setHgrow(spacer, Priority.ALWAYS);
+
+            TextField searchField = new TextField();
+            searchField.setPromptText("Pesquisar produto...");
+            searchField.setPrefWidth(260);
+            searchField.setStyle("-fx-font-size: 13px; -fx-font-weight: 600; -fx-padding: 8 12; -fx-background-radius: 6; -fx-border-color: #E2E8F0; -fx-border-radius: 6; -fx-background-color: #F8FAFC;");
+
+            UiUtils.attachSafe(btnReceber, onNewPurchase, systemLogService, "SW_RECEIVE");
+            UiUtils.attachSafe(btnTransferir, onTransfer, systemLogService, "SW_TRANSFER");
+
+            toolbar.getChildren().addAll(btnReceber, btnTransferir, btnAtualizar, warehouseFilter, spacer, searchField);
+
+            TableView<StockWarehouse> table = new TableView<>();
+            table.setStyle("-fx-font-size: 13px; -fx-background-color: #ffffff; -fx-border-color: #E2E8F0; -fx-border-width: 0 1 1 1; -fx-padding: 0 20 20 20;");
+            table.setPlaceholder(new Label("Sem stock registado em armazéns"));
+            table.setRowFactory(makeTableRowFactory());
+
+            TableColumn<StockWarehouse, String> w1 = new TableColumn<>("Armazém");
+            w1.setPrefWidth(160);
+            w1.setCellValueFactory(d -> new SimpleStringProperty(d.getValue().getWarehouse() != null ? d.getValue().getWarehouse().getName() : "—"));
+
+            TableColumn<StockWarehouse, String> w2 = new TableColumn<>("Código");
+            w2.setPrefWidth(90);
+            w2.setCellValueFactory(d -> new SimpleStringProperty(d.getValue().getProduct() != null && d.getValue().getProduct().getCode() != null ? d.getValue().getProduct().getCode() : "—"));
+
+            TableColumn<StockWarehouse, String> w3 = new TableColumn<>("Produto");
+            w3.setPrefWidth(240);
+            w3.setCellValueFactory(d -> new SimpleStringProperty(d.getValue().getProduct() != null ? d.getValue().getProduct().getName() : "—"));
+
+            TableColumn<StockWarehouse, String> w4 = new TableColumn<>("Categoria");
+            w4.setPrefWidth(130);
+            w4.setCellValueFactory(d -> {
+                Product p = d.getValue().getProduct();
+                return new SimpleStringProperty(p != null && p.getCategory() != null ? p.getCategory().getName() : "—");
+            });
+
+            TableColumn<StockWarehouse, String> w5 = new TableColumn<>("Quantidade");
+            w5.setPrefWidth(110);
+            w5.setCellValueFactory(d -> new SimpleStringProperty(d.getValue().getStockCurrentAmount() != null ? String.format("%.1f", d.getValue().getStockCurrentAmount()) : "0"));
+
+            TableColumn<StockWarehouse, String> w6 = new TableColumn<>("Unidade");
+            w6.setPrefWidth(90);
+            w6.setCellValueFactory(d -> new SimpleStringProperty(d.getValue().getProduct() != null && d.getValue().getProduct().getUnit() != null ? d.getValue().getProduct().getUnit().getAbbreviation() : "—"));
+
+            TableColumn<StockWarehouse, String> w7 = new TableColumn<>("Valor");
+            w7.setPrefWidth(120);
+            w7.setCellValueFactory(d -> {
+                BigDecimal qty = d.getValue().getStockCurrentAmount() != null ? d.getValue().getStockCurrentAmount() : BigDecimal.ZERO;
+                Double cost = d.getValue().getProduct() != null ? d.getValue().getProduct().getPriceCost() : null;
+                return new SimpleStringProperty(cost != null ? String.format("%.2f MT", qty.doubleValue() * cost) : "—");
+            });
+
+            table.getColumns().addAll(List.of(w1, w2, w3, w4, w5, w6, w7));
+
+            Runnable load = () -> {
+                String q = searchField.getText() == null ? "" : searchField.getText().trim().toLowerCase();
+                Warehouse selected = warehouseFilter.getValue();
+                List<StockWarehouse> list = stockWarehouseRepository.findAll();
+                list.sort(Comparator.comparing((StockWarehouse sw) -> sw.getWarehouse() != null ? sw.getWarehouse().getName() : "").thenComparing(sw -> sw.getProduct() != null ? sw.getProduct().getName() : ""));
+                List<StockWarehouse> filtered = list.stream()
+                        .filter(sw -> selected == null || (sw.getWarehouse() != null && sw.getWarehouse().getId().equals(selected.getId())))
+                        .filter(sw -> q.isEmpty() || (sw.getProduct() != null && (sw.getProduct().getName().toLowerCase().contains(q) || (sw.getProduct().getCode() != null && sw.getProduct().getCode().toLowerCase().contains(q)))))
+                        .toList();
+                table.setItems(FXCollections.observableArrayList(filtered));
+                GridPane kpi = (GridPane) stockArmazemPane.lookup("#stockArmazemKPI");
+                if (kpi != null) {
+                    int whCount = (int) list.stream().map(sw -> sw.getWarehouse() != null ? sw.getWarehouse().getId() : -1L).distinct().count();
+                    BigDecimal totalQty = list.stream().filter(sw -> sw.getStockCurrentAmount() != null).map(StockWarehouse::getStockCurrentAmount).reduce(BigDecimal.ZERO, BigDecimal::add);
+                    BigDecimal totalValue = list.stream().mapToDouble(sw -> {
+                        BigDecimal qty = sw.getStockCurrentAmount() != null ? sw.getStockCurrentAmount() : BigDecimal.ZERO;
+                        Double cost = sw.getProduct() != null ? sw.getProduct().getPriceCost() : null;
+                        return cost != null ? qty.doubleValue() * cost : 0.0;
+                    }).mapToObj(BigDecimal::valueOf).reduce(BigDecimal.ZERO, BigDecimal::add);
+                    kpiManager.updateKPICard(kpi, 0, String.valueOf(list.size()));
+                    kpiManager.updateKPICard(kpi, 1, String.format("%.1f", totalQty));
+                    kpiManager.updateKPICard(kpi, 2, String.format("%.0f MT", totalValue));
+                    kpiManager.updateKPICard(kpi, 3, String.valueOf(whCount));
+                }
+            };
+
+            List<Warehouse> warehouses = warehouseRepository.findAll();
+            warehouses.sort(Comparator.comparing(Warehouse::getName));
+            warehouseFilter.setItems(FXCollections.observableArrayList(warehouses));
+            warehouseFilter.setCellFactory(cb -> new ListCell<>() {
+                @Override
+                protected void updateItem(Warehouse w, boolean empty) {
+                    super.updateItem(w, empty);
+                    setText(empty || w == null ? null : w.getName());
+                }
+            });
+            warehouseFilter.setButtonCell(new ListCell<>() {
+                @Override
+                protected void updateItem(Warehouse w, boolean empty) {
+                    super.updateItem(w, empty);
+                    setText(empty || w == null ? "Todos os armazéns" : w.getName());
+                }
+            });
+            warehouseFilter.valueProperty().addListener((obs, o, n) -> load.run());
+
+            UiUtils.setupDebounce(searchField, load, 400);
+            UiUtils.attachSafe(btnAtualizar, load, systemLogService, "SW_REFRESH");
+
+            GridPane kpiGrid = buildKPIGrid(
+                new String[]{"Linhas de Stock", "Quantidade Total", "Valor em Stock", "Armazéns"},
+                new String[]{"Produtos em armazém", "Unidades totais", "Custo em stock", "Armazéns com stock"},
+                new String[]{"blue", "green", "purple", "orange"}
+            );
+            kpiGrid.setId("stockArmazemKPI");
+
+            main.getChildren().addAll(kpiGrid, toolbar, table);
+            stockArmazemPane.getChildren().add(main);
+
+            load.run();
+        }
+
+        updateCashBadge.run();
+    }
+
     public void showComprasPane(Button navCompras, Label pageTitleLabel, Label pageSubtitleLabel,
                                  VBox comprasPane, User currentUser,
                                  VBox[] allPanes, Button[] allNavButtons,

@@ -75,9 +75,10 @@
                             <Button fx:id="navMenuSistema" text="Sistema"           styleClass="nav-btn"/>
                         </HBox>
 
-                        <!-- Armazém: Armazéns | Transferir Stock | Fornecedores -->
+                        <!-- Armazém: Armazéns | Stock por Armazém | Transferir Stock | Fornecedores -->
                         <HBox fx:id="navArmazensItems" spacing="4" alignment="CENTER_LEFT" visible="false" managed="false">
                             <Button fx:id="navMenuArmazens"    text="Armazéns"         styleClass="nav-btn"/>
+                            <Button fx:id="navMenuStockArmazem" text="Stock por Armazém" styleClass="nav-btn"/>
                             <Button fx:id="navMenuTransferir"  text="Transferir Stock" styleClass="nav-btn"/>
                             <Button fx:id="navMenuFornecedores" text="Fornecedores"    styleClass="nav-btn"/>
                         </HBox>
@@ -235,6 +236,9 @@
 
                         <!-- ARMAZENS (WAREHOUSE DASHBOARD) -->
                         <VBox fx:id="warehousesPane" spacing="16" visible="false" managed="false" maxWidth="Infinity" VBox.vgrow="ALWAYS"/>
+
+                        <!-- STOCK POR ARMAZÉM -->
+                        <VBox fx:id="stockArmazemPane" spacing="16" visible="false" managed="false" maxWidth="Infinity" VBox.vgrow="ALWAYS"/>
 
                         <!-- TURNO / CAIXA -->
                         <VBox fx:id="turnoCaixaPane" spacing="20" visible="false" managed="false" maxWidth="Infinity"/>
