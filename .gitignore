@@ -15,6 +15,7 @@ target/
 
 # Logs
 *.log
+*.gz
 hs_err_pid*.log
 replay_pid*.log
 app-crash.log

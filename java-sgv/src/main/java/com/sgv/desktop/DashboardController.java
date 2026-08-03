@@ -7,16 +7,10 @@ import javafx.animation.FadeTransition;
 import javafx.beans.property.SimpleStringProperty;
 import javafx.collections.FXCollections;
 import javafx.fxml.FXML;
-import javafx.geometry.Insets;
-import javafx.geometry.Pos;
 import javafx.scene.Node;
-import javafx.scene.Parent;
-import javafx.scene.Scene;
 import javafx.scene.control.*;
 import javafx.scene.layout.*;
-import javafx.stage.Modality;
 import javafx.stage.Stage;
-import javafx.stage.StageStyle;
 import javafx.stage.Window;
 import javafx.util.Duration;
 import org.slf4j.Logger;
@@ -24,11 +18,8 @@ import org.slf4j.LoggerFactory;
 import org.springframework.context.ApplicationContext;
 import org.springframework.stereotype.Component;
 
-import java.math.BigDecimal;
 import java.time.LocalDateTime;
-import java.util.HashMap;
 import java.util.Locale;
-import java.util.Map;
 
 @Component
 public class DashboardController {
@@ -71,12 +62,14 @@ public class DashboardController {
     @FXML private Button navModFinanceiro;
     @FXML private Button navModOperacoes;
     @FXML private Button navModAdministracao;
+    @FXML private Button navModArmazens;
     @FXML private Button navModLogs;
 
     @FXML private HBox navComercialItems;
     @FXML private HBox navFinanceiroItems;
     @FXML private HBox navOperacoesItems;
     @FXML private HBox navAdminItems;
+    @FXML private HBox navArmazensItems;
 
     @FXML private Button navMenuNovaVenda;
     @FXML private Button navMenuVendas;
@@ -121,12 +114,7 @@ public class DashboardController {
     @FXML private Button btnEditUnidade;
     @FXML private Button btnDeleteUnidade;
     @FXML private TableView<Category> categoriesTable;
-    @FXML private TableColumn<Category, String> colCatId;
-    @FXML private TableColumn<Category, String> colCatName;
     @FXML private TableView<MetricUnit> unitsTable;
-    @FXML private TableColumn<MetricUnit, String> colUnitId;
-    @FXML private TableColumn<MetricUnit, String> colUnitAbbr;
-    @FXML private TableColumn<MetricUnit, String> colUnitDesc;
 
     @FXML private TextField stockSearchField;
     @FXML private Button btnAjustarStock;
@@ -146,41 +134,16 @@ public class DashboardController {
     @FXML private Button printReceiptButton;
     @FXML private Button annulSaleButton;
     @FXML private TableView<Sale> salesTable;
-    @FXML private TableColumn<Sale, String> salesDocumentColumn;
-    @FXML private TableColumn<Sale, String> salesBranchColumn;
-    @FXML private TableColumn<Sale, String> salesCustomerColumn;
-    @FXML private TableColumn<Sale, String> salesTotalColumn;
-    @FXML private TableColumn<Sale, String> salesStateColumn;
-    @FXML private TableColumn<Sale, String> salesDateColumn;
-    @FXML private Button salesPrevButton;
-    @FXML private Label salesPageLabel;
-    @FXML private Button salesNextButton;
 
     @FXML private Button createProductButton;
     @FXML private Button editProductButton;
     @FXML private Button deleteProductButton;
     @FXML private TableView<Product> productsTable;
-    @FXML private TableColumn<Product, String> productCodeColumn;
-    @FXML private TableColumn<Product, String> productNameColumn;
-    @FXML private TableColumn<Product, String> productCategoryColumn;
-    @FXML private TableColumn<Product, String> productPriceColumn;
-    @FXML private TableColumn<Product, String> productStockColumn;
-    @FXML private Button productsPrevButton;
-    @FXML private Label productsPageLabel;
-    @FXML private Button productsNextButton;
 
     @FXML private Button createCustomerButton;
     @FXML private Button editCustomerButton;
     @FXML private Button deleteCustomerButton;
     @FXML private TableView<Customer> customersTable;
-    @FXML private TableColumn<Customer, String> customerCodeColumn;
-    @FXML private TableColumn<Customer, String> customerNameColumn;
-    @FXML private TableColumn<Customer, String> customerTypeColumn;
-    @FXML private TableColumn<Customer, String> customerBalanceColumn;
-    @FXML private TableColumn<Customer, String> customerCreatedColumn;
-    @FXML private Button customersPrevButton;
-    @FXML private Label customersPageLabel;
-    @FXML private Button customersNextButton;
 
     @FXML private Button createPurchaseButton;
     @FXML private Button editPurchaseButton;
@@ -215,12 +178,8 @@ public class DashboardController {
     @FXML private Button editBranchButton;
     @FXML private TableView<Branch> branchesTable;
 
-    @FXML private TextField companyNameField;
-    @FXML private TextField companyNuitField;
-    @FXML private Button saveCompanyConfigButton;
     @FXML private VBox branchInfoBox;
 
-    @FXML private VBox salesFilterPane;
     @FXML private VBox productsFilterPane;
     @FXML private VBox customersFilterPane;
 
@@ -230,7 +189,6 @@ public class DashboardController {
     private final DashboardNavigationManager navManager;
     private final DashboardCrudManager crudManager;
     private final DashboardKpiManager kpiManager;
-    private final FilterPresetService filterPresetService;
     private final CashSessionService cashSessionService;
     private final SystemLogService systemLogService;
     private final ApplicationContext applicationContext;
@@ -255,7 +213,6 @@ public class DashboardController {
     public DashboardController(DashboardNavigationManager navManager,
                                DashboardCrudManager crudManager,
                                DashboardKpiManager kpiManager,
-                               FilterPresetService filterPresetService,
                                CashSessionService cashSessionService,
                                SystemLogService systemLogService,
                                ApplicationContext applicationContext,
@@ -264,7 +221,6 @@ public class DashboardController {
         this.navManager = navManager;
         this.crudManager = crudManager;
         this.kpiManager = kpiManager;
-        this.filterPresetService = filterPresetService;
         this.cashSessionService = cashSessionService;
         this.systemLogService = systemLogService;
         this.applicationContext = applicationContext;
@@ -323,13 +279,15 @@ public class DashboardController {
         setVisible(navMenuStock, canStock); setVisible(navMenuArmazens, canArmazens);
         setVisible(navMenuTransferir, canTransferir); setVisible(navMenuCatalogos, canCatalogos);
         setVisible(navMenuCaixa, canCaixa); setVisible(navMenuFinanceiro, canFinanceiro);
-        setVisible(navMenuCompras, canCompras); setVisible(navMenuDespesas, canFinanceiro);
+        setVisible(navMenuCompras, canCompras); setVisible(navMenuFornecedores, canCompras);
+        setVisible(navMenuDespesas, canFinanceiro);
         setVisible(navMenuPagamentos, canFinanceiro); setVisible(navMenuProducao, canProducao);
         setVisible(navMenuRelatorios, canRelatorios); setVisible(navMenuSistema, canSistema);
-        setVisible(navModComercial, canVendas || canProdutos || canClientes || canStock || canArmazens || canTransferir || canCatalogos);
+        setVisible(navModComercial, canVendas || canProdutos || canClientes);
         setVisible(navModFinanceiro, canCaixa || canFinanceiro || canCompras);
-        setVisible(navModOperacoes, canProducao || canRelatorios);
-        setVisible(navModAdministracao, canSistema);
+        setVisible(navModOperacoes, canStock || canCaixa || canCompras);
+        setVisible(navModArmazens, canArmazens || canTransferir || canCompras);
+        setVisible(navModAdministracao, canCatalogos || canRelatorios || canSistema);
         setVisible(navModLogs, canSistema);
 
         setActionButtonPermission(createProductButton, "PRODUTOS", "CREATE");
@@ -376,18 +334,21 @@ public class DashboardController {
         if (navMenuProdutos != null) UiUtils.attachSafe(navMenuProdutos, () -> { if (ensurePermission("PRODUTOS", "VIEW", "Produtos")) showProductsPane(); }, systemLogService, "NAV_PRODUTOS");
         if (navMenuClientes != null) UiUtils.attachSafe(navMenuClientes, () -> { if (ensurePermission("CLIENTES", "VIEW", "Clientes")) showCustomersPane(); }, systemLogService, "NAV_CLIENTES");
         if (navMenuStock != null) UiUtils.attachSafe(navMenuStock, () -> { if (ensurePermission("STOCK", "VIEW", "Stock")) showStockPane(); }, systemLogService, "NAV_STOCK");
+        if (navModArmazens != null) UiUtils.attachSafe(navModArmazens, () -> showSubNav("Armazém", navArmazensItems), systemLogService, "NAV_MOD_ARMAZENS");
         if (navMenuArmazens != null) UiUtils.attachSafe(navMenuArmazens, () -> { if (ensurePermission("ARMAZENS", "VIEW", "Armazéns")) showWarehousesPane(); }, systemLogService, "NAV_ARMAZENS");
         if (navMenuTransferir != null) UiUtils.attachSafe(navMenuTransferir, () -> { if (ensurePermission("TRANSFERENCIAS", "VIEW", "Transferências")) openWarehouseTransferForm(); }, systemLogService, "NAV_TRANSFERIR");
         if (navMenuCatalogos != null) UiUtils.attachSafe(navMenuCatalogos, () -> { if (ensurePermission("CATALOGOS", "VIEW", "Catálogos")) showCatalogsPane(); }, systemLogService, "NAV_CATALOGOS");
 
-        if (navMenuCaixa != null) navMenuCaixa.setOnAction(e -> { if (ensurePermission("CAIXA", "VIEW", "Caixa")) showTurnoCaixaPane(); });
-        if (navMenuFinanceiro != null) navMenuFinanceiro.setOnAction(e -> { if (ensurePermission("FINANCEIRO", "VIEW", "Financeiro")) showFinanceiroPane(); });
-        if (navMenuCompras != null) navMenuCompras.setOnAction(e -> { if (ensurePermission("COMPRAS", "VIEW", "Compras")) showComprasPane(); });
-        if (navMenuProducao != null) navMenuProducao.setOnAction(e -> { if (ensurePermission("PRODUCAO", "VIEW", "Produção")) showProducaoPane(); });
-        if (navMenuRelatorios != null) navMenuRelatorios.setOnAction(e -> { if (ensurePermission("RELATORIOS", "VIEW", "Relatórios")) showReportsPane(); });
-        if (navMenuSistema != null) navMenuSistema.setOnAction(e -> { if (ensurePermission("SISTEMA", "VIEW", "Sistema")) showSistemaPane(); });
-        if (navMenuDespesas != null) navMenuDespesas.setOnAction(e -> showFinanceiroPane());
-        if (navMenuPagamentos != null) navMenuPagamentos.setOnAction(e -> showFinanceiroPane());
+        if (navMenuCaixa != null) UiUtils.attachSafe(navMenuCaixa, () -> { if (ensurePermission("CAIXA", "VIEW", "Caixa")) showTurnoCaixaPane(); }, systemLogService, "NAV_CAIXA");
+        if (cashStatusBadge != null) cashStatusBadge.setOnMouseClicked(e -> { if (ensurePermission("CAIXA", "VIEW", "Caixa")) showTurnoCaixaPane(); });
+        if (navMenuFinanceiro != null) UiUtils.attachSafe(navMenuFinanceiro, () -> { if (ensurePermission("FINANCEIRO", "VIEW", "Financeiro")) showFinanceiroPane(); }, systemLogService, "NAV_FINANCEIRO");
+        if (navMenuCompras != null) UiUtils.attachSafe(navMenuCompras, () -> { if (ensurePermission("COMPRAS", "VIEW", "Compras")) showComprasPane(); }, systemLogService, "NAV_COMPRAS");
+        if (navMenuFornecedores != null) UiUtils.attachSafe(navMenuFornecedores, () -> { if (ensurePermission("COMPRAS", "VIEW", "Fornecedores")) showFornecedoresPane(); }, systemLogService, "NAV_FORNECEDORES");
+        if (navMenuProducao != null) UiUtils.attachSafe(navMenuProducao, () -> { if (ensurePermission("PRODUCAO", "VIEW", "Produção")) showProducaoPane(); }, systemLogService, "NAV_PRODUCAO");
+        if (navMenuRelatorios != null) UiUtils.attachSafe(navMenuRelatorios, () -> { if (ensurePermission("RELATORIOS", "VIEW", "Relatórios")) showReportsPane(); }, systemLogService, "NAV_RELATORIOS");
+        if (navMenuSistema != null) UiUtils.attachSafe(navMenuSistema, () -> { if (ensurePermission("SISTEMA", "VIEW", "Sistema")) showSistemaPane(); }, systemLogService, "NAV_SISTEMA");
+        if (navMenuDespesas != null) UiUtils.attachSafe(navMenuDespesas, this::showFinanceiroPane, systemLogService, "NAV_DESPESAS");
+        if (navMenuPagamentos != null) UiUtils.attachSafe(navMenuPagamentos, this::showFinanceiroPane, systemLogService, "NAV_PAGAMENTOS");
 
         if (navModComercial != null) UiUtils.attachSafe(navModComercial, () -> showSubNav("Comercial", navComercialItems), systemLogService, "NAV_MOD_COMERCIAL");
         if (navModOperacoes != null) UiUtils.attachSafe(navModOperacoes, () -> showSubNav("Operações", navOperacoesItems), systemLogService, "NAV_MOD_OPERACOES");
@@ -401,7 +362,6 @@ public class DashboardController {
 
         if (notificationBellButton != null) notificationBellButton.setOnAction(e -> kpiManager.showNotificationPopup(notificationBellButton));
 
-        initTables();
         navManager.loadReportsPane(reportsPane);
         showSummaryPane();
     }
@@ -482,8 +442,6 @@ public class DashboardController {
             createBranchButton.setOnAction(e -> openBranchForm(null));
             editBranchButton.setOnAction(e -> { if (branchesTable != null && branchesTable.getSelectionModel().getSelectedItem() != null) openBranchForm(branchesTable.getSelectionModel().getSelectedItem()); });
         }
-
-        if (saveCompanyConfigButton != null) saveCompanyConfigButton.setOnAction(e -> saveCompanyConfig());
 
         if (createOrderButton != null) {
             createOrderButton.setOnAction(e -> openOrderForm(null));
@@ -613,14 +571,14 @@ public class DashboardController {
 
     private Button[] allNavButtons() {
         return new Button[]{navResumo, navMenuNovaVenda, navMenuVendas, navMenuProdutos, navMenuClientes,
-            navMenuStock, navMenuArmazens, navMenuTransferir, navMenuCatalogos, navMenuCaixa,
-            navMenuCompras, navMenuPagamentos, navMenuDespesas, navMenuCatalogos, navMenuRelatorios,
+            navMenuStock, navMenuArmazens, navMenuTransferir, navMenuFornecedores, navMenuCatalogos,
+            navMenuCaixa, navMenuCompras, navMenuPagamentos, navMenuDespesas, navMenuRelatorios,
             navMenuSistema};
     }
 
     private void showSubNav(String moduleLabel, HBox targetItems) {
         navManager.showSubNav(moduleLabel, targetItems, navRootPane, navSubPane, navSubModuleLabel,
-            navComercialItems, navOperacoesItems, navFinanceiroItems, navAdminItems);
+            navComercialItems, navOperacoesItems, navFinanceiroItems, navAdminItems, navArmazensItems);
     }
 
     private void showSummaryPane() {
@@ -715,6 +673,11 @@ public class DashboardController {
 
     private void showComprasPane() {
         navManager.showComprasPane(navMenuCompras, pageTitleLabel, pageSubtitleLabel,
+            comprasPane, currentUser, allPanes(), allNavButtons(), this::updateCashBadge);
+    }
+
+    private void showFornecedoresPane() {
+        navManager.showComprasPane(navMenuFornecedores, pageTitleLabel, pageSubtitleLabel,
             comprasPane, currentUser, allPanes(), allNavButtons(), this::updateCashBadge);
     }
 
@@ -857,64 +820,10 @@ public class DashboardController {
     public void clearSaleFilter() { saleFilter = ""; saleStateFilter = "TODOS"; saleDocTypeFilter = "TODOS"; saleStartDate = null; saleEndDate = null; currentSalesPage = 0; loadSales(); }
 
     // ═══════════════════════════════════════════════════════════════════════════
-    // TABLE INIT
-    // ═══════════════════════════════════════════════════════════════════════════
-
-    private void initTables() {
-        if (salesDocumentColumn != null) salesDocumentColumn.setCellValueFactory(cell -> new SimpleStringProperty(cell.getValue().getDocumentType() + " " + cell.getValue().getSeries() + "/" + cell.getValue().getDocumentNumber()));
-        if (salesBranchColumn != null) salesBranchColumn.setCellValueFactory(cell -> new SimpleStringProperty(cell.getValue().getBranch() != null ? cell.getValue().getBranch().getName() : ""));
-        if (salesCustomerColumn != null) salesCustomerColumn.setCellValueFactory(cell -> new SimpleStringProperty(cell.getValue().getCustomerName() != null ? cell.getValue().getCustomerName() : ""));
-        if (salesTotalColumn != null) salesTotalColumn.setCellValueFactory(cell -> new SimpleStringProperty(String.format("%.2f", cell.getValue().getTotal() != null ? cell.getValue().getTotal() : 0.0)));
-        if (salesStateColumn != null) salesStateColumn.setCellValueFactory(cell -> new SimpleStringProperty(cell.getValue().getState() != null ? cell.getValue().getState() : ""));
-        if (salesDateColumn != null) salesDateColumn.setCellValueFactory(cell -> new SimpleStringProperty(cell.getValue().getCreatedAt() != null ? cell.getValue().getCreatedAt().format(java.time.format.DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm")) : ""));
-        if (productCodeColumn != null) productCodeColumn.setCellValueFactory(cell -> new SimpleStringProperty(cell.getValue().getCode()));
-        if (productNameColumn != null) productNameColumn.setCellValueFactory(cell -> new SimpleStringProperty(cell.getValue().getName()));
-        if (productCategoryColumn != null) productCategoryColumn.setCellValueFactory(cell -> new SimpleStringProperty(cell.getValue().getCategory() != null ? cell.getValue().getCategory().getName() : ""));
-        if (productPriceColumn != null) productPriceColumn.setCellValueFactory(cell -> new SimpleStringProperty(String.format("%.2f", cell.getValue().getPriceSale() != null ? cell.getValue().getPriceSale() : 0.0)));
-        if (customerCodeColumn != null) customerCodeColumn.setCellValueFactory(cell -> new SimpleStringProperty(cell.getValue().getCode()));
-        if (customerNameColumn != null) customerNameColumn.setCellValueFactory(cell -> new SimpleStringProperty(cell.getValue().getName()));
-        if (customerTypeColumn != null) customerTypeColumn.setCellValueFactory(cell -> new SimpleStringProperty(cell.getValue().getType()));
-        if (customerBalanceColumn != null) customerBalanceColumn.setCellValueFactory(cell -> new SimpleStringProperty(String.format("%.2f", cell.getValue().getBalance() != null ? cell.getValue().getBalance() : 0.0)));
-        if (customerCreatedColumn != null) customerCreatedColumn.setCellValueFactory(cell -> new SimpleStringProperty(cell.getValue().getCreatedAt() != null ? cell.getValue().getCreatedAt().toString() : ""));
-        if (sysUserUsernameColumn != null) sysUserUsernameColumn.setCellValueFactory(cell -> new SimpleStringProperty(cell.getValue().getUsername()));
-        if (sysUserFullNameColumn != null) sysUserFullNameColumn.setCellValueFactory(cell -> new SimpleStringProperty(cell.getValue().getFullName()));
-        if (sysUserRoleColumn != null) sysUserRoleColumn.setCellValueFactory(cell -> new SimpleStringProperty(cell.getValue().getRoles() != null && !cell.getValue().getRoles().isEmpty() ? cell.getValue().getRoles().iterator().next().getName() : ""));
-        if (sysUserBranchColumn != null) sysUserBranchColumn.setCellValueFactory(cell -> new SimpleStringProperty(cell.getValue().getBranch() != null ? cell.getValue().getBranch().getName() : ""));
-        if (sysUserActiveColumn != null) sysUserActiveColumn.setCellValueFactory(cell -> new SimpleStringProperty(Boolean.TRUE.equals(cell.getValue().isActive()) ? "Ativo" : "Inativo"));
-        if (sysBranchIdColumn != null) sysBranchIdColumn.setCellValueFactory(new javafx.scene.control.cell.PropertyValueFactory<>("id"));
-        if (sysBranchNameColumn != null) sysBranchNameColumn.setCellValueFactory(new javafx.scene.control.cell.PropertyValueFactory<>("name"));
-        if (sysBranchAddressColumn != null) sysBranchAddressColumn.setCellValueFactory(new javafx.scene.control.cell.PropertyValueFactory<>("address"));
-        if (sysBranchNuitColumn != null) sysBranchNuitColumn.setCellValueFactory(new javafx.scene.control.cell.PropertyValueFactory<>("nuit"));
-        if (sysBranchActiveColumn != null) sysBranchActiveColumn.setCellValueFactory(cell -> new SimpleStringProperty(Boolean.TRUE.equals(cell.getValue().isHead()) ? "Sede" : "Filial"));
-        if (colCatId != null) colCatId.setCellValueFactory(data -> new SimpleStringProperty(String.valueOf(data.getValue().getId())));
-        if (colCatName != null) colCatName.setCellValueFactory(data -> new SimpleStringProperty(data.getValue().getName()));
-        if (colUnitId != null) colUnitId.setCellValueFactory(data -> new SimpleStringProperty(String.valueOf(data.getValue().getId())));
-        if (colUnitAbbr != null) colUnitAbbr.setCellValueFactory(data -> new SimpleStringProperty(data.getValue().getAbbreviation()));
-        if (colUnitDesc != null) colUnitDesc.setCellValueFactory(data -> new SimpleStringProperty(data.getValue().getDescription()));
-    }
-
-    @FXML private TableColumn<User, String> sysUserUsernameColumn;
-    @FXML private TableColumn<User, String> sysUserFullNameColumn;
-    @FXML private TableColumn<User, String> sysUserRoleColumn;
-    @FXML private TableColumn<User, String> sysUserBranchColumn;
-    @FXML private TableColumn<User, String> sysUserActiveColumn;
-    @FXML private TableColumn<Branch, Long> sysBranchIdColumn;
-    @FXML private TableColumn<Branch, String> sysBranchNameColumn;
-    @FXML private TableColumn<Branch, String> sysBranchAddressColumn;
-    @FXML private TableColumn<Branch, String> sysBranchNuitColumn;
-    @FXML private TableColumn<Branch, String> sysBranchActiveColumn;
-
-    // ═══════════════════════════════════════════════════════════════════════════
     // CASH / COMPANY / UTILITY
     // ═══════════════════════════════════════════════════════════════════════════
 
     private void updateCashBadge() { kpiManager.updateCashBadge(cashStatusBadge, currentUser); }
-
-    private void saveCompanyConfig() {
-        if (companyNameField.getText() == null || companyNameField.getText().isBlank()) { showAlert(Alert.AlertType.WARNING, "Nome da Empresa é obrigatório."); return; }
-        if (companyNuitField.getText() == null || companyNuitField.getText().isBlank()) { showAlert(Alert.AlertType.WARNING, "NUIT da Empresa é obrigatório."); return; }
-        showAlert(Alert.AlertType.INFORMATION, "Configurações da Empresa salvas com sucesso!");
-    }
 
     private void animateEntrance() {
         FadeTransition ft1 = new FadeTransition(Duration.millis(450), salesLabel); ft1.setFromValue(0.0); ft1.setToValue(1.0); ft1.setDelay(Duration.millis(100));

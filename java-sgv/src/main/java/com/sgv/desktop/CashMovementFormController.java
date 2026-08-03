@@ -1,6 +1,5 @@
 package com.sgv.desktop;
 
-import com.sgv.entity.User;
 import com.sgv.service.CashSessionService;
 import javafx.collections.FXCollections;
 import javafx.fxml.FXML;
@@ -40,20 +39,38 @@ public class CashMovementFormController extends BaseFormController {
 
     @Override
     protected void validateRealTime() {
+        StringBuilder errors = new StringBuilder();
         boolean valid = true;
-        if (typeCombo.getValue() == null) valid = false;
-        if (descriptionField.getText() == null || descriptionField.getText().trim().isEmpty()) valid = false;
+        if (typeCombo.getValue() == null) {
+            errors.append("Tipo é obrigatório. ");
+            valid = false;
+        }
+        if (descriptionField.getText() == null || descriptionField.getText().trim().isEmpty()) {
+            errors.append("Descrição é obrigatória. ");
+            valid = false;
+        }
         String amt = amountField.getText();
-        if (amt == null || amt.trim().isEmpty()) valid = false;
-        else {
-            try { 
-                java.math.BigDecimal val = new java.math.BigDecimal(amt.trim().replace(",", ".")); 
-                if (val.compareTo(java.math.BigDecimal.ZERO) <= 0) valid = false; 
+        if (amt == null || amt.trim().isEmpty()) {
+            errors.append("Valor é obrigatório. ");
+            valid = false;
+        } else {
+            try {
+                java.math.BigDecimal val = new java.math.BigDecimal(amt.trim().replace(",", "."));
+                if (val.compareTo(java.math.BigDecimal.ZERO) <= 0) {
+                    errors.append("Valor deve ser maior que 0. ");
+                    valid = false;
+                }
+            } catch (Exception e) {
+                errors.append("Valor inválido. ");
+                valid = false;
             }
-            catch (Exception e) { valid = false; }
         }
         formValidProperty.set(valid);
-        if (valid) hideError();
+        if (!valid) {
+            showError(errors.toString().trim());
+        } else {
+            hideError();
+        }
     }
 
     public void setOnSuccess(Runnable onSuccess) { this.onSuccess = onSuccess; }
@@ -62,6 +79,9 @@ public class CashMovementFormController extends BaseFormController {
     protected void doSave() {
         if (checkTrainingBlock()) return;
         if (!formValidProperty.get()) return;
+        if (typeCombo.getValue() == null) { showError("Tipo é obrigatório."); return; }
+        if (descriptionField.getText() == null || descriptionField.getText().trim().isEmpty()) { showError("Descrição é obrigatória."); return; }
+        if (amountField.getText() == null || amountField.getText().trim().isEmpty()) { showError("Valor é obrigatório."); return; }
         showSaveSpinner();
 
         javafx.concurrent.Task<Void> saveTask = new javafx.concurrent.Task<>() {
@@ -74,7 +94,12 @@ public class CashMovementFormController extends BaseFormController {
             }
         };
         saveTask.setOnSucceeded(e -> { if (onSuccess != null) onSuccess.run(); doCancel(); });
-        saveTask.setOnFailed(e -> { showError(((javafx.concurrent.Task<?>)e.getSource()).getException().getMessage()); hideSaveSpinner(); });
+        saveTask.setOnFailed(e -> {
+            Throwable ex = saveTask.getException();
+            String msg = ex != null && ex.getMessage() != null ? ex.getMessage() : "Erro desconhecido";
+            showError(msg);
+            hideSaveSpinner();
+        });
         new Thread(saveTask).start();
     }
 }

@@ -8,6 +8,7 @@ import javafx.stage.Stage;
 import org.springframework.stereotype.Component;
 
 import java.util.Optional;
+import java.math.BigDecimal;
 import com.sgv.service.SystemLogService;
 
 @Component
@@ -66,17 +67,25 @@ public class CustomerFormController extends BaseFormController {
         nameField.textProperty().addListener((obs, o, n) -> validateRealTime());
         creditLimitField.textProperty().addListener((obs, o, n) -> validateRealTime());
         defaultDiscountField.textProperty().addListener((obs, o, n) -> validateRealTime());
+        nuitField.textProperty().addListener((obs, o, n) -> validateRealTime());
+        contactField.textProperty().addListener((obs, o, n) -> validateRealTime());
+        typeCombo.valueProperty().addListener((obs, o, n) -> validateRealTime());
 
         javafx.application.Platform.runLater(this::validateRealTime);
     }
 
     private void checkDuplicateCode(String code) {
         new Thread(() -> {
-            Optional<Customer> existing = customerRepository.findAll().stream()
-                    .filter(c -> code.equalsIgnoreCase(c.getCode()))
-                    .filter(c -> customer == null || customer.getId() == null || !c.getId().equals(customer.getId()))
-                    .findFirst();
-            codeAlreadyExists = existing.isPresent();
+            try {
+                String finalCode = code;
+                Optional<Customer> existing = customerRepository.findByCodeIgnoreCase(finalCode);
+                codeAlreadyExists = existing.isPresent()
+                        && (customer == null || customer.getId() == null
+                        || !existing.get().getId().equals(customer.getId()));
+            } catch (Exception e) {
+                codeAlreadyExists = false;
+                systemLogService.logError("CUSTOMER_DUPL_CHECK", "Erro ao verificar código", e);
+            }
             javafx.application.Platform.runLater(this::validateRealTime);
         }).start();
     }
@@ -87,6 +96,7 @@ public class CustomerFormController extends BaseFormController {
         boolean valid = true;
 
         if (codeField.getText() == null || codeField.getText().isBlank()) {
+            errors.append("Código é obrigatório. ");
             valid = false;
         } else if (codeAlreadyExists) {
             errors.append("Código já existe. ");
@@ -95,6 +105,7 @@ public class CustomerFormController extends BaseFormController {
 
         String name = nameField.getText();
         if (name == null || name.isBlank()) {
+            errors.append("Nome é obrigatório. ");
             valid = false;
         } else if (name.trim().length() < 3) {
             errors.append("Nome muito curto (mín. 3 caracteres). ");
@@ -103,8 +114,8 @@ public class CustomerFormController extends BaseFormController {
 
         if (creditLimitField.getText() != null && !creditLimitField.getText().isBlank()) {
             try {
-                java.math.BigDecimal limit = new java.math.BigDecimal(creditLimitField.getText().replace(",", "."));
-                if (limit.compareTo(java.math.BigDecimal.ZERO) < 0) {
+                BigDecimal limit = new BigDecimal(creditLimitField.getText().replace(",", "."));
+                if (limit.compareTo(BigDecimal.ZERO) < 0) {
                     errors.append("Limite de crédito não pode ser negativo. ");
                     valid = false;
                 }
@@ -116,8 +127,8 @@ public class CustomerFormController extends BaseFormController {
 
         if (defaultDiscountField.getText() != null && !defaultDiscountField.getText().isBlank()) {
             try {
-                java.math.BigDecimal disc = new java.math.BigDecimal(defaultDiscountField.getText().replace(",", "."));
-                if (disc.compareTo(java.math.BigDecimal.ZERO) < 0 || disc.compareTo(new java.math.BigDecimal("100")) > 0) {
+                BigDecimal disc = new BigDecimal(defaultDiscountField.getText().replace(",", "."));
+                if (disc.compareTo(BigDecimal.ZERO) < 0 || disc.compareTo(new BigDecimal("100")) > 0) {
                     errors.append("Desconto deve estar entre 0 e 100%. ");
                     valid = false;
                 }
@@ -129,16 +140,38 @@ public class CustomerFormController extends BaseFormController {
 
         if (nuitField.getText() != null && !nuitField.getText().isBlank()) {
             String nuit = nuitField.getText().replaceAll("\\D", "");
-            if (!nuit.isEmpty() && nuit.length() != 9) {
-                errors.append("NUIT deve ter 9 dígitos. ");
+            if (!nuit.isEmpty()) {
+                if (nuit.length() != 9) {
+                    errors.append("NUIT deve ter 9 dígitos. ");
+                    valid = false;
+                } else if (!com.sgv.util.NuitValidator.isValid(nuit)) {
+                    errors.append("NUIT inválido — dígito de controlo incorrecto. ");
+                    valid = false;
+                }
+            }
+        }
+
+        if (contactField.getText() != null && !contactField.getText().isBlank()) {
+            String contact = contactField.getText().trim();
+            boolean hasDigit = false;
+            boolean hasLetter = false;
+            for (char c : contact.toCharArray()) {
+                if (Character.isDigit(c)) hasDigit = true;
+                else if (Character.isLetter(c)) hasLetter = true;
+            }
+            if (contact.length() < 7) {
+                errors.append("Contacto muito curto (mín. 7 caracteres). ");
+                valid = false;
+            } else if (hasLetter && !contact.contains("@")) {
+                errors.append("Contacto inválido — use telefone ou email. ");
                 valid = false;
             }
         }
 
         formValidProperty.set(valid);
 
-        if (!valid && errors.length() > 0) {
-            showError(errors.toString().trim());
+        if (!valid) {
+            showError(errors.length() > 0 ? errors.toString().trim() : "Preencha todos os campos obrigatórios.");
         } else {
             hideError();
         }
@@ -155,17 +188,18 @@ public class CustomerFormController extends BaseFormController {
             nameField.setText(c.getName());
             nuitField.setText(c.getNuit() != null ? c.getNuit() : "");
             typeCombo.setValue(c.getType());
-            creditLimitField.setText(c.getCreditLimit() != null ? String.valueOf(c.getCreditLimit()) : "");
-            defaultDiscountField.setText(c.getDefaultDiscount() != null ? String.valueOf(c.getDefaultDiscount()) : "");
+            creditLimitField.setText(c.getCreditLimitAmount() != null
+                    ? c.getCreditLimitAmount().stripTrailingZeros().toPlainString() : "");
+            defaultDiscountField.setText(c.getDefaultDiscountAmount() != null
+                    ? c.getDefaultDiscountAmount().stripTrailingZeros().toPlainString() : "");
             addressField.setText(c.getAddress() != null ? c.getAddress() : "");
             contactField.setText(c.getContact() != null ? c.getContact() : "");
             codeField.setDisable(true);
             codeAlreadyExists = false;
         } else {
             this.customer = new Customer();
-            if (c == null || c.getCode() == null || c.getCode().isBlank()) {
-                codeField.setText("CLI-" + System.currentTimeMillis() % 100000);
-            }
+            codeField.setText(Customer.generateCode(customerRepository));
+            codeField.setDisable(true);
         }
         validateRealTime();
     }
@@ -194,8 +228,9 @@ public class CustomerFormController extends BaseFormController {
         });
         deleteTask.setOnFailed(e -> {
             Throwable ex = deleteTask.getException();
-            systemLogService.logError("CUSTOMER_DELETE_FAILED", "Erro ao apagar cliente: " + ex.getMessage(), ex);
-            showError("Erro ao apagar: " + ex.getMessage());
+            String msg = ex.getMessage() != null ? ex.getMessage() : "Erro desconhecido";
+            systemLogService.logError("CUSTOMER_DELETE_FAILED", "Erro ao apagar cliente: " + msg, ex);
+            showError("Erro ao apagar: " + msg);
         });
         new Thread(deleteTask).start();
     }
@@ -205,12 +240,23 @@ public class CustomerFormController extends BaseFormController {
         if (checkTrainingBlock()) return;
         if (!formValidProperty.get()) return;
 
+        String code = codeField.getText();
+        if (code == null || code.isBlank()) { showError("Código é obrigatório."); return; }
+        if (nameField.getText() == null || nameField.getText().isBlank()) { showError("Nome é obrigatório."); return; }
+
         showSaveSpinner();
 
         javafx.concurrent.Task<Void> saveTask = new javafx.concurrent.Task<>() {
             @Override
             protected Void call() throws Exception {
-                customer.setCode(codeField.getText().trim());
+                String trimmedCode = code.trim();
+                customerRepository.findByCodeIgnoreCase(trimmedCode)
+                        .filter(existing -> customer == null || customer.getId() == null || !existing.getId().equals(customer.getId()))
+                        .ifPresent(existing -> {
+                            throw new RuntimeException("Código '" + trimmedCode + "' já existe.");
+                        });
+
+                customer.setCode(trimmedCode);
                 customer.setName(nameField.getText().trim());
                 customer.setNuit(nuitField.getText() != null ? nuitField.getText().trim() : "");
                 customer.setType(typeCombo.getValue() != null ? typeCombo.getValue() : "PESSOA_FISICA");
@@ -248,12 +294,12 @@ public class CustomerFormController extends BaseFormController {
         new Thread(saveTask).start();
     }
 
-    private java.math.BigDecimal parseBigDecimalOrZero(String text) {
-        if (text == null || text.isBlank()) return java.math.BigDecimal.ZERO;
+    private BigDecimal parseBigDecimalOrZero(String text) {
+        if (text == null || text.isBlank()) return BigDecimal.ZERO;
         try {
-            return new java.math.BigDecimal(text.trim().replace(",", "."));
+            return new BigDecimal(text.trim().replace(",", "."));
         } catch (Exception e) {
-            return java.math.BigDecimal.ZERO;
+            return BigDecimal.ZERO;
         }
     }
 }

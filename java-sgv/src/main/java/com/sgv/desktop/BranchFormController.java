@@ -3,6 +3,8 @@ package com.sgv.desktop;
 import com.sgv.entity.Branch;
 import com.sgv.repository.BranchRepository;
 import com.sgv.service.SystemLogService;
+import com.sgv.util.NuitValidator;
+import javafx.concurrent.Task;
 import javafx.fxml.FXML;
 import javafx.scene.control.CheckBox;
 import javafx.scene.control.TextField;
@@ -22,6 +24,7 @@ public class BranchFormController extends BaseFormController {
     private final BranchRepository branchRepository;
     private final SystemLogService systemLogService;
     private Branch branch;
+    private Task<Boolean> duplicateCheckTask;
 
     public BranchFormController(BranchRepository branchRepository, SystemLogService systemLogService) {
         this.branchRepository = branchRepository;
@@ -44,16 +47,43 @@ public class BranchFormController extends BaseFormController {
         boolean valid = true;
 
         String name = nameField.getText();
-        if (name == null || name.isBlank()) valid = false;
+        if (name == null || name.isBlank()) { errors.append("Nome é obrigatório. "); valid = false; }
         else if (name.trim().length() < 3) { errors.append("Nome muito curto (mín. 3 caracteres). "); valid = false; }
 
-        String nuit = nuitField.getText();
-        if (nuit == null || nuit.isBlank()) valid = false;
-        else { String digits = nuit.replaceAll("\\D", ""); if (digits.length() != 9) { errors.append("NUIT deve ter 9 dígitos. "); valid = false; } }
+        if (nuitField.getText() != null && !nuitField.getText().isBlank()) {
+            String digits = nuitField.getText().replaceAll("\\D", "");
+            if (digits.length() != 9) {
+                errors.append("NUIT deve ter 9 dígitos. ");
+                valid = false;
+            } else if (!NuitValidator.isValid(digits)) {
+                errors.append("NUIT inválido — dígito de controlo incorrecto. ");
+                valid = false;
+            }
+        }
 
         formValidProperty.set(valid);
-        if (!valid && errors.length() > 0) showError(errors.toString().trim());
+        if (!valid) { showError(errors.length() > 0 ? errors.toString().trim() : "Preencha todos os campos obrigatórios."); return; }
         else hideError();
+
+        if (name != null && !name.isBlank()) {
+            String trimmedName = name.trim();
+            if (duplicateCheckTask != null) duplicateCheckTask.cancel(false);
+            duplicateCheckTask = new Task<>() {
+                @Override
+                protected Boolean call() {
+                    return branchRepository.findByNameIgnoreCase(trimmedName)
+                            .filter(b -> branch == null || branch.getId() == null || !branch.getId().equals(b.getId()))
+                            .isPresent();
+                }
+            };
+            duplicateCheckTask.setOnSucceeded(e -> {
+                if (duplicateCheckTask.getValue()) {
+                    formValidProperty.set(false);
+                    showError("Nome de filial já existe.");
+                }
+            });
+            new Thread(duplicateCheckTask).start();
+        }
     }
 
     public void setBranch(Branch b) {
@@ -76,12 +106,17 @@ public class BranchFormController extends BaseFormController {
     protected void doSave() {
         if (checkTrainingBlock()) return;
         if (!formValidProperty.get()) return;
+        if (nameField.getText() == null || nameField.getText().isBlank()) { showError("Nome é obrigatório."); return; }
         showSaveSpinner();
 
         javafx.concurrent.Task<Void> saveTask = new javafx.concurrent.Task<>() {
             @Override
             protected Void call() {
-                branch.setName(nameField.getText());
+                String trimmedName = nameField.getText().trim();
+                branchRepository.findByNameIgnoreCase(trimmedName)
+                        .filter(b -> branch == null || branch.getId() == null || !branch.getId().equals(b.getId()))
+                        .ifPresent(b -> { throw new RuntimeException("Nome de filial '" + trimmedName + "' já existe."); });
+                branch.setName(trimmedName);
                 branch.setNuit(nuitField.getText());
                 branch.setAddress(addressField.getText());
                 branch.setContact(contactField.getText());
@@ -95,8 +130,9 @@ public class BranchFormController extends BaseFormController {
         saveTask.setOnSucceeded(e -> { if (onSave != null) onSave.run(); doCancel(); });
         saveTask.setOnFailed(e -> {
             Throwable ex = saveTask.getException();
-            systemLogService.logError("BRANCH_SAVE_FAILED", "Erro ao salvar filial: " + ex.getMessage(), ex);
-            showError("Erro ao salvar: " + ex.getMessage());
+            String msg = ex.getMessage() != null ? ex.getMessage() : "Erro desconhecido";
+            systemLogService.logError("BRANCH_SAVE_FAILED", "Erro ao salvar filial: " + msg, ex);
+            showError("Erro ao salvar: " + msg);
             hideSaveSpinner();
         });
         new Thread(saveTask).start();

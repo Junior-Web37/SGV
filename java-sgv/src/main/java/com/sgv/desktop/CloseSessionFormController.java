@@ -1,6 +1,5 @@
 package com.sgv.desktop;
 
-import com.sgv.entity.User;
 import com.sgv.service.CashSessionService;
 import javafx.fxml.FXML;
 import javafx.scene.control.Label;
@@ -38,12 +37,26 @@ public class CloseSessionFormController extends BaseFormController {
 
     @Override
     protected void validateRealTime() {
+        StringBuilder errors = new StringBuilder();
         boolean valid = true;
         String text = reportedValueField.getText();
-        if (text == null || text.trim().isEmpty()) valid = false;
-        else { try { new BigDecimal(text.trim().replace(",", ".")); } catch (NumberFormatException e) { valid = false; } }
+        if (text == null || text.trim().isEmpty()) {
+            errors.append("Valor reportado é obrigatório. ");
+            valid = false;
+        } else {
+            try {
+                new BigDecimal(text.trim().replace(",", "."));
+            } catch (NumberFormatException e) {
+                errors.append("Valor reportado inválido. ");
+                valid = false;
+            }
+        }
         formValidProperty.set(valid);
-        if (valid) hideError();
+        if (!valid) {
+            showError(errors.toString().trim());
+        } else {
+            hideError();
+        }
     }
 
     public void setExpectedValue(BigDecimal value) {
@@ -57,6 +70,7 @@ public class CloseSessionFormController extends BaseFormController {
     protected void doSave() {
         if (checkTrainingBlock()) return;
         if (!formValidProperty.get()) return;
+        if (reportedValueField.getText() == null || reportedValueField.getText().trim().isEmpty()) { showError("Valor reportado é obrigatório."); return; }
         showSaveSpinner();
 
         javafx.concurrent.Task<Void> saveTask = new javafx.concurrent.Task<>() {
@@ -68,7 +82,12 @@ public class CloseSessionFormController extends BaseFormController {
             }
         };
         saveTask.setOnSucceeded(e -> { if (onSuccess != null) onSuccess.run(); doCancel(); });
-        saveTask.setOnFailed(e -> { showError(((javafx.concurrent.Task<?>)e.getSource()).getException().getMessage()); hideSaveSpinner(); });
+        saveTask.setOnFailed(e -> {
+            Throwable ex = saveTask.getException();
+            String msg = ex != null && ex.getMessage() != null ? ex.getMessage() : "Erro desconhecido";
+            showError(msg);
+            hideSaveSpinner();
+        });
         new Thread(saveTask).start();
     }
 }

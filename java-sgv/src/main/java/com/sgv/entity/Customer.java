@@ -1,5 +1,6 @@
 package com.sgv.entity;
 
+import com.sgv.repository.CustomerRepository;
 import jakarta.persistence.*;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
@@ -70,6 +71,11 @@ public class Customer {
 
     public String getContact() { return contact; }
     public void setContact(String contact) { this.contact = contact; }
+
+    public static String generateCode(CustomerRepository repo) {
+        long count = repo.count();
+        return "CLI-" + String.format("%04d", count + 1);
+    }
 
     @Override
     public String toString() {

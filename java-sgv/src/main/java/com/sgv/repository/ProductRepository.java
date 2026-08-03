@@ -10,6 +10,8 @@ import java.util.Optional;
 public interface ProductRepository extends JpaRepository<Product, Long> {
     Optional<Product> findByCode(String code);
 
+    Optional<Product> findByNameIgnoreCase(String name);
+
     List<Product> findByIdIn(List<Long> ids);
 
     @Query("SELECT p FROM Product p WHERE "
@@ -25,4 +27,7 @@ public interface ProductRepository extends JpaRepository<Product, Long> {
 
     @Query("SELECT p FROM Product p WHERE p.isActive = true AND p.name IS NOT NULL AND p.name <> ''")
     List<Product> findAllActive();
+
+    @Query("SELECT COALESCE(MAX(p.id), 0) FROM Product p")
+    Long findMaxId();
 }

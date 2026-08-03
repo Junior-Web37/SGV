@@ -2,6 +2,7 @@ package com.sgv.desktop;
 
 import com.sgv.entity.Category;
 import com.sgv.repository.CategoryRepository;
+import com.sgv.service.SystemLogService;
 import javafx.fxml.FXML;
 import javafx.scene.control.TextField;
 import org.springframework.stereotype.Component;
@@ -12,18 +13,19 @@ public class CategoryFormController extends BaseFormController {
     @FXML private TextField nameField;
 
     private final CategoryRepository categoryRepository;
+    private final SystemLogService systemLogService;
     private Category editingCategory;
-    private volatile boolean duplicatePending = false;
 
-    public CategoryFormController(CategoryRepository categoryRepository) {
+    public CategoryFormController(CategoryRepository categoryRepository, SystemLogService systemLogService) {
         this.categoryRepository = categoryRepository;
+        this.systemLogService = systemLogService;
     }
 
     @FXML
     public void initialize() {
         initCommonFields();
-        UiUtils.attachSafe(saveButton, this::doSave, null, "CATEGORY_SAVE");
-        UiUtils.attachSafe(cancelButton, this::doCancel, null, "CATEGORY_CANCEL");
+        UiUtils.attachSafe(saveButton, this::doSave, systemLogService, "CATEGORY_SAVE");
+        UiUtils.attachSafe(cancelButton, this::doCancel, systemLogService, "CATEGORY_CANCEL");
         nameField.textProperty().addListener((obs, o, n) -> validateRealTime());
         javafx.application.Platform.runLater(this::validateRealTime);
     }
@@ -32,38 +34,23 @@ public class CategoryFormController extends BaseFormController {
     protected void validateRealTime() {
         String name = nameField.getText();
         boolean valid = true;
+        String errorMsg = null;
 
         if (name == null || name.isBlank()) {
+            errorMsg = "Nome é obrigatório.";
             valid = false;
         } else if (name.trim().length() < 3) {
-            showError("Nome muito curto (mín. 3 caracteres).");
+            errorMsg = "Nome muito curto (mín. 3 caracteres).";
             valid = false;
         }
 
-        if (valid) {
-            duplicatePending = true;
-            String finalName = name.trim();
-            new Thread(() -> {
-                boolean dup = categoryRepository.findAll().stream()
-                    .anyMatch(c -> c.getName().equalsIgnoreCase(finalName)
-                        && (editingCategory == null || !c.getId().equals(editingCategory.getId())));
-                javafx.application.Platform.runLater(() -> {
-                    if (duplicatePending) {
-                        duplicatePending = false;
-                        if (dup) {
-                            showError("Já existe uma categoria com este nome.");
-                            formValidProperty.set(false);
-                        } else {
-                            hideError();
-                            formValidProperty.set(true);
-                        }
-                    }
-                });
-            }).start();
-            return;
-        }
+        formValidProperty.set(valid);
 
-        formValidProperty.set(false);
+        if (!valid) {
+            showError(errorMsg);
+        } else {
+            hideError();
+        }
     }
 
     public void setCategory(Category category) {
@@ -76,20 +63,28 @@ public class CategoryFormController extends BaseFormController {
     protected void doSave() {
         if (checkTrainingBlock()) return;
         if (!formValidProperty.get()) return;
+        if (nameField.getText() == null || nameField.getText().isBlank()) { showError("Nome é obrigatório."); return; }
         showSaveSpinner();
 
         javafx.concurrent.Task<Void> saveTask = new javafx.concurrent.Task<>() {
             @Override
             protected Void call() {
                 Category cat = editingCategory != null ? editingCategory : new Category();
-                cat.setName(nameField.getText().trim());
+                String trimmedName = nameField.getText().trim();
+                categoryRepository.findByNameIgnoreCase(trimmedName)
+                        .filter(existing -> editingCategory == null || !existing.getId().equals(editingCategory.getId()))
+                        .ifPresent(existing -> { throw new RuntimeException("Já existe uma categoria com este nome."); });
+                cat.setName(trimmedName);
                 categoryRepository.save(cat);
                 return null;
             }
         };
         saveTask.setOnSucceeded(e -> { if (onSave != null) onSave.run(); doCancel(); });
         saveTask.setOnFailed(e -> {
-            showError("Erro ao salvar: " + saveTask.getException().getMessage());
+            Throwable ex = saveTask.getException();
+            String msg = ex.getMessage() != null ? ex.getMessage() : "Erro desconhecido";
+            systemLogService.logError("CATEGORY_SAVE_FAILED", "Erro ao salvar categoria: " + msg, ex);
+            showError("Erro ao salvar: " + msg);
             hideSaveSpinner();
         });
         new Thread(saveTask).start();

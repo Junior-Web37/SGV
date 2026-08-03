@@ -447,56 +447,6 @@ public class DashboardKpiManager {
         } catch (Exception ex) { log.error("Erro inesperado", ex); }
     }
 
-    public GridPane buildKPIGrid(String[] titles, String[] subtitles, String[] colors) {
-        GridPane grid = new GridPane();
-        grid.setHgap(16);
-        grid.setVgap(16);
-        grid.setStyle("-fx-padding: 20; -fx-background-color: #F8FAFC;");
-        for (int i = 0; i < titles.length; i++) {
-            ColumnConstraints col = new ColumnConstraints();
-            col.setPercentWidth(100.0 / titles.length);
-            grid.getColumnConstraints().add(col);
-        }
-        for (int i = 0; i < titles.length; i++) {
-            VBox card = buildKPICard(titles[i], "—", subtitles[i], colors[i]);
-            GridPane.setConstraints(card, i, 0);
-            grid.getChildren().add(card);
-        }
-        return grid;
-    }
-
-    public VBox buildKPICard(String title, String value, String subtitle, String colorType) {
-        String bgColor, iconEmoji;
-        switch (colorType) {
-            case "green": bgColor = "#D1FAE5"; iconEmoji = "💰"; break;
-            case "orange": bgColor = "#FEF3C7"; iconEmoji = "⚠"; break;
-            case "purple": bgColor = "#EDE9FE"; iconEmoji = "📊"; break;
-            case "red": bgColor = "#FEE2E2"; iconEmoji = "🔴"; break;
-            default: bgColor = "#DBEAFE"; iconEmoji = "📦";
-        }
-        VBox card = new VBox();
-        card.getStyleClass().add("card-pane");
-        card.setStyle("-fx-padding: 20; -fx-min-height: 100;");
-        HBox row = new HBox(16);
-        row.setAlignment(javafx.geometry.Pos.CENTER_LEFT);
-        Label icon = new Label(iconEmoji);
-        icon.setStyle("-fx-font-size: 24px; -fx-min-width: 52px; -fx-min-height: 52px; -fx-alignment: center; -fx-background-radius: 12; -fx-background-color: " + bgColor + "; -fx-padding: 10;");
-        VBox info = new VBox(4);
-        info.setStyle("-fx-min-width: 0;");
-        HBox.setHgrow(info, Priority.ALWAYS);
-        Label titleLbl = new Label(title);
-        titleLbl.setStyle("-fx-font-size: 13px; -fx-font-weight: 700; -fx-text-fill: #475569;");
-        Label valueLbl = new Label(value);
-        valueLbl.setId("kpi-" + title.replaceAll("\\s+", "").toLowerCase());
-        valueLbl.setStyle("-fx-font-size: 26px; -fx-font-weight: 900; -fx-text-fill: #0F172A;");
-        Label subLbl = new Label(subtitle);
-        subLbl.setStyle("-fx-font-size: 12px; -fx-text-fill: #94A3B8;");
-        info.getChildren().addAll(titleLbl, valueLbl, subLbl);
-        row.getChildren().addAll(icon, info);
-        card.getChildren().add(row);
-        return card;
-    }
-
     public void updateKPICard(GridPane grid, int index, String value) {
         if (grid == null || index >= grid.getChildren().size()) return;
         VBox card = (VBox) grid.getChildren().get(index);
@@ -508,40 +458,5 @@ public class DashboardKpiManager {
             Label lbl = (Label) info.getChildren().get(1);
             lbl.setText(value);
         }
-    }
-
-    public void loadProductStats(HBox cardsBox, User currentUser) {
-        if (cardsBox == null || cardsBox.getChildren().isEmpty()) return;
-        try {
-            long total = productRepository.count();
-            double avgPrice = 0;
-            try {
-                List<Product> all = productRepository.findAll();
-                avgPrice = all.stream()
-                        .filter(p -> p.getPriceSale() != null && p.getPriceSale() > 0)
-                        .mapToDouble(Product::getPriceSale)
-                        .average().orElse(0);
-            } catch (Exception ex) { log.error("Erro ao calcular KPIs: {}", ex.getMessage(), ex); }
-            long lowStock = 0;
-            double totalValue = 0;
-            try {
-                List<Product> all = productRepository.findAll();
-                for (Product p : all) {
-                    if (currentUser != null && currentUser.getBranch() != null && p.getId() != null) {
-                        var sb = stockBranchService.findByProductIdAndBranchId(p.getId(), currentUser.getBranch().getId()).orElse(null);
-                        if (sb != null) {
-                            BigDecimal stock = sb.getStockCurrentAmount() != null ? sb.getStockCurrentAmount() : BigDecimal.ZERO;
-                            BigDecimal min = sb.getStockMinAmount() != null ? sb.getStockMinAmount() : BigDecimal.ZERO;
-                            if (stock.compareTo(BigDecimal.ZERO) > 0 && stock.compareTo(min) <= 0) lowStock++;
-                            if (p.getPriceSale() != null) totalValue += stock.doubleValue() * p.getPriceSale();
-                        }
-                    }
-                }
-            } catch (Exception ex) { log.error("Erro ao calcular stock/valor: {}", ex.getMessage(), ex); }
-            ((Label) ((VBox) cardsBox.getChildren().get(0)).lookup("#kpi-value-totaldeprodutos")).setText(String.valueOf(total));
-            ((Label) ((VBox) cardsBox.getChildren().get(1)).lookup("#kpi-value-preciomédio")).setText(String.format("%.0f MT", avgPrice));
-            ((Label) ((VBox) cardsBox.getChildren().get(2)).lookup("#kpi-value-stockbaixo")).setText(String.valueOf(lowStock));
-            ((Label) ((VBox) cardsBox.getChildren().get(3)).lookup("#kpi-value-valorstock")).setText(String.format("%.0f MT", totalValue));
-        } catch (Exception ex) { log.error("Erro inesperado", ex); }
     }
 }

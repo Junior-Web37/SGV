@@ -6,20 +6,13 @@ import com.sgv.service.*;
 import javafx.animation.FadeTransition;
 import javafx.beans.property.SimpleStringProperty;
 import javafx.collections.FXCollections;
-import javafx.collections.ObservableList;
 import javafx.fxml.FXMLLoader;
-import javafx.geometry.Insets;
 import javafx.geometry.Pos;
-import javafx.geometry.Rectangle2D;
 import javafx.scene.Node;
 import javafx.scene.Parent;
-import javafx.scene.Scene;
 import javafx.scene.chart.*;
 import javafx.scene.control.*;
 import javafx.scene.layout.*;
-import javafx.stage.Screen;
-import javafx.stage.Stage;
-import javafx.stage.StageStyle;
 import javafx.stage.Window;
 import javafx.util.Callback;
 import javafx.util.Duration;
@@ -29,7 +22,6 @@ import org.springframework.context.ApplicationContext;
 import org.springframework.stereotype.Component;
 
 import java.math.BigDecimal;
-import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.Comparator;
@@ -63,6 +55,7 @@ public class DashboardNavigationManager {
     private final CashSessionService cashSessionService;
 
     private TableView<Product> productsTable;
+    private HBox productsStatsCardsBox;
     private TableView<Sale> salesTable;
     private TableView<Customer> customersTable;
     private TableView<Category> categoriesTable;
@@ -147,7 +140,7 @@ public class DashboardNavigationManager {
     public void showSubNav(String moduleLabel, HBox targetItems,
                            HBox navRootPane, HBox navSubPane, Label navSubModuleLabel,
                            HBox navComercialItems, HBox navOperacoesItems,
-                           HBox navFinanceiroItems, HBox navAdminItems) {
+                           HBox navFinanceiroItems, HBox navAdminItems, HBox navArmazensItems) {
         if (navRootPane == null || navSubPane == null) return;
         navSubModuleLabel.setText(moduleLabel);
 
@@ -155,6 +148,7 @@ public class DashboardNavigationManager {
         if (navOperacoesItems != null) { navOperacoesItems.setVisible(false); navOperacoesItems.setManaged(false); }
         if (navFinanceiroItems != null) { navFinanceiroItems.setVisible(false); navFinanceiroItems.setManaged(false); }
         if (navAdminItems != null) { navAdminItems.setVisible(false); navAdminItems.setManaged(false); }
+        if (navArmazensItems != null) { navArmazensItems.setVisible(false); navArmazensItems.setManaged(false); }
 
         if (targetItems != null) { targetItems.setVisible(true); targetItems.setManaged(true); }
 
@@ -402,19 +396,6 @@ public class DashboardNavigationManager {
         return card;
     }
 
-    public void updateKPICard(GridPane grid, int index, String value) {
-        if (grid == null || index >= grid.getChildren().size()) return;
-        VBox card = (VBox) grid.getChildren().get(index);
-        if (card.getChildren().isEmpty()) return;
-        HBox row = (HBox) card.getChildren().get(0);
-        if (row.getChildren().size() < 2) return;
-        VBox info = (VBox) row.getChildren().get(1);
-        if (info.getChildren().size() >= 2) {
-            Label lbl = (Label) info.getChildren().get(1);
-            lbl.setText(value);
-        }
-    }
-
     // ═══════════════════════════════════════════════════════════════════════════
     // SHOW PANE METHODS
     // ═══════════════════════════════════════════════════════════════════════════
@@ -495,7 +476,7 @@ public class DashboardNavigationManager {
                 "-fx-font-size: 13px; -fx-background-color: #ffffff; " +
                 "-fx-border-color: #E2E8F0; -fx-border-width: 0 1 1 1;"
             );
-            table.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY);
+            table.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY_ALL_COLUMNS);
             table.setPlaceholder(new Label("Nenhuma venda encontrada"));
 
             TableColumn<Sale, String> docCol = new TableColumn<>("Documento");
@@ -563,7 +544,7 @@ public class DashboardNavigationManager {
                 d.getValue().getPaymentMethod() != null ? d.getValue().getPaymentMethod() : "—"
             ));
 
-            table.getColumns().addAll(docCol, seriesCol, custCol, totalCol, stateCol, dateCol, payCol);
+            table.getColumns().addAll(List.of(docCol, seriesCol, custCol, totalCol, stateCol, dateCol, payCol));
 
             HBox filterRow = new HBox(10);
             filterRow.setStyle("-fx-padding: 10 16; -fx-background-color: #f9f9f9; -fx-border-color: #E2E8F0; -fx-border-width: 0 0 1 0;");
@@ -715,7 +696,7 @@ public class DashboardNavigationManager {
                 return new SimpleStringProperty(bal != null ? String.format("%.2f MT", bal) : "0.00 MT");
             });
 
-            customersTable.getColumns().addAll(c1, c2, c3, c4, c5);
+            customersTable.getColumns().addAll(List.of(c1, c2, c3, c4, c5));
             customersTable.setRowFactory(makeTableRowFactory());
 
             main.getChildren().addAll(kpiGrid, toolbar, customersTable);
@@ -883,7 +864,7 @@ public class DashboardNavigationManager {
         TableView<AuditLog> table = new TableView<>();
         table.setStyle("-fx-font-size:12px; -fx-background-color:#F8FAFC;");
         VBox.setVgrow(table, Priority.ALWAYS);
-        table.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY);
+        table.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY_ALL_COLUMNS);
 
         TableColumn<AuditLog, String> colCat = new TableColumn<>("Categoria");
         colCat.setPrefWidth(110);
@@ -956,7 +937,7 @@ public class DashboardNavigationManager {
             }
         });
 
-        table.getColumns().addAll(colCat, colDate, colUser, colAction, colDetails, colStack);
+        table.getColumns().addAll(List.of(colCat, colDate, colUser, colAction, colDetails, colStack));
         table.setPlaceholder(new Label("Sem registos para esta categoria."));
 
         table.setRowFactory(tv -> new TableRow<>() {
@@ -1014,7 +995,7 @@ public class DashboardNavigationManager {
             p4.setCellValueFactory(d -> new SimpleStringProperty(d.getValue().getState() != null ? d.getValue().getState() : "—"));
             p4.setCellFactory(coloredStateCell());
 
-            purchasesTable.getColumns().addAll(p1, p2, p3, p4);
+            purchasesTable.getColumns().addAll(List.of(p1, p2, p3, p4));
             purchasesTable.setRowFactory(makeTableRowFactory());
 
             HBox toolbar = new HBox(12);
@@ -1086,7 +1067,7 @@ public class DashboardNavigationManager {
             o5.setCellValueFactory(d -> new SimpleStringProperty(d.getValue().getState() != null ? d.getValue().getState() : "—"));
             o5.setCellFactory(coloredStateCell());
 
-            ordersTable.getColumns().addAll(o1, o2, o3, o4, o5);
+            ordersTable.getColumns().addAll(List.of(o1, o2, o3, o4, o5));
             ordersTable.setRowFactory(makeTableRowFactory());
 
             HBox toolbar = new HBox(12);
@@ -1230,7 +1211,7 @@ public class DashboardNavigationManager {
                 catNomeCol.setPrefWidth(260);
                 catNomeCol.setCellValueFactory(d -> new SimpleStringProperty(d.getValue().getName() != null ? d.getValue().getName() : "—"));
 
-                categoriesTable.getColumns().addAll(catIdCol, catNomeCol);
+                categoriesTable.getColumns().addAll(List.of(catIdCol, catNomeCol));
                 categoriesTable.setRowFactory(makeTableRowFactory());
             }
 
@@ -1281,7 +1262,7 @@ public class DashboardNavigationManager {
                 uDescCol.setPrefWidth(220);
                 uDescCol.setCellValueFactory(d -> new SimpleStringProperty(d.getValue().getDescription() != null ? d.getValue().getDescription() : "—"));
 
-                unitsTable.getColumns().addAll(uAbbrCol, uDescCol);
+                unitsTable.getColumns().addAll(List.of(uAbbrCol, uDescCol));
                 unitsTable.setRowFactory(makeTableRowFactory());
             }
 
@@ -1400,7 +1381,7 @@ public class DashboardNavigationManager {
         c5.setPrefWidth(100);
         c5.setCellValueFactory(d -> new SimpleStringProperty(d.getValue().getStockMaxAmount() != null ? String.format("%.2f", d.getValue().getStockMaxAmount()) : "0"));
 
-        stockTable.getColumns().addAll(c1, c2, c3, c4, c5);
+        stockTable.getColumns().addAll(List.of(c1, c2, c3, c4, c5));
 
         stockTable.setRowFactory(tv -> {
             TableRow<StockBranch> row = new TableRow<>();
@@ -1497,7 +1478,7 @@ public class DashboardNavigationManager {
             p4.setPrefWidth(120);
             p4.setCellValueFactory(d -> new SimpleStringProperty(d.getValue().getMethod() != null ? d.getValue().getMethod() : "—"));
 
-            paymentsTable.getColumns().addAll(p1, p2, p3, p4);
+            paymentsTable.getColumns().addAll(List.of(p1, p2, p3, p4));
             paymentsTable.setRowFactory(makeTableRowFactory());
 
             HBox toolbar = new HBox(12);
@@ -1590,7 +1571,7 @@ public class DashboardNavigationManager {
                 return new SimpleStringProperty(roles.isEmpty() ? "—" : roles);
             });
 
-            usersTable.getColumns().addAll(uc1, uc2, uc3, uc4, uc5, uc6);
+            usersTable.getColumns().addAll(List.of(uc1, uc2, uc3, uc4, uc5, uc6));
             usersTable.setRowFactory(makeTableRowFactory());
 
             List<User> users = userRepository.findAll();
@@ -1605,16 +1586,17 @@ public class DashboardNavigationManager {
         updateCashBadge.run();
     }
 
-    public void showTurnoCaixaPane(Label pageTitleLabel, Label pageSubtitleLabel,
-                                    VBox turnoCaixaPane, User currentUser,
-                                    VBox[] allPanes, Button[] allNavButtons,
-                                    Runnable updateCashBadge) {
-        pageTitleLabel.setText("Turno de Caixa");
-        pageSubtitleLabel.setText("Gestão de aberturas, fechos e movimentos");
-        setActiveNav(null, allNavButtons);
-        setPaneVisibility(turnoCaixaPane, allPanes);
+public void showTurnoCaixaPane(Label pageTitleLabel, Label pageSubtitleLabel,
+                                VBox turnoCaixaPane, User currentUser,
+                                VBox[] allPanes, Button[] allNavButtons,
+                                Runnable updateCashBadge) {
+    pageTitleLabel.setText("Turno de Caixa");
+    pageSubtitleLabel.setText("Gestão de aberturas, fechos e movimentos");
+    setActiveNav(null, allNavButtons);
+    setPaneVisibility(turnoCaixaPane, allPanes);
+    updateCashBadge.run();
 
-        try {
+    try {
             FXMLLoader loader = new FXMLLoader(getClass().getResource("/fxml/cash_session.fxml"));
             loader.setControllerFactory(applicationContext::getBean);
             Parent root = loader.load();
@@ -1645,10 +1627,24 @@ public class DashboardNavigationManager {
         setPaneVisibility(productsPane, allPanes);
         updateCashBadge.run();
 
+        Runnable loadProductsAndStats = () -> {
+            loadProducts.run();
+            if (productsStatsCardsBox != null) {
+                loadProductStats(productsStatsCardsBox, currentUser);
+            }
+        };
+
+        Consumer<String> onSearchAndStats = filter -> {
+            if (onSearch != null) onSearch.accept(filter);
+            if (productsStatsCardsBox != null) {
+                loadProductStats(productsStatsCardsBox, currentUser);
+            }
+        };
+
         if (productsPane.getChildren().isEmpty()) {
-            buildProductsPaneUI(productsPane, currentUser, loadProducts, onOpenProduct, onDeleteProduct, onViewProduct, onSearch);
+            buildProductsPaneUI(productsPane, currentUser, loadProductsAndStats, onOpenProduct, onDeleteProduct, onViewProduct, onSearchAndStats);
         }
-        loadProducts.run();
+        loadProductsAndStats.run();
     }
 
     private void buildProductsPaneUI(VBox productsPane, User currentUser,
@@ -1717,7 +1713,7 @@ public class DashboardNavigationManager {
             "-fx-border-color: #E2E8F0; -fx-border-width: 0 1 1 1; " +
             "-fx-table-cell-border-color: #F1F5F9;"
         );
-        productsTable.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY);
+        productsTable.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY_ALL_COLUMNS);
         productsTable.setPlaceholder(new Label("Nenhum produto encontrado"));
         productsTable.setRowFactory(makeTableRowFactory());
 
@@ -1789,7 +1785,7 @@ public class DashboardNavigationManager {
             }
         });
 
-        productsTable.getColumns().addAll(productCodeColumn, productNameColumn, productCategoryColumn, productPriceColumn, productStockColumn);
+        productsTable.getColumns().addAll(List.of(productCodeColumn, productNameColumn, productCategoryColumn, productPriceColumn, productStockColumn));
 
         HBox statsCards = buildProductsStatsCards();
         mainContainer.getChildren().addAll(statsCards, toolbar, productsTable);
@@ -1819,6 +1815,7 @@ public class DashboardNavigationManager {
         HBox.setHgrow(cardStock, Priority.ALWAYS);
         HBox.setHgrow(cardValor, Priority.ALWAYS);
         cardsBox.getChildren().addAll(cardTotal, cardPreco, cardStock, cardValor);
+        this.productsStatsCardsBox = cardsBox;
         return cardsBox;
     }
 
@@ -1867,7 +1864,7 @@ public class DashboardNavigationManager {
     }
 
     public void loadProductStats(HBox cardsBox, User currentUser) {
-        if (cardsBox == null || cardsBox.getChildren().isEmpty()) return;
+        if (cardsBox == null || cardsBox.getChildren().size() < 4) return;
         try {
             long total = productRepository.count();
 
@@ -1897,17 +1894,27 @@ public class DashboardNavigationManager {
                 }
             } catch (Exception ex) { log.error("Erro ao calcular stock/valor: " + ex.getMessage()); }
 
-            ((Label) ((VBox) cardsBox.getChildren().get(0)).lookup("#kpi-value-totaldeprodutos"))
-                .setText(String.valueOf(total));
-            ((Label) ((VBox) cardsBox.getChildren().get(1)).lookup("#kpi-value-preciomédio"))
-                .setText(String.format("%.0f MT", avgPrice));
-            ((Label) ((VBox) cardsBox.getChildren().get(2)).lookup("#kpi-value-stockbaixo"))
-                .setText(String.valueOf(lowStock));
-            ((Label) ((VBox) cardsBox.getChildren().get(3)).lookup("#kpi-value-valorstock"))
-                .setText(String.format("%.0f MT", totalValue));
+            setKpiCardValue(cardsBox, 0, String.valueOf(total));
+            setKpiCardValue(cardsBox, 1, String.format("%.0f MT", avgPrice));
+            setKpiCardValue(cardsBox, 2, String.valueOf(lowStock));
+            setKpiCardValue(cardsBox, 3, String.format("%.0f MT", totalValue));
         } catch (Exception ex) {
             log.error("Erro inesperado", ex);
         }
+    }
+
+    private void setKpiCardValue(HBox cardsBox, int index, String value) {
+        if (index < 0 || index >= cardsBox.getChildren().size()) return;
+        javafx.scene.Node card = cardsBox.getChildren().get(index);
+        if (!(card instanceof VBox)) return;
+        VBox vbox = (VBox) card;
+        if (vbox.getChildren().isEmpty()) return;
+        javafx.scene.Node row = vbox.getChildren().get(0);
+        if (!(row instanceof HBox)) return;
+        javafx.scene.Node info = ((HBox) row).getChildren().get(1);
+        if (!(info instanceof VBox)) return;
+        javafx.scene.Node valueLbl = ((VBox) info).getChildren().get(1);
+        if (valueLbl instanceof Label) ((Label) valueLbl).setText(value);
     }
 
     public void showSalesPane(Label pageTitleLabel, Label pageSubtitleLabel,

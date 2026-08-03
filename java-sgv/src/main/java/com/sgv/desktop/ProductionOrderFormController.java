@@ -2,7 +2,6 @@ package com.sgv.desktop;
 
 import com.sgv.entity.Product;
 import com.sgv.entity.ProductionOrder;
-import com.sgv.entity.User;
 import com.sgv.repository.ProductRepository;
 import com.sgv.repository.ProductionOrderRepository;
 import com.sgv.service.StockBranchService;
@@ -59,11 +58,28 @@ public class ProductionOrderFormController extends BaseFormController {
 
     @Override
     protected void validateRealTime() {
+        StringBuilder errors = new StringBuilder();
         boolean valid = true;
-        if (productCombo.getValue() == null) valid = false;
-        try { double q = Double.parseDouble(quantityField.getText().replace(",", ".")); if (q <= 0) valid = false; }
-        catch (Exception e) { valid = false; }
+        if (productCombo.getValue() == null) {
+            errors.append("Seleccione o produto. ");
+            valid = false;
+        }
+        try {
+            double q = Double.parseDouble(quantityField.getText().replace(",", "."));
+            if (q <= 0) {
+                errors.append("Quantidade deve ser maior que zero. ");
+                valid = false;
+            }
+        } catch (Exception e) {
+            errors.append("Quantidade inválida. ");
+            valid = false;
+        }
         formValidProperty.set(valid);
+        if (!valid) {
+            showError(errors.length() > 0 ? errors.toString().trim() : "Preencha todos os campos obrigatórios.");
+        } else {
+            hideError();
+        }
     }
 
     public void setOrder(ProductionOrder o) {
@@ -86,6 +102,8 @@ public class ProductionOrderFormController extends BaseFormController {
     protected void doSave() {
         if (checkTrainingBlock()) return;
         if (!formValidProperty.get()) return;
+        if (productCombo.getValue() == null) { showError("Seleccione o produto."); return; }
+        if (quantityField.getText() == null || quantityField.getText().isBlank()) { showError("Quantidade é obrigatória."); return; }
         showSaveSpinner();
 
         javafx.concurrent.Task<Void> saveTask = new javafx.concurrent.Task<>() {
@@ -121,8 +139,9 @@ public class ProductionOrderFormController extends BaseFormController {
         saveTask.setOnSucceeded(e -> { if (onSave != null) onSave.run(); doCancel(); });
         saveTask.setOnFailed(e -> {
             Throwable ex = saveTask.getException();
-            systemLogService.logError("PRODUCTION_ORDER_SAVE_FAILED", "Erro ao salvar ordem de produção: " + ex.getMessage(), ex);
-            showError("Erro ao salvar: " + ex.getMessage());
+            String msg = ex != null && ex.getMessage() != null ? ex.getMessage() : "Erro desconhecido";
+            systemLogService.logError("PRODUCTION_ORDER_SAVE_FAILED", "Erro ao salvar ordem de produção: " + msg, ex);
+            showError("Erro ao salvar: " + msg);
             hideSaveSpinner();
         });
         new Thread(saveTask).start();

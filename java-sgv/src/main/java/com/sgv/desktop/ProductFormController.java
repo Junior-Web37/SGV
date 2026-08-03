@@ -19,13 +19,19 @@ import javafx.scene.control.*;
 import javafx.scene.control.cell.PropertyValueFactory;
 import javafx.stage.Stage;
 import org.springframework.stereotype.Component;
+import org.springframework.beans.factory.config.ConfigurableBeanFactory;
+import org.springframework.context.annotation.Scope;
 
 import java.util.Optional;
 import java.math.BigDecimal;
-import java.math.RoundingMode;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 @Component
+@Scope(ConfigurableBeanFactory.SCOPE_PROTOTYPE)
 public class ProductFormController extends BaseFormController {
+
+    private static final Logger log = LoggerFactory.getLogger(ProductFormController.class);
 
     // ─── Campos do FXML ─────────────────────────────────────────────────────
     @FXML private TextField codeField;
@@ -40,7 +46,6 @@ public class ProductFormController extends BaseFormController {
     @FXML private TextField profitMarginField;
     @FXML private TextField taxRateField;
     @FXML private Label taxRateHint;
-    @FXML private TextField iceRateField;
     
     @FXML private ComboBox<MetricUnit> unitField;
     @FXML private ComboBox<MetricUnit> unitBulkField;
@@ -58,8 +63,8 @@ public class ProductFormController extends BaseFormController {
     @FXML private Button addBarcodeButton;
     @FXML private Button removeBarcodeButton;
     
-    @FXML private TextArea observationsField;
     @FXML private TextArea descriptionArea;
+    @FXML private TextField conversionFactorField;
     @FXML private Button deleteButton;
 
     // ─── Repositórios e Serviços ────────────────────────────────────────────
@@ -76,7 +81,9 @@ public class ProductFormController extends BaseFormController {
     private final ObservableList<ProductBarcode> barcodeList = FXCollections.observableArrayList();
     private Product product;
     private boolean codeAlreadyExists = false;
+    private boolean nameAlreadyExists = false;
     private boolean updatingMargin = false;
+    private long nextSeqNumber = 1;
     
     // ─── Valores padrão do sistema ─────────────────────────────────────────
     private double defaultTaxRate = 16.0;
@@ -108,20 +115,19 @@ public class ProductFormController extends BaseFormController {
         
         categoryCombo.setItems(javafx.collections.FXCollections.observableArrayList(
                 categoryRepository.findAll()));
-        supplierCombo.setItems(javafx.collections.FXCollections.observableArrayList(
-                supplierRepository.findAll()));
-        supplierCombo.getItems().add(0, null);
-        supplierCombo.getSelectionModel().selectFirst();
+        var suppliers = javafx.collections.FXCollections.observableArrayList(
+                supplierRepository.findAll());
+        supplierCombo.setItems(suppliers);
+        if (!suppliers.isEmpty()) {
+            supplierCombo.getSelectionModel().selectFirst();
+        }
         
         unitField.setItems(javafx.collections.FXCollections.observableArrayList(
                 metricUnitRepository.findAll()));
         unitBulkField.setItems(javafx.collections.FXCollections.observableArrayList(
                 metricUnitRepository.findAll()));
 
-        taxRateHint.setText("Padrão do sistema: " + defaultTaxRate + "%");
-        
         taxRateField.setText(String.valueOf(defaultTaxRate));
-        iceRateField.setText("0");
         
         UiUtils.attachSafe(saveButton, this::doSave, systemLogService, "PRODUCT_SAVE");
         UiUtils.attachSafe(cancelButton, this::doCancel, systemLogService, "PRODUCT_CANCEL");
@@ -135,6 +141,43 @@ public class ProductFormController extends BaseFormController {
         setupBarcodeTable();
         setupRealTimeValidation();
         setupMarginCalculation();
+        setupServiceToggle();
+    }
+
+    private void setupServiceToggle() {
+        isServiceCheckbox.selectedProperty().addListener((obs, o, n) -> {
+            boolean isService = Boolean.TRUE.equals(n);
+            unitField.setDisable(isService);
+            unitBulkField.setDisable(isService);
+            priceSaleBulkField.setDisable(isService);
+            bulkQuantityField.setDisable(isService);
+            stockMinField.setDisable(isService);
+            stockMaxField.setDisable(isService);
+            updateStylesForService(isService);
+            validateRealTime();
+        });
+    }
+
+    private void applyServiceToggleState() {
+        boolean isService = isServiceCheckbox.isSelected();
+        unitField.setDisable(isService);
+        unitBulkField.setDisable(isService);
+        priceSaleBulkField.setDisable(isService);
+        bulkQuantityField.setDisable(isService);
+        stockMinField.setDisable(isService);
+        stockMaxField.setDisable(isService);
+        updateStylesForService(isService);
+    }
+
+    private void updateStylesForService(boolean isService) {
+        String normal = "-fx-opacity: 1.0;";
+        String dimmed = "-fx-opacity: 0.5;";
+        unitField.setStyle(isService ? dimmed : normal);
+        unitBulkField.setStyle(isService ? dimmed : normal);
+        priceSaleBulkField.setStyle(isService ? dimmed : normal);
+        bulkQuantityField.setStyle(isService ? dimmed : normal);
+        stockMinField.setStyle(isService ? dimmed : normal);
+        stockMaxField.setStyle(isService ? dimmed : normal);
     }
     
     /**
@@ -163,7 +206,7 @@ public class ProductFormController extends BaseFormController {
     }
 
     private void addBarcode() {
-        if (product == null || product.getId() == null) return;
+        if (product == null) return;
         String code = barcodeField.getText();
         if (code == null || code.isBlank()) return;
         double qty;
@@ -172,32 +215,119 @@ public class ProductFormController extends BaseFormController {
         } catch (Exception e) {
             qty = 1.0;
         }
-        ProductBarcode pb = new ProductBarcode();
-        pb.setProduct(product);
-        pb.setBarcode(code.trim());
-        pb.setQuantity(qty);
-        productBarcodeRepository.save(pb);
-        loadBarcodes();
-        barcodeField.clear();
+
+        String trimmedCode = code.trim();
+        boolean alreadyInList = barcodeList.stream()
+                .anyMatch(pb -> pb.getBarcode() != null && pb.getBarcode().equalsIgnoreCase(trimmedCode));
+        if (alreadyInList) {
+            showError("Código de barras já registado para este produto.");
+            return;
+        }
+
+        hideError();
+        addBarcodeButton.setDisable(true);
+        String finalCode = trimmedCode;
+        double finalQty = qty;
+
+        // Verifica na BD se o código já existe
+        javafx.concurrent.Task<Boolean> checkTask = new javafx.concurrent.Task<>() {
+            @Override
+            protected Boolean call() {
+                return productBarcodeRepository.findByBarcodeIgnoreCase(finalCode).isPresent();
+            }
+        };
+        checkTask.setOnSucceeded(ev -> {
+            addBarcodeButton.setDisable(false);
+            if (checkTask.getValue()) {
+                showError("Código de barras já existe no sistema.");
+                return;
+            }
+            ProductBarcode pb = new ProductBarcode();
+            pb.setProduct(product);
+            pb.setBarcode(finalCode);
+            pb.setQuantity(finalQty);
+
+            if (product.getId() != null) {
+                javafx.concurrent.Task<Void> saveTask = new javafx.concurrent.Task<>() {
+                    @Override
+                    protected Void call() {
+                        productBarcodeRepository.save(pb);
+                        return null;
+                    }
+                };
+                saveTask.setOnSucceeded(e -> {
+                    loadBarcodes();
+                    barcodeField.clear();
+                    hideError();
+                });
+                saveTask.setOnFailed(e -> {
+                    log.warn("Erro ao adicionar código de barras", saveTask.getException());
+                    showError("Erro ao adicionar código de barras.");
+                });
+                new Thread(saveTask).start();
+            } else {
+                barcodeList.add(pb);
+                barcodeField.clear();
+                hideError();
+            }
+        });
+        checkTask.setOnFailed(ev -> {
+            addBarcodeButton.setDisable(false);
+            log.warn("Erro ao verificar código de barras", checkTask.getException());
+            showError("Erro ao verificar código de barras.");
+        });
+        new Thread(checkTask).start();
     }
 
     private void removeBarcode() {
         ProductBarcode selected = barcodeTable.getSelectionModel().getSelectedItem();
-        if (selected == null || selected.getId() == null) return;
-        productBarcodeRepository.deleteById(selected.getId());
-        loadBarcodes();
+        if (selected == null) return;
+
+        if (selected.getId() != null) {
+            // Já existe na BD — apaga
+            Long selectedId = selected.getId();
+            javafx.concurrent.Task<Void> task = new javafx.concurrent.Task<>() {
+                @Override
+                protected Void call() {
+                    productBarcodeRepository.deleteById(selectedId);
+                    return null;
+                }
+            };
+            task.setOnSucceeded(e -> {
+                loadBarcodes();
+                hideError();
+            });
+            task.setOnFailed(e -> {
+                log.warn("Erro ao remover código de barras", task.getException());
+                showError("Erro ao remover código de barras.");
+            });
+            new Thread(task).start();
+        } else {
+            // Apenas em memória — remove da lista
+            barcodeList.remove(selected);
+        }
     }
 
     private void loadBarcodes() {
         if (product != null && product.getId() != null) {
             barcodeList.setAll(productBarcodeRepository.findByProductOrderByBarcode(product));
-        } else {
-            barcodeList.clear();
+        }
+    }
+
+    /**
+     * Salva códigos de barras pendentes (adicionados antes do produto existir na BD).
+     */
+    private void flushPendingBarcodes() {
+        if (product == null || product.getId() == null) return;
+        for (ProductBarcode pb : barcodeList) {
+            if (pb.getId() == null) {
+                pb.setProduct(product);
+                productBarcodeRepository.save(pb);
+            }
         }
     }
 
     private void setupRealTimeValidation() {
-        // Verifica código duplicado
         codeField.textProperty().addListener((obs, o, n) -> {
             if (n != null && !n.isBlank()) {
                 checkDuplicateCode(n);
@@ -207,24 +337,33 @@ public class ProductFormController extends BaseFormController {
             }
         });
 
-        // Valida nome
-        nameField.textProperty().addListener((obs, o, n) -> validateRealTime());
+        nameField.textProperty().addListener((obs, o, n) -> {
+            if (n != null && !n.isBlank()) {
+                checkDuplicateName(n);
+            } else {
+                nameAlreadyExists = false;
+                validateRealTime();
+            }
+        });
         
-        // Valida categoria
         categoryCombo.valueProperty().addListener((obs, o, n) -> validateRealTime());
-        
-        // Valida preço de venda
         priceSaleField.textProperty().addListener((obs, o, n) -> validateRealTime());
+        priceCostField.textProperty().addListener((obs, o, n) -> validateRealTime());
+        unitField.valueProperty().addListener((obs, o, n) -> validateRealTime());
+        taxRateField.textProperty().addListener((obs, o, n) -> validateRealTime());
+        stockMinField.textProperty().addListener((obs, o, n) -> validateRealTime());
+        stockMaxField.textProperty().addListener((obs, o, n) -> validateRealTime());
+        isServiceCheckbox.selectedProperty().addListener((obs, o, n) -> validateRealTime());
 
         UiUtils.applyNumericFormatter(priceCostField);
         UiUtils.applyNumericFormatter(priceSaleField);
         UiUtils.applyNumericFormatter(priceSaleBulkField);
         UiUtils.applyNumericFormatter(taxRateField);
-        UiUtils.applyNumericFormatter(iceRateField);
         UiUtils.applyNumericFormatter(bulkQuantityField);
         UiUtils.applyNumericFormatter(stockMinField);
         UiUtils.applyNumericFormatter(stockMaxField);
         UiUtils.applyNumericFormatter(barcodeQtyField);
+        UiUtils.applyNumericFormatter(conversionFactorField);
 
         javafx.application.Platform.runLater(this::validateRealTime);
     }
@@ -285,11 +424,33 @@ public class ProductFormController extends BaseFormController {
 
     private void checkDuplicateCode(String code) {
         new Thread(() -> {
-            Optional<Product> existing = productRepository.findByCode(code.trim().toUpperCase());
-            if (existing.isPresent() && (product == null || product.getId() == null || !existing.get().getId().equals(product.getId()))) {
-                codeAlreadyExists = true;
-            } else {
+            try {
+                Optional<Product> existing = productRepository.findByCode(code.trim().toUpperCase());
+                if (existing.isPresent() && (product == null || product.getId() == null || !existing.get().getId().equals(product.getId()))) {
+                    codeAlreadyExists = true;
+                } else {
+                    codeAlreadyExists = false;
+                }
+            } catch (Exception e) {
+                log.warn("Erro ao verificar código duplicado: {}", e.getMessage());
                 codeAlreadyExists = false;
+            }
+            javafx.application.Platform.runLater(this::validateRealTime);
+        }).start();
+    }
+
+    private void checkDuplicateName(String name) {
+        new Thread(() -> {
+            try {
+                Optional<Product> existing = productRepository.findByNameIgnoreCase(name.trim());
+                if (existing.isPresent() && (product == null || product.getId() == null || !existing.get().getId().equals(product.getId()))) {
+                    nameAlreadyExists = true;
+                } else {
+                    nameAlreadyExists = false;
+                }
+            } catch (Exception e) {
+                log.warn("Erro ao verificar nome duplicado: {}", e.getMessage());
+                nameAlreadyExists = false;
             }
             javafx.application.Platform.runLater(this::validateRealTime);
         }).start();
@@ -299,8 +460,10 @@ public class ProductFormController extends BaseFormController {
     protected void validateRealTime() {
         StringBuilder errors = new StringBuilder();
         boolean valid = true;
+        boolean isService = isServiceCheckbox.isSelected();
 
         if (codeField.getText() == null || codeField.getText().isBlank()) {
+            errors.append("Código é obrigatório. ");
             valid = false;
         } else if (codeAlreadyExists) {
             errors.append("Código já existe. ");
@@ -308,14 +471,20 @@ public class ProductFormController extends BaseFormController {
         }
 
         if (nameField.getText() == null || nameField.getText().isBlank()) {
+            errors.append("Nome é obrigatório. ");
+            valid = false;
+        } else if (nameAlreadyExists) {
+            errors.append("Nome já existe. ");
             valid = false;
         }
 
         if (categoryCombo.getValue() == null) {
+            errors.append("Categoria é obrigatória. ");
             valid = false;
         }
 
         if (priceSaleField.getText() == null || priceSaleField.getText().isBlank()) {
+            errors.append("Preço de venda é obrigatório. ");
             valid = false;
         } else {
             java.math.BigDecimal val = parseBigDecimalOrZero(priceSaleField.getText());
@@ -323,6 +492,11 @@ public class ProductFormController extends BaseFormController {
                 errors.append("Preço de venda deve ser maior que zero. ");
                 valid = false;
             }
+        }
+
+        if (!isService && (unitField.getValue() == null)) {
+            errors.append("Unidade base é obrigatória. ");
+            valid = false;
         }
 
         if (priceCostField.getText() != null && !priceCostField.getText().isBlank()) {
@@ -333,10 +507,38 @@ public class ProductFormController extends BaseFormController {
             }
         }
 
+        if (!isService) {
+            java.math.BigDecimal cost = parseBigDecimalOrZero(priceCostField.getText());
+            java.math.BigDecimal sale = parseBigDecimalOrZero(priceSaleField.getText());
+            if (cost.compareTo(java.math.BigDecimal.ZERO) > 0 && sale.compareTo(java.math.BigDecimal.ZERO) > 0
+                    && sale.compareTo(cost) < 0) {
+                errors.append("Preço de venda abaixo do preço de custo (margem negativa). ");
+                valid = false;
+            }
+        }
+
+        if (taxRateField.getText() != null && !taxRateField.getText().isBlank()) {
+            java.math.BigDecimal tax = parseBigDecimalOrZero(taxRateField.getText());
+            if (tax.compareTo(java.math.BigDecimal.ZERO) < 0 || tax.compareTo(new java.math.BigDecimal("100")) > 0) {
+                errors.append("Taxa IVA deve estar entre 0% e 100%. ");
+                valid = false;
+            }
+        }
+
+        if (!isService) {
+            java.math.BigDecimal min = parseBigDecimalOrZero(stockMinField.getText());
+            java.math.BigDecimal max = parseBigDecimalOrZero(stockMaxField.getText());
+            if (min.compareTo(java.math.BigDecimal.ZERO) >= 0 && max.compareTo(java.math.BigDecimal.ZERO) >= 0
+                    && min.compareTo(max) > 0) {
+                errors.append("Stock mínimo não pode ser maior que o stock máximo. ");
+                valid = false;
+            }
+        }
+
         formValidProperty.set(valid);
 
-        if (!valid && errors.length() > 0) {
-            showError(errors.toString().trim());
+        if (!valid) {
+            showError(errors.length() > 0 ? errors.toString().trim() : "Preencha todos os campos obrigatórios.");
         } else {
             hideError();
         }
@@ -356,7 +558,8 @@ public class ProductFormController extends BaseFormController {
             supplierCombo.setValue(p.getSupplier());
             activeCheck.setSelected(Boolean.TRUE.equals(p.getIsActive()));
             isServiceCheckbox.setSelected(Boolean.TRUE.equals(p.getService()));
-            
+            applyServiceToggleState();
+
             priceCostField.setText(p.getPriceCost() != null ? java.math.BigDecimal.valueOf(p.getPriceCost()).toPlainString() : "0");
             priceSaleField.setText(p.getPriceSale() != null ? java.math.BigDecimal.valueOf(p.getPriceSale()).toPlainString() : "0");
             priceSaleBulkField.setText(p.getPriceSaleBulk() != null ? java.math.BigDecimal.valueOf(p.getPriceSaleBulk()).toPlainString() : "0");
@@ -366,15 +569,15 @@ public class ProductFormController extends BaseFormController {
             calculateMarginFromPrices();
             
             taxRateField.setText(p.getTaxRate() != null ? java.math.BigDecimal.valueOf(p.getTaxRate()).toPlainString() : String.valueOf(defaultTaxRate));
-            iceRateField.setText(p.getIceRate() != null ? java.math.BigDecimal.valueOf(p.getIceRate()).toPlainString() : "0");
-            
+
             unitField.setValue(p.getUnit());
             unitBulkField.setValue(p.getUnitBulk());
+            
+            conversionFactorField.setText(p.getConversionFactor() != null ? java.math.BigDecimal.valueOf(p.getConversionFactor()).toPlainString() : "1.0");
             
             stockMinField.setText(p.getStockMin() != null ? java.math.BigDecimal.valueOf(p.getStockMin()).toPlainString() : "0");
             stockMaxField.setText(p.getStockMax() != null ? java.math.BigDecimal.valueOf(p.getStockMax()).toPlainString() : "0");
             
-            observationsField.setText(p.getObservations());
             descriptionArea.setText(p.getDescription() != null ? p.getDescription() : "");
             
             codeField.setDisable(true); // Não alterar código ao editar
@@ -386,56 +589,50 @@ public class ProductFormController extends BaseFormController {
             product.setActive(true);
             activeCheck.setSelected(true);
             isServiceCheckbox.setSelected(false);
+            applyServiceToggleState();
+            codeField.clear();
+            codeField.setDisable(false);
+            nameField.clear();
+            categoryCombo.setValue(null);
+            supplierCombo.getSelectionModel().selectFirst();
+            unitField.setValue(null);
+            unitBulkField.setValue(null);
+            priceCostField.clear();
+            priceSaleField.clear();
+            priceSaleBulkField.clear();
+            profitMarginField.setText("0.00");
             stockMinField.setText("0");
             stockMaxField.setText("0");
             bulkQuantityField.setText("1");
-            observationsField.setText("");
+            conversionFactorField.setText("1.0");
+            barcodeList.clear();
             descriptionArea.setText("");
             
             // Define valores padrão
             taxRateField.setText(String.valueOf(defaultTaxRate));
-            iceRateField.setText(String.valueOf(defaultIceRate));
             
-            // Gera código automaticamente a partir do nome
-            codeField.textProperty().addListener((obs, o, n) -> {
-                if (n != null && !n.isBlank() && (o == null || o.isBlank())) {
-                    // Código será gerado ao salvar
+            // Busca próximo número sequencial para o código
+            try {
+                nextSeqNumber = productRepository.findMaxId() + 1;
+            } catch (Exception e) {
+                nextSeqNumber = 1;
+            }
+            
+            // Gera código automaticamente quando o nome é digitado
+            nameField.textProperty().addListener((obs, o, n) -> {
+                if (n != null && !n.isBlank()) {
+                    String currentCode = codeField.getText();
+                    if (currentCode == null || currentCode.isBlank()) {
+                        String prefix = com.sgv.entity.Product.generatePrefix(n);
+                        codeField.setText(com.sgv.entity.Product.generateCode(prefix, nextSeqNumber));
+                    }
                 }
             });
         }
         validateRealTime();
     }
     
-    /**
-     * Gera código automático: 3 iniciais do nome + ID ou timestamp.
-     */
-    private String generateAutoCode(String name) {
-        if (name == null || name.isBlank()) {
-            return "PRD-" + (System.currentTimeMillis() % 100000);
-        }
-        
-        // Remove acentos e pega as 3 primeiras letras
-        String cleaned = name.toUpperCase()
-                .replaceAll("[ÀÁÂÃÄÅ]", "A")
-                .replaceAll("[ÈÉÊË]", "E")
-                .replaceAll("[ÌÍÎÏ]", "I")
-                .replaceAll("[ÒÓÔÕÖ]", "O")
-                .replaceAll("[ÙÚÛÜ]", "U")
-                .replaceAll("[Ç]", "C")
-                .replaceAll("[Ñ]", "N")
-                .replaceAll("[^A-Z0-9]", "");
-        
-        String prefix = cleaned.length() >= 3 ? cleaned.substring(0, 3) : cleaned;
-        if (prefix.length() < 3) {
-            prefix = String.format("%-3s", prefix).replace(' ', 'X');
-        }
-        
-        // Se já tem ID, usa-o; senão usa timestamp
-        if (product != null && product.getId() != null) {
-            return prefix + "-" + String.format("%04d", product.getId() % 10000);
-        }
-        return prefix + "-" + (System.currentTimeMillis() % 100000);
-    }
+    // generateAutoCode removido — usar Product.generateCode() estático
 
     private void doDelete() {
         if (product == null || product.getId() == null) return;
@@ -493,7 +690,19 @@ public class ProductFormController extends BaseFormController {
     @Override
     protected void doSave() {
         if (checkTrainingBlock()) return;
+
+        validateRealTime();
         if (!formValidProperty.get()) return;
+
+        String name = nameField.getText();
+        if (name == null || name.isBlank()) { showError("Nome é obrigatório."); return; }
+
+        if (categoryCombo.getValue() == null) { showError("Categoria é obrigatória."); return; }
+
+        boolean isService = isServiceCheckbox.isSelected();
+        if (!isService && unitField.getValue() == null) { showError("Unidade base é obrigatória."); return; }
+
+        if (priceSaleField.getText() == null || priceSaleField.getText().isBlank()) { showError("Preço de venda é obrigatório."); return; }
 
         showSaveSpinner();
 
@@ -502,24 +711,29 @@ public class ProductFormController extends BaseFormController {
             protected Void call() throws Exception {
                 String code = codeField.getText();
                 if (code == null || code.isBlank()) {
-                    code = generateAutoCode(nameField.getText());
+                    String prefix = com.sgv.entity.Product.generatePrefix(name);
+                    code = com.sgv.entity.Product.generateCode(prefix, nextSeqNumber);
                 }
+
+                if (productRepository.findByCode(code.trim().toUpperCase()).isPresent()
+                        && (product == null || product.getId() == null || !productRepository.findByCode(code.trim().toUpperCase()).get().getId().equals(product.getId()))) {
+                    throw new IllegalArgumentException("Código '" + code + "' já existe.");
+                }
+
                 product.setCode(code.trim().toUpperCase());
-                product.setName(nameField.getText().trim());
+                product.setName(name.trim());
                 product.setCategory(categoryCombo.getValue());
                 product.setSupplier(supplierCombo.getValue());
                 product.setActive(activeCheck.isSelected());
-                product.setService(isServiceCheckbox.isSelected());
+                product.setService(isService);
                 
                 product.setPriceCost(parseBigDecimalOrZero(priceCostField.getText()).doubleValue());
                 product.setPriceSale(parseBigDecimalOrZero(priceSaleField.getText()).doubleValue());
                 product.setPriceSaleBulk(parseBigDecimalOrZero(priceSaleBulkField.getText()).doubleValue());
                 product.setBulkQuantity(parseBigDecimalOrZero(bulkQuantityField.getText()).doubleValue());
                 
-                product.recalculateProfitMargin();
-                
                 product.setTaxRate(parseBigDecimalOrZero(taxRateField.getText()).doubleValue());
-                product.setIceRate(parseBigDecimalOrZero(iceRateField.getText()).doubleValue());
+                product.setIceRate(defaultIceRate);
                 
                 product.setDefaultTaxRate(defaultTaxRate);
                 product.setDefaultIceRate(defaultIceRate);
@@ -527,13 +741,15 @@ public class ProductFormController extends BaseFormController {
                 product.setUnit(unitField.getValue());
                 product.setUnitBulk(unitBulkField.getValue());
                 
+                product.setConversionFactor(parseBigDecimalOrZero(conversionFactorField.getText()).doubleValue());
+                
                 product.setStockMin(parseBigDecimalOrZero(stockMinField.getText()).doubleValue());
                 product.setStockMax(parseBigDecimalOrZero(stockMaxField.getText()).doubleValue());
                 
-                product.setObservations(observationsField.getText());
                 product.setDescription(descriptionArea.getText() != null ? descriptionArea.getText().trim() : "");
 
                 productRepository.save(product);
+                flushPendingBarcodes();
                 return null;
             }
         };
@@ -546,7 +762,7 @@ public class ProductFormController extends BaseFormController {
 
         saveTask.setOnFailed(e -> {
             Throwable ex = saveTask.getException();
-            String msg = ex != null ? ex.getMessage() : "Erro desconhecido";
+            String msg = ex != null && ex.getMessage() != null ? ex.getMessage() : "Erro desconhecido";
             systemLogService.logError("PRODUCT_SAVE_FAILED", "Erro ao salvar produto: " + msg, ex);
             
             if (msg.contains("ConstraintViolationException") || msg.contains("DataIntegrityViolationException")) {
@@ -560,17 +776,12 @@ public class ProductFormController extends BaseFormController {
         new Thread(saveTask).start();
     }
 
-    private java.math.BigDecimal parseBigDecimalOrZero(String text) {
-        if (text == null || text.isBlank()) return java.math.BigDecimal.ZERO;
+    private BigDecimal parseBigDecimalOrZero(String text) {
+        if (text == null || text.isBlank()) return BigDecimal.ZERO;
         try {
-            return new java.math.BigDecimal(text.trim().replace(",", "."));
+            return new BigDecimal(text.trim().replace(",", "."));
         } catch (Exception e) {
-            return java.math.BigDecimal.ZERO;
+            return BigDecimal.ZERO;
         }
-    }
-    
-    private String formatDouble(Double value) {
-        if (value == null) return "0";
-        return String.format("%.2f", value).replace(",", ".");
     }
 }

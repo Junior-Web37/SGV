@@ -10,10 +10,8 @@ import java.io.File;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 
 @Service
 public class SaleService {
@@ -29,6 +27,7 @@ public class SaleService {
     private final CustomerRepository customerRepository;
     private final FiscalService fiscalService;
     private final TrainingModeService trainingModeService;
+    private final AppConfigService appConfigService;
 
     @Autowired
     public SaleService(SaleRepository saleRepository,
@@ -41,7 +40,8 @@ public class SaleService {
                        BranchRepository branchRepository,
                        CustomerRepository customerRepository,
                        FiscalService fiscalService,
-                       TrainingModeService trainingModeService) {
+                       TrainingModeService trainingModeService,
+                       AppConfigService appConfigService) {
         this.saleRepository = saleRepository;
         this.saleItemRepository = saleItemRepository;
         this.stockBranchService = stockBranchService;
@@ -53,6 +53,7 @@ public class SaleService {
         this.customerRepository = customerRepository;
         this.fiscalService = fiscalService;
         this.trainingModeService = trainingModeService;
+        this.appConfigService = appConfigService;
     }
 
     @Transactional
@@ -66,7 +67,10 @@ public class SaleService {
         Sale persistentSale = normalizeSaleForPersistence(sale, currentUser);
 
         // Ensure series/year/number
-        if (persistentSale.getSeries() == null) persistentSale.setSeries("A");
+        if (persistentSale.getSeries() == null) {
+            String series = appConfigService != null ? appConfigService.get().getDefaultSeries() : "A";
+            persistentSale.setSeries(series != null ? series : "A");
+        }
         if (persistentSale.getDocumentYear() == null) persistentSale.setDocumentYear(LocalDateTime.now().getYear());
         if (persistentSale.getDocumentNumber() == null) {
             Long branchId = persistentSale.getBranch() != null ? persistentSale.getBranch().getId() : null;
@@ -251,7 +255,13 @@ public class SaleService {
                     item.setProductCode(item.getProduct() != null ? item.getProduct().getCode() : null);
                 }
                 if (item.getDescription() == null || item.getDescription().isBlank()) {
-                    item.setDescription(item.getProduct() != null ? item.getProduct().getName() : null);
+                    Product prod = item.getProduct();
+                    if (prod != null) {
+                        String desc = prod.getDescription();
+                        item.setDescription(desc != null && !desc.isBlank() ? desc : prod.getName());
+                    } else {
+                        item.setDescription(null);
+                    }
                 }
                 if ((item.getUnit() == null || item.getUnit().isBlank()) && item.getProduct() != null && item.getProduct().getUnit() != null) {
                     item.setUnit(item.getProduct().getUnit().getAbbreviation());

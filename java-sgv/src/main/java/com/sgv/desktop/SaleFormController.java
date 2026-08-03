@@ -7,14 +7,12 @@ import javafx.collections.FXCollections;
 import javafx.fxml.FXML;
 import javafx.scene.control.*;
 import javafx.scene.control.cell.PropertyValueFactory;
-import javafx.scene.layout.VBox;
 import javafx.scene.input.KeyCode;
 import javafx.scene.input.KeyEvent;
 import javafx.application.Platform;
 import javafx.collections.ObservableList;
 import javafx.collections.transformation.FilteredList;
 import javafx.util.StringConverter;
-import javafx.stage.Stage;
 import org.springframework.stereotype.Component;
 import java.math.BigDecimal;
 import java.time.LocalDate;
@@ -299,6 +297,7 @@ public class SaleFormController extends BaseFormController {
         branchCombo.valueProperty().addListener((obs, oldVal, newVal) -> validateRealTime());
         customerCombo.valueProperty().addListener((obs, oldVal, newVal) -> validateRealTime());
         diverseCustomerCheck.selectedProperty().addListener((obs, oldVal, newVal) -> validateRealTime());
+        documentTypeCombo.valueProperty().addListener((obs, oldVal, newVal) -> validateRealTime());
         
         // Trigger initial validation
         Platform.runLater(this::validateRealTime);
@@ -307,6 +306,7 @@ public class SaleFormController extends BaseFormController {
     @Override
     protected void validateRealTime() {
         boolean isValid = true;
+        StringBuilder errors = new StringBuilder();
         
         // Validar Filial
         if (branchCombo.getValue() == null) {
@@ -329,13 +329,38 @@ public class SaleFormController extends BaseFormController {
             isValid = false;
         }
         
+        // Validações específicas por tipo de documento
+        String dtVal = documentTypeCombo.getValue();
+        if (com.sgv.model.DocumentType.FACTURA.name().equals(dtVal)) {
+            if (diverseCustomerCheck.isSelected()) {
+                errors.append("Factura (FA) requer um cliente com NUIT. Desactive 'Cliente Diverso'. ");
+                isValid = false;
+            } else {
+                Customer c = customerCombo.getValue();
+                if (c != null) {
+                    String nuit = c.getNuit();
+                    if (nuit == null || nuit.isBlank()) {
+                        errors.append("Cliente não tem NUIT preenchido. ");
+                        isValid = false;
+                    } else if (!com.sgv.util.NuitValidator.isValid(nuit)) {
+                        errors.append("NUIT do cliente inválido. ");
+                        isValid = false;
+                    }
+                }
+            }
+        }
+        
         // Atualizar estado reativo (MVVM Data Binding)
         formValidProperty.set(isValid);
         
-        // Ocultar mensagem de erro geral se válido
+        // Mostrar/ocultar erro
         if (isValid) {
             errorLabel.setVisible(false);
             errorLabel.setManaged(false);
+        } else if (errors.length() > 0) {
+            showError(errors.toString().trim());
+        } else {
+            showError("Preencha filial, cliente e adicione pelo menos um produto ao carrinho.");
         }
     }
     
@@ -432,6 +457,7 @@ public class SaleFormController extends BaseFormController {
     private final ObservableList<Product> comboDisplayList = FXCollections.observableArrayList();
     private boolean isRefreshingProducts = false;
     private Product lastSelectedProduct = null;
+    private volatile boolean enterProcessingGuard = false;
 
     private void setupProductSearch() {
         allProducts.setAll(productRepository.findAllActive());
@@ -440,8 +466,8 @@ public class SaleFormController extends BaseFormController {
         productSearchCombo.setItems(comboDisplayList);
 
         productSearchCombo.valueProperty().addListener((obs, oldVal, newVal) -> {
-            if (newVal != null && newVal instanceof Product) {
-                lastSelectedProduct = (Product) newVal;
+            if (newVal instanceof Product p) {
+                lastSelectedProduct = p;
             }
         });
         
@@ -510,13 +536,19 @@ public class SaleFormController extends BaseFormController {
 
         productSearchCombo.getEditor().addEventFilter(KeyEvent.KEY_PRESSED, e -> {
             if (e.getCode() == KeyCode.ENTER) {
-                String text = productSearchCombo.getEditor().getText().trim();
-                if (tryAddByBarcode(text)) {
+                if (enterProcessingGuard) { e.consume(); return; }
+                enterProcessingGuard = true;
+                try {
+                    String text = productSearchCombo.getEditor().getText().trim();
+                    if (tryAddByBarcode(text)) {
+                        e.consume();
+                        return;
+                    }
+                    handleProductSelection(resolveSelectedProduct());
                     e.consume();
-                    return;
+                } finally {
+                    enterProcessingGuard = false;
                 }
-                handleProductSelection(resolveSelectedProduct());
-                e.consume();
             }
         });
 
@@ -532,15 +564,21 @@ public class SaleFormController extends BaseFormController {
                     (javafx.scene.control.ListView<?>) skin.getPopupContent();
                 listView.addEventFilter(KeyEvent.KEY_PRESSED, ev -> {
                     if (ev.getCode() == KeyCode.ENTER) {
-                        String text = productSearchCombo.getEditor().getText().trim();
-                        if (tryAddByBarcode(text)) {
-                            ev.consume();
-                            return;
-                        }
-                        Product selected = (Product) listView.getSelectionModel().getSelectedItem();
-                        if (selected != null) {
-                            handleProductSelection(selected);
-                            ev.consume();
+                        if (enterProcessingGuard) { ev.consume(); return; }
+                        enterProcessingGuard = true;
+                        try {
+                            String text = productSearchCombo.getEditor().getText().trim();
+                            if (tryAddByBarcode(text)) {
+                                ev.consume();
+                                return;
+                            }
+                            Product selected = (Product) listView.getSelectionModel().getSelectedItem();
+                            if (selected != null) {
+                                handleProductSelection(selected);
+                                ev.consume();
+                            }
+                        } finally {
+                            enterProcessingGuard = false;
                         }
                     }
                 });
@@ -871,6 +909,8 @@ public class SaleFormController extends BaseFormController {
             }
         } catch (Exception e) {
             log.warn("[BARCODE] Erro ao pesquisar barcode '{}': {}", text, e.getMessage());
+            showError("Erro ao pesquisar código de barras: " + e.getMessage());
+            return true;
         }
         return false;
     }
@@ -994,7 +1034,8 @@ public class SaleFormController extends BaseFormController {
             SaleItem item = new SaleItem();
             item.setProduct(product);
             item.setProductCode(product.getCode());
-            item.setDescription(product.getName());
+            String desc = product.getDescription();
+            item.setDescription(desc != null && !desc.isBlank() ? desc : product.getName());
             item.setQty(qty);
             item.setUnitPrice(unitPrice);
             item.setUnit(product.getUnit() != null ? product.getUnit().getAbbreviation() : "un");
@@ -1120,9 +1161,21 @@ public class SaleFormController extends BaseFormController {
             return false;
         }
         String dtVal = documentTypeCombo.getValue();
-        if (com.sgv.model.DocumentType.FACTURA.name().equals(dtVal) && diverseCustomerCheck.isSelected()) {
-            showError("Factura (FA) requer um cliente com NUIT. Desative 'Cliente Diverso' e selecione o cliente.");
-            return false;
+        if (com.sgv.model.DocumentType.FACTURA.name().equals(dtVal)) {
+            if (diverseCustomerCheck.isSelected()) {
+                showError("Factura (FA) requer um cliente com NUIT. Desative 'Cliente Diverso' e selecione o cliente.");
+                return false;
+            }
+            Customer c = customerCombo.getValue();
+            String nuit = c != null ? c.getNuit() : null;
+            if (nuit == null || nuit.isBlank()) {
+                showError("Cliente selecionado para Factura (FA) não tem NUIT preenchido. Edite o cadastro do cliente.");
+                return false;
+            }
+            if (!com.sgv.util.NuitValidator.isValid(nuit)) {
+                showError("NUIT do cliente inválido: '" + nuit + "'. Verifique o número no cadastro do cliente.");
+                return false;
+            }
         }
         return true;
     }
@@ -1149,7 +1202,7 @@ public class SaleFormController extends BaseFormController {
     @Override
     protected void doSave() {
         if (checkTrainingBlock()) return;
-        if (!validate()) return;
+        if (!formValidProperty.get()) return;
 
         // Fix #6: Bloquear sessão de caixa apenas para vendas fiscais
         com.sgv.model.DocumentType dtCheck = com.sgv.model.DocumentType.fromString(documentTypeCombo.getValue());
@@ -1229,8 +1282,10 @@ public class SaleFormController extends BaseFormController {
                     });
                 }
             }
-        } else if (dt == com.sgv.model.DocumentType.VENDA || dt == com.sgv.model.DocumentType.FACTURA || dt == com.sgv.model.DocumentType.RECIBO) {
+        } else if (dt == com.sgv.model.DocumentType.VENDA || dt == com.sgv.model.DocumentType.FACTURA) {
             sale.setState(com.sgv.model.SaleState.PAGO.name());
+        } else if (dt == com.sgv.model.DocumentType.RECIBO) {
+            sale.setState(com.sgv.model.SaleState.EMITIDA.name());
         } else {
             sale.setState(com.sgv.model.SaleState.EMITIDA.name());
         }

@@ -13,7 +13,6 @@ import javafx.application.Platform;
 import javafx.fxml.FXML;
 import javafx.scene.control.*;
 import javafx.scene.control.cell.PropertyValueFactory;
-import javafx.stage.Stage;
 import javafx.util.StringConverter;
 import org.springframework.stereotype.Component;
 import org.slf4j.Logger;
@@ -21,8 +20,6 @@ import org.slf4j.LoggerFactory;
 
 import java.util.Comparator;
 import java.util.List;
-import java.util.Map;
-import java.util.Objects;
 import java.util.stream.Collectors;
 
 @Component
@@ -96,13 +93,10 @@ public class WarehouseTransferFormController extends BaseFormController {
 
         UiUtils.applyNumericFormatter(quantityField);
 
-        productCombo.valueProperty().addListener((obs, o, n) -> {
-            validateRealTime();
-        });
-
-        warehouseCombo.valueProperty().addListener((obs, ov, nv) -> {
-            refreshSummary();
-        });
+        productCombo.valueProperty().addListener((obs, o, n) -> validateRealTime());
+        warehouseCombo.valueProperty().addListener((obs, ov, nv) -> { refreshSummary(); validateRealTime(); });
+        branchCombo.valueProperty().addListener((obs, ov, nv) -> validateRealTime());
+        items.addListener((javafx.collections.ListChangeListener.Change<? extends ItemRow> c) -> validateRealTime());
 
         itemsTable.setItems(items);
     }
@@ -113,8 +107,8 @@ public class WarehouseTransferFormController extends BaseFormController {
         productCombo.setItems(comboDisplayList);
 
         productCombo.valueProperty().addListener((obs, oldVal, newVal) -> {
-            if (newVal != null && newVal instanceof Product) {
-                lastSelectedProduct = (Product) newVal;
+            if (newVal instanceof Product p) {
+                lastSelectedProduct = p;
             }
         });
 
@@ -384,20 +378,26 @@ public class WarehouseTransferFormController extends BaseFormController {
 
     @Override
     protected void validateRealTime() {
-        boolean valid = !items.isEmpty();
+        boolean valid = true;
+        StringBuilder errors = new StringBuilder();
+
+        if (warehouseCombo.getValue() == null) { errors.append("Seleccione o armazém de origem. "); valid = false; }
+        if (branchCombo.getValue() == null) { errors.append("Seleccione a loja de destino. "); valid = false; }
+        if (items.isEmpty()) { errors.append("Adicione pelo menos um produto. "); valid = false; }
+
         formValidProperty.set(valid);
-        if (valid) hideError();
+        if (!valid) showError(errors.toString().trim());
+        else hideError();
     }
 
     @Override
     protected void doSave() {
         if (checkTrainingBlock()) return;
+        if (!formValidProperty.get()) return;
         errorLabel.setVisible(false);
+
         Warehouse wh = warehouseCombo.getValue();
         Branch br = branchCombo.getValue();
-        if (wh == null) { showError("Seleccione o armazém de origem"); return; }
-        if (br == null) { showError("Seleccione a loja de destino"); return; }
-        if (items.isEmpty()) { showError("Adicione pelo menos um item"); return; }
 
         try {
             WarehouseTransfer t = new WarehouseTransfer();

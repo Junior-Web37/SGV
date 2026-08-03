@@ -12,14 +12,12 @@ import javafx.scene.input.KeyCode;
 import javafx.application.Platform;
 import javafx.fxml.FXML;
 import javafx.scene.control.*;
-import javafx.scene.layout.HBox;
-import javafx.stage.Stage;
 import org.springframework.stereotype.Component;
 import java.time.LocalDate;
-import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
+import javafx.concurrent.Task;
 
 @Component
 public class PurchaseFormController extends BaseFormController {
@@ -62,6 +60,7 @@ public class PurchaseFormController extends BaseFormController {
     private final ObservableList<Product> comboDisplayList = FXCollections.observableArrayList();
     private boolean isRefreshingProducts = false;
     private Product lastSelectedProduct = null;
+    private Task<Boolean> duplicateCheckTask;
 
     public PurchaseFormController(PurchaseRepository purchaseRepository,
                                   ProductRepository productRepository,
@@ -155,8 +154,8 @@ public class PurchaseFormController extends BaseFormController {
         productCombo.setItems(comboDisplayList);
 
         productCombo.valueProperty().addListener((obs, oldVal, newVal) -> {
-            if (newVal != null && newVal instanceof Product) {
-                lastSelectedProduct = (Product) newVal;
+            if (newVal instanceof Product p) {
+                lastSelectedProduct = p;
             }
         });
 
@@ -301,22 +300,55 @@ public class PurchaseFormController extends BaseFormController {
         StringBuilder errors = new StringBuilder();
         boolean valid = true;
         
-        if (invoiceNumberField.getText() == null || invoiceNumberField.getText().isBlank()) { valid = false; }
-        if (supplierCombo.getValue() == null) { valid = false; }
-        if (invoiceDatePicker.getValue() == null) { valid = false; }
+        String invoice = invoiceNumberField.getText();
+        if (invoice == null || invoice.isBlank()) {
+            errors.append("Número da factura é obrigatório. ");
+            valid = false;
+        }
+        if (supplierCombo.getValue() == null) {
+            errors.append("Seleccione o fornecedor. ");
+            valid = false;
+        }
+        if (invoiceDatePicker.getValue() == null) {
+            errors.append("Data da factura é obrigatória. ");
+            valid = false;
+        }
         if (items.isEmpty()) {
+            errors.append("Adicione pelo menos um item. ");
             valid = false;
         }
         
         formValidProperty.set(valid);
-        if (valid && errorLabel != null) {
-            errorLabel.setVisible(false);
-            errorLabel.setManaged(false);
-        } else if (!valid && errorLabel != null) {
-            errorLabel.setText("Preencha fornecedor, número da factura e adicione pelo menos um item.");
-            errorLabel.setVisible(true);
-            errorLabel.setManaged(true);
-            errorLabel.setStyle("-fx-text-fill: #EF4444; -fx-font-size: 12px; -fx-font-weight: 600;");
+        if (!valid) {
+            showError(errors.toString().trim());
+        } else {
+            hideError();
+        }
+
+        if (valid && invoice != null && !invoice.isBlank() && supplierCombo.getValue() != null) {
+            String trimmedInvoice = invoice.trim();
+            Supplier selectedSupplier = supplierCombo.getValue();
+            if (duplicateCheckTask != null) duplicateCheckTask.cancel(false);
+            duplicateCheckTask = new Task<>() {
+                @Override
+                protected Boolean call() {
+                    java.util.Optional<Purchase> existing = purchaseRepository.findByInvoiceNumberIgnoreCase(trimmedInvoice);
+                    if (existing.isEmpty()) return false;
+                    Purchase p = existing.get();
+                    boolean sameSupplier = p.getSupplier() != null && selectedSupplier.getId() != null
+                            && selectedSupplier.getId().equals(p.getSupplier().getId());
+                    boolean differentId = editingPurchase == null || editingPurchase.getId() == null
+                            || !editingPurchase.getId().equals(p.getId());
+                    return sameSupplier && differentId;
+                }
+            };
+            duplicateCheckTask.setOnSucceeded(e -> {
+                if (duplicateCheckTask.getValue()) {
+                    formValidProperty.set(false);
+                    showError("Já existe uma compra com este número de factura para este fornecedor.");
+                }
+            });
+            new Thread(duplicateCheckTask).start();
         }
     }
 

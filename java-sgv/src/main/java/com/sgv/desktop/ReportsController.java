@@ -5,17 +5,14 @@ import com.sgv.repository.*;
 import com.sgv.service.AppConfigService;
 import com.sgv.service.SafTExportService;
 import com.sgv.service.StockBranchService;
-import javafx.application.Platform;
 import javafx.beans.property.SimpleStringProperty;
 import javafx.collections.FXCollections;
 import javafx.fxml.FXML;
-import javafx.geometry.Insets;
 import javafx.scene.Node;
 import javafx.scene.chart.*;
 import javafx.scene.control.*;
 import javafx.scene.control.cell.PropertyValueFactory;
 import javafx.scene.layout.*;
-import javafx.util.converter.NumberStringConverter;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
@@ -273,7 +270,7 @@ public class ReportsController {
         var series = new XYChart.Series<String, Number>();
         daily.forEach((d, v) -> series.getData().add(new XYChart.Data<>(
                 d.format(DateTimeFormatter.ofPattern("dd/MM")), v)));
-        vendasChart.getData().setAll(series);
+        vendasChart.getData().setAll(List.of(series));
     }
 
     // ── TAB 2: PRODUTOS EM FALTA ─────────────────────
@@ -307,7 +304,7 @@ public class ReportsController {
         c5.setCellValueFactory(r -> sv(r.getValue().getStockMin()));
         c6.setCellValueFactory(r -> sv(r.getValue().getBranch()));
 
-        table.getColumns().addAll(c1, c2, c3, c4, c5, c6);
+        table.getColumns().addAll(List.of(c1, c2, c3, c4, c5, c6));
         table.setPlaceholder(new Label("Nenhum produto em falta"));
 
         Label count = new Label("0 produtos em falta");
@@ -387,7 +384,7 @@ public class ReportsController {
         tc3.setCellValueFactory(r -> sv(r.getValue().getName()));
         tc4.setCellValueFactory(r -> sv(r.getValue().getQty()));
         tc5.setCellValueFactory(r -> sv(r.getValue().getRevenue()));
-        table.getColumns().addAll(tc1, tc2, tc3, tc4, tc5);
+        table.getColumns().addAll(List.of(tc1, tc2, tc3, tc4, tc5));
 
         ComboBox<String> periodCombo = new ComboBox<>();
         periodCombo.setItems(FXCollections.observableArrayList("Hoje","Esta Semana","Este Mês","Este Ano"));
@@ -461,7 +458,7 @@ public class ReportsController {
         chart.getData().clear();
         var s = new XYChart.Series<String, Number>();
         numbered.stream().limit(8).forEach(r -> s.getData().add(new XYChart.Data<>(truncate(r.getName(), 16), r.getQtyNum())));
-        chart.getData().setAll(s);
+        chart.getData().setAll(List.of(s));
     }
 
     // ── TAB 4: RELATÓRIO IVA ──────────────────────────
@@ -506,7 +503,7 @@ public class ReportsController {
         col4.setCellValueFactory(c -> sv(fmtD(c.getValue().getSubtotal())));
         col5.setCellValueFactory(c -> sv(fmtD(c.getValue().getTotalTax())));
         col6.setCellValueFactory(c -> sv(fmtD(c.getValue().getTotal())));
-        ivaTable.getColumns().addAll(col1, col2, col3, col4, col5, col6);
+        ivaTable.getColumns().addAll(List.of(col1, col2, col3, col4, col5, col6));
 
         HBox toolbar = new HBox(8);
         Label title = new Label("DOCUMENTOS DO MÊS CORRENTE");
@@ -601,7 +598,7 @@ public class ReportsController {
         sc6.setCellValueFactory(new PropertyValueFactory<>("stockAfter"));
         sc7.setCellValueFactory(new PropertyValueFactory<>("branchName"));
         sc8.setCellValueFactory(new PropertyValueFactory<>("userName"));
-        movementsTable.getColumns().addAll(sc1, sc2, sc3, sc4, sc5, sc6, sc7, sc8);
+        movementsTable.getColumns().addAll(List.of(sc1, sc2, sc3, sc4, sc5, sc6, sc7, sc8));
 
         movementsPrevBtn = btn("← Anterior", "#2563EB");
         movementsNextBtn = btn("Próximo →", "#2563EB");
@@ -693,7 +690,7 @@ public class ReportsController {
         TableColumn<StockMatrixRow, String> mcTotal = col("Total", 90);
         mcTotal.setCellValueFactory(new PropertyValueFactory<>("totalQty"));
 
-        table.getColumns().addAll(mc1, mc2, mc3);
+        table.getColumns().addAll(List.of(mc1, mc2, mc3));
         table.getColumns().addAll(branchCols);
         table.getColumns().add(mcTotal);
 
@@ -822,7 +819,7 @@ public class ReportsController {
         tc5.setCellValueFactory(new PropertyValueFactory<>("productName"));
         tc6.setCellValueFactory(new PropertyValueFactory<>("quantity"));
         tc7.setCellValueFactory(new PropertyValueFactory<>("status"));
-        table.getColumns().addAll(tc1, tc2, tc3, tc4, tc5, tc6, tc7);
+        table.getColumns().addAll(List.of(tc1, tc2, tc3, tc4, tc5, tc6, tc7));
 
         // Combo to filter by status
         ComboBox<String> statusCombo = new ComboBox<>();

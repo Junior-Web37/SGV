@@ -20,7 +20,7 @@
         </HBox>
 
         <!-- CONTENT -->
-        <ScrollPane fitToWidth="true" style="-fx-background:#ffffff; -fx-background-color:#ffffff;"
+        <ScrollPane fitToWidth="true" VBox.vgrow="ALWAYS" style="-fx-background:#ffffff; -fx-background-color:#ffffff;"
                     styleClass="edge-to-edge" hbarPolicy="NEVER">
             <VBox spacing="20" style="-fx-padding:24;">
                 
@@ -112,52 +112,54 @@
                                            style="-fx-padding:8 12; -fx-background-radius:3; -fx-border-color:#E2E8F0; -fx-border-radius:3; -fx-font-size:13px; -fx-background-color:#F8FAFC; -fx-text-fill:#0F172A;"/>
                                 <Label fx:id="taxRateHint" text="Padrão: 16%" style="-fx-font-size:10px; -fx-text-fill:#94A3B8;"/>
                             </VBox>
-                            <!-- ICE -->
-                            <VBox spacing="6" GridPane.columnIndex="1" GridPane.rowIndex="1">
-                                <Label text="ICE (%)" style="-fx-font-weight:600; -fx-text-fill:#0F172A; -fx-font-size:12px;"/>
-                                <TextField fx:id="iceRateField" text="0"
-                                           style="-fx-padding:8 12; -fx-background-radius:3; -fx-border-color:#E2E8F0; -fx-border-radius:3; -fx-font-size:13px; -fx-background-color:#F8FAFC; -fx-text-fill:#0F172A;"/>
-                            </VBox>
+
                         </children>
                     </GridPane>
                 </VBox>
 
                 <Separator style="-fx-opacity:0.2;"/>
 
-                <!-- 3. UNIDADES E GROSSO -->
+                <!-- 3. VENDA POR ATACADO -->
                 <VBox spacing="12">
-                    <Label text="UNIDADES E VENDA POR GROSSO" style="-fx-font-size:11px; -fx-font-weight:700; -fx-text-fill:#475569;"/>
+                    <Label text="VENDA POR ATACADO" style="-fx-font-size:11px; -fx-font-weight:700; -fx-text-fill:#475569;"/>
                     <GridPane hgap="16" vgap="16">
                         <columnConstraints>
-                            <ColumnConstraints percentWidth="25"/>
-                            <ColumnConstraints percentWidth="25"/>
-                            <ColumnConstraints percentWidth="25"/>
-                            <ColumnConstraints percentWidth="25"/>
+                            <ColumnConstraints percentWidth="20"/>
+                            <ColumnConstraints percentWidth="20"/>
+                            <ColumnConstraints percentWidth="20"/>
+                            <ColumnConstraints percentWidth="20"/>
+                            <ColumnConstraints percentWidth="20"/>
                         </columnConstraints>
                         <children>
-                            <!-- Unidade -->
+                            <!-- Unidade Base -->
                             <VBox spacing="6" GridPane.columnIndex="0" GridPane.rowIndex="0">
-                                <Label text="Unidade de Medida" style="-fx-font-weight:600; -fx-text-fill:#0F172A; -fx-font-size:12px;"/>
+                                <Label text="Unidade Base" style="-fx-font-weight:600; -fx-text-fill:#0F172A; -fx-font-size:12px;"/>
                                 <ComboBox fx:id="unitField"
                                            style="-fx-pref-width:1000; -fx-background-radius:3; -fx-border-color:#E2E8F0; -fx-border-radius:3; -fx-font-size:13px; -fx-padding:4; -fx-background-color:#F8FAFC;"/>
                             </VBox>
-                            <!-- Preço Grosso -->
+                            <!-- Preço Atacado -->
                             <VBox spacing="6" GridPane.columnIndex="1" GridPane.rowIndex="0">
-                                <Label text="Preço Venda (Grosso)" style="-fx-font-weight:600; -fx-text-fill:#0F172A; -fx-font-size:12px;"/>
+                                <Label text="Preço Atacado (MT)" style="-fx-font-weight:600; -fx-text-fill:#0F172A; -fx-font-size:12px;"/>
                                 <TextField fx:id="priceSaleBulkField"
                                            style="-fx-padding:8 12; -fx-background-radius:3; -fx-border-color:#E2E8F0; -fx-border-radius:3; -fx-font-size:13px; -fx-background-color:#F8FAFC; -fx-text-fill:#0F172A;"/>
                             </VBox>
-                            <!-- Qtd Grosso -->
+                            <!-- Qtd Mín Atacado -->
                             <VBox spacing="6" GridPane.columnIndex="2" GridPane.rowIndex="0">
-                                <Label text="Qtd Mín p/ Grosso" style="-fx-font-weight:600; -fx-text-fill:#0F172A; -fx-font-size:12px;"/>
+                                <Label text="Qtd Mín Atacado" style="-fx-font-weight:600; -fx-text-fill:#0F172A; -fx-font-size:12px;"/>
                                 <TextField fx:id="bulkQuantityField" text="1"
                                            style="-fx-padding:8 12; -fx-background-radius:3; -fx-border-color:#E2E8F0; -fx-border-radius:3; -fx-font-size:13px; -fx-background-color:#F8FAFC; -fx-text-fill:#0F172A;"/>
                             </VBox>
-                            <!-- Unidade Bulk -->
+                            <!-- Unid. Atacado -->
                             <VBox spacing="6" GridPane.columnIndex="3" GridPane.rowIndex="0">
-                                <Label text="Unidade (Grosso)" style="-fx-font-weight:600; -fx-text-fill:#0F172A; -fx-font-size:12px;"/>
+                                <Label text="Unid. Atacado" style="-fx-font-weight:600; -fx-text-fill:#0F172A; -fx-font-size:12px;"/>
                                 <ComboBox fx:id="unitBulkField"
                                            style="-fx-pref-width:1000; -fx-background-radius:3; -fx-border-color:#E2E8F0; -fx-border-radius:3; -fx-font-size:13px; -fx-padding:4; -fx-background-color:#F8FAFC;"/>
+                            </VBox>
+                            <!-- Factor Conversão -->
+                            <VBox spacing="6" GridPane.columnIndex="4" GridPane.rowIndex="0">
+                                <Label text="Factor Conversão" style="-fx-font-weight:600; -fx-text-fill:#0F172A; -fx-font-size:12px;"/>
+                                <TextField fx:id="conversionFactorField" text="1.0"
+                                           style="-fx-padding:8 12; -fx-background-radius:3; -fx-border-color:#E2E8F0; -fx-border-radius:3; -fx-font-size:13px; -fx-background-color:#F8FAFC; -fx-text-fill:#0F172A;"/>
                             </VBox>
                         </children>
                     </GridPane>
@@ -227,16 +229,6 @@
                     <TextArea fx:id="descriptionArea" wrapText="true"
                               style="-fx-padding:8 12; -fx-background-radius:3; -fx-border-color:#E2E8F0; -fx-border-radius:3; -fx-font-size:13px; -fx-background-color:#F8FAFC; -fx-text-fill:#0F172A; -fx-min-height:60; -fx-max-height:100;"
                               promptText="Descrição curta do produto..."/>
-                </VBox>
-
-                <Separator style="-fx-opacity:0.2;"/>
-
-                <!-- 7. OBSERVAÇÕES -->
-                <VBox spacing="12">
-                    <Label text="OBSERVAÇÕES" style="-fx-font-size:11px; -fx-font-weight:700; -fx-text-fill:#475569;"/>
-                    <TextArea fx:id="observationsField" wrapText="true"
-                              style="-fx-padding:8 12; -fx-background-radius:3; -fx-border-color:#E2E8F0; -fx-border-radius:3; -fx-font-size:13px; -fx-background-color:#F8FAFC; -fx-text-fill:#0F172A; -fx-min-height:80; -fx-max-height:120;"
-                              promptText="Observações adicionais sobre o produto..."/>
                 </VBox>
 
                 <!-- BOTÕES -->

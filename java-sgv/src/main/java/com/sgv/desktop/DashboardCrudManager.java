@@ -6,9 +6,7 @@ import com.sgv.repository.*;
 import com.sgv.service.*;
 import javafx.collections.FXCollections;
 import javafx.fxml.FXMLLoader;
-import javafx.geometry.Insets;
 import javafx.geometry.Pos;
-import javafx.scene.Node;
 import javafx.scene.Parent;
 import javafx.scene.Scene;
 import javafx.scene.control.*;
@@ -27,11 +25,9 @@ import org.springframework.stereotype.Component;
 
 import java.io.File;
 import java.math.BigDecimal;
-import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.*;
-import java.util.concurrent.atomic.AtomicLong;
 
 @Component
 public class DashboardCrudManager {
@@ -54,7 +50,6 @@ public class DashboardCrudManager {
     private final UserRepository userRepository;
     private final PurchaseRepository purchaseRepository;
     private final ExpenseRepository expenseRepository;
-    private final FilterPresetService filterPresetService;
     private final CashSessionService cashSessionService;
     private final MetricUnitRepository metricUnitRepository;
     private final SaleDocumentService saleDocumentService;
@@ -76,7 +71,6 @@ public class DashboardCrudManager {
                                 UserRepository userRepository,
                                 PurchaseRepository purchaseRepository,
                                 ExpenseRepository expenseRepository,
-                                FilterPresetService filterPresetService,
                                 CashSessionService cashSessionService,
                                 MetricUnitRepository metricUnitRepository,
                                 SaleDocumentService saleDocumentService,
@@ -97,7 +91,6 @@ public class DashboardCrudManager {
         this.userRepository = userRepository;
         this.purchaseRepository = purchaseRepository;
         this.expenseRepository = expenseRepository;
-        this.filterPresetService = filterPresetService;
         this.cashSessionService = cashSessionService;
         this.metricUnitRepository = metricUnitRepository;
         this.saleDocumentService = saleDocumentService;
@@ -624,7 +617,7 @@ public class DashboardCrudManager {
         try {
             List<StockMovement> movements = stockMovementRepository.findByProductIdOrderByCreatedAtDesc(product.getId());
             TableView<StockMovement> table = new TableView<>();
-            table.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY);
+            table.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY_ALL_COLUMNS);
 
             TableColumn<StockMovement, String> colDate = new TableColumn<>("Data / Hora");
             colDate.setCellValueFactory(d -> new SimpleStringProperty(
@@ -649,7 +642,7 @@ public class DashboardCrudManager {
             TableColumn<StockMovement, String> colUser = new TableColumn<>("Utilizador");
             colUser.setCellValueFactory(d -> new SimpleStringProperty(
                     d.getValue().getUser() != null ? d.getValue().getUser().getUsername() : "—"));
-            table.getColumns().addAll(colDate, colType, colQty, colBefore, colAfter, colBranch, colRef, colUser);
+            table.getColumns().addAll(List.of(colDate, colType, colQty, colBefore, colAfter, colBranch, colRef, colUser));
             table.setItems(FXCollections.observableArrayList(movements));
 
             VBox box = new VBox(12, new Label("Histórico de Stock para " + product.getCode() + " - " + product.getName()), table);
@@ -1045,7 +1038,7 @@ public class DashboardCrudManager {
         TableColumn<Sale, String> colState = new TableColumn<>("Estado");
         colState.setPrefWidth(100);
         colState.setCellValueFactory(d -> new SimpleStringProperty(d.getValue().getState()));
-        pendingTable.getColumns().addAll(colDoc, colDate, colTotal, colState);
+        pendingTable.getColumns().addAll(List.of(colDoc, colDate, colTotal, colState));
 
         try {
             List<Sale> pending = saleRepository.findPendingByCustomerId(customer.getId());
@@ -1216,7 +1209,7 @@ public class DashboardCrudManager {
         TableColumn<Sale, String> c5 = new TableColumn<>("Estado");
         c5.setPrefWidth(100);
         c5.setCellValueFactory(d -> new SimpleStringProperty(d.getValue().getState()));
-        table.getColumns().addAll(c1, c2, c3, c4, c5);
+        table.getColumns().addAll(List.of(c1, c2, c3, c4, c5));
         table.setItems(FXCollections.observableArrayList(allSales));
 
         HBox footer = new HBox(12);
@@ -1525,7 +1518,7 @@ public class DashboardCrudManager {
         Tab tabStock = new Tab("Stock Actual");
         TableView<StockWarehouse> stockTable = new TableView<>();
         stockTable.setStyle("-fx-font-size: 13px; -fx-background-color: #ffffff; -fx-border-color: #E2E8F0; -fx-border-width: 0 1 1 1; -fx-table-cell-border-color: #F1F5F9;");
-        stockTable.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY);
+        stockTable.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY_ALL_COLUMNS);
         stockTable.setPlaceholder(new Label("Sem stock neste armazém"));
 
         TableColumn<StockWarehouse, String> cCod = new TableColumn<>("Código");
@@ -1593,14 +1586,14 @@ public class DashboardCrudManager {
             }
         });
 
-        stockTable.getColumns().addAll(cCod, cProd, cCat, cQtd, cPrecoCusto, cValorTotal);
+        stockTable.getColumns().addAll(List.of(cCod, cProd, cCat, cQtd, cPrecoCusto, cValorTotal));
         stockTable.setItems(FXCollections.observableArrayList(stockList));
         tabStock.setContent(stockTable);
 
         Tab tabMovs = new Tab("Movimentações Recentes");
         TableView<StockMovement> movsTable = new TableView<>();
         movsTable.setStyle("-fx-font-size: 13px; -fx-background-color: #ffffff; -fx-border-color: #E2E8F0; -fx-table-cell-border-color: #F1F5F9;");
-        movsTable.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY);
+        movsTable.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY_ALL_COLUMNS);
         movsTable.setPlaceholder(new Label("Sem movimentações registadas"));
 
         TableColumn<StockMovement, String> mTipo = new TableColumn<>("Tipo");
@@ -1647,7 +1640,7 @@ public class DashboardCrudManager {
         mData.setPrefWidth(140);
         mData.setCellValueFactory(d -> new SimpleStringProperty(d.getValue().getCreatedAt() != null ? d.getValue().getCreatedAt().format(DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm")) : "—"));
 
-        movsTable.getColumns().addAll(mTipo, mProduto, mQtd, mRef, mData);
+        movsTable.getColumns().addAll(List.of(mTipo, mProduto, mQtd, mRef, mData));
         List<StockMovement> movs = stockMovementRepository.findTop50ByWarehouseIdAndTypeInOrderByCreatedAtDesc(
                 w.getId(), java.util.List.of("ENTRADA_ARMAZEM", "SAIDA_ARMAZEM"));
         movsTable.setItems(FXCollections.observableArrayList(movs));

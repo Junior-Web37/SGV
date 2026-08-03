@@ -1,51 +1,51 @@
 package com.sgv.service;
 
+import com.sgv.repository.SaleRepository;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.Mock;
+import org.mockito.junit.jupiter.MockitoExtension;
 
-import java.math.BigDecimal;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.mockito.Mockito.when;
 
-import static org.junit.jupiter.api.Assertions.*;
-
-/**
- * Unit tests for SaleNumberingService logic patterns.
- * Tests the sequential numbering behavior.
- */
+@ExtendWith(MockitoExtension.class)
 class SaleNumberingServiceTest {
 
+    @Mock
+    private SaleRepository saleRepository;
+
     @Test
-    void documentNumberCalculation_shouldFollowPattern() {
-        // Simulate: next doc = max(existing) + 1
-        long maxDoc = 42;
-        long next = maxDoc + 1;
-        assertEquals(43, next);
+    void nextDocumentNumber_noExisting_returnsOne() {
+        SaleNumberingService service = new SaleNumberingService(saleRepository);
+        when(saleRepository.findMaxDocumentNumberBySeriesAndDocumentTypeAndBranchIdAndYear(
+                "FT", "FATURA", 1L, java.time.LocalDate.now().getYear())).thenReturn(null);
+
+        assertEquals(1L, service.nextDocumentNumber(1L, "FT", "FATURA"));
     }
 
     @Test
-    void hashControl_shouldBeSequential() {
-        // Simulate hash control increment
-        Long[] controls = {1L, 2L, 3L, 4L, 5L};
-        for (int i = 1; i < controls.length; i++) {
-            assertEquals(controls[i-1] + 1, controls[i]);
-        }
+    void nextDocumentNumber_existingIncrements() {
+        SaleNumberingService service = new SaleNumberingService(saleRepository);
+        when(saleRepository.findMaxDocumentNumberBySeriesAndDocumentTypeAndBranchIdAndYear(
+                "FT", "FATURA", 1L, java.time.LocalDate.now().getYear())).thenReturn(42L);
+
+        assertEquals(43L, service.nextDocumentNumber(1L, "FT", "FATURA"));
     }
 
     @Test
-    void monetaryPrecision_shouldPreserveDecimals() {
-        // Ensure BigDecimal preserves precision for MZN
-        BigDecimal price = new BigDecimal("1234.56");
-        BigDecimal qty = new BigDecimal("3");
-        BigDecimal total = price.multiply(qty);
+    void nextHashControl_noExisting_returnsOne() {
+        SaleNumberingService service = new SaleNumberingService(saleRepository);
+        when(saleRepository.findMaxHashControlByBranchId(2L)).thenReturn(null);
 
-        assertEquals(new BigDecimal("3703.68"), total);
+        assertEquals(1L, service.nextHashControl(2L));
     }
 
     @Test
-    void monetaryPrecision_shouldNotLoseFractionalDigits() {
-        BigDecimal a = new BigDecimal("0.1");
-        BigDecimal b = new BigDecimal("0.2");
-        BigDecimal sum = a.add(b);
+    void nextHashControl_existingIncrements() {
+        SaleNumberingService service = new SaleNumberingService(saleRepository);
+        when(saleRepository.findMaxHashControlByBranchId(2L)).thenReturn(99L);
 
-        assertNotEquals(new BigDecimal("0.30000000000000004"), sum);
-        assertEquals(0, sum.compareTo(new BigDecimal("0.3")));
+        assertEquals(100L, service.nextHashControl(2L));
     }
 }

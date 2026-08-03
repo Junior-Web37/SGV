@@ -1,41 +1,50 @@
-# SGV Java Desktop App
+# SGV Desktop - Sistema de Gestão de Vendas
 
-Este projeto é a aplicação desktop SGV, construída com JavaFX e Spring Boot.
+Aplicação desktop 100% offline construída com JavaFX e Spring Boot (não-web).
 
-## Características
+## Requisitos
 
-- Java 21
-- JavaFX para interface desktop
-- Spring Boot para serviços de negócio e persistência
-- Spring Security com roles: `ADMIN`, `GESTOR`, `CAIXA`, `CLIENTE`
-- JPA/Hibernate para persistência com MariaDB
-- Relatórios, compras, vendas, reconciliação e backups integrados no desktop
+- Java 25 (JDK) — testado com Eclipse Adoptium `jdk-25.0.3.9-hotspot`
+- XAMPP com MySQL/MariaDB a correr na porta 3306 (utilizador `root` sem password)
+- Base de dados: `sgv` (o Flyway cria/atualiza o schema automaticamente no arranque)
+- Maven (opcional, apenas para desenvolvimento)
+
+## Credenciais padrão
+
+- Utilizador: `admin`
+- Senha: `admin`
 
 ## Como executar
 
-1. Instale o JDK 21 ou superior.
-2. Configure `JAVA_HOME` e certifique-se de que `mvn` está no PATH.
-3. No diretório `java-sgv`, execute:
+### Opção 1 — Launcher (recomendado)
 
-```bash
+Faça duplo clique em `SGV-Launcher.bat` (deteta o JDK e usa `run-sgv.bat`).
+
+### Opção 2 — JAR empacotado
+
+```bat
 mvn -DskipTests package
+SGV-Desktop.bat
+```
+
+### Opção 3 — Modo desenvolvimento
+
+```bat
 mvn -DskipTests javafx:run
 ```
 
-4. Ou use o JAR gerado:
+## Estrutura
 
-```bash
-java -jar target\java-sgv-0.1.0.jar
-```
+- `run-sgv.bat` — executa o JAR do `target`.
+- `SGV-Desktop.bat` — localiza o Java e executa o JAR empacotado.
+- `SGV-Launcher.bat` — ponto de entrada simples que delega no `run-sgv.bat`.
+- `src/main/resources/application.properties` — configuração principal (base de dados, logging).
+- `src/main/resources/db/migration/` — migrações Flyway.
 
-## Executar no Windows
+## Notas
 
-- `run.bat` — executa o app jar empacotado.
-- `run_dev.bat` — compila e executa o app com `javafx:run`.
-- `run.ps1` — helper PowerShell para rodar o app.
-
-## Observações
-
-- O frontend web original foi removido do repositório.
-- O aplicativo desktop inicia em modo não-web e usa o Spring Boot localmente.
-- Ajuste `application-prod.properties` se precisar conectar a uma instância MariaDB diferente.
+- O frontend web e a camada Spring Security web foram removidos. A autenticação é feita na própria aplicação desktop com BCrypt.
+- Roles: `ADMIN`, `GESTOR`, `CAIXA`, `CLIENTE`.
+- Problemas comuns:
+  - "Access denied for user 'root'": o XAMPP tem password no root — remova-a ou ajuste `spring.datasource` em `application.properties`.
+  - A janela abre e fecha rápido: execute `run-sgv.bat` pelo terminal para ver a mensagem de erro.

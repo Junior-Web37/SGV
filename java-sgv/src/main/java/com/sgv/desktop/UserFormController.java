@@ -21,6 +21,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 
 import java.util.HashSet;
 import java.util.Set;
+import javafx.concurrent.Task;
 import com.sgv.service.SystemLogService;
 
 @Component
@@ -43,6 +44,7 @@ public class UserFormController extends BaseFormController {
     private final SystemLogService systemLogService;
     private final PasswordEncoder passwordEncoder;
     private User user;
+    private Task<Boolean> duplicateCheckTask;
     @Value("${desktop.useRest:false}")
     private boolean useRest;
 
@@ -91,6 +93,7 @@ public class UserFormController extends BaseFormController {
 
         String username = usernameField.getText();
         if (username == null || username.isBlank()) {
+            errors.append("Username é obrigatório. ");
             valid = false;
         } else if (username.trim().length() < 4) {
             errors.append("Username muito curto (mín. 4 caracteres). ");
@@ -102,6 +105,7 @@ public class UserFormController extends BaseFormController {
 
         String fullName = fullNameField.getText();
         if (fullName == null || fullName.isBlank()) {
+            errors.append("Nome completo é obrigatório. ");
             valid = false;
         } else if (fullName.trim().length() < 3) {
             errors.append("Nome completo muito curto (mín. 3 caracteres). ");
@@ -116,13 +120,33 @@ public class UserFormController extends BaseFormController {
             }
         }
 
-        if (roleCombo.getValue() == null) { valid = false; }
-        if (branchCombo.getValue() == null) { valid = false; }
+        if (roleCombo.getValue() == null) {
+            errors.append("Perfil é obrigatório. ");
+            valid = false;
+        }
+        if (branchCombo.getValue() == null) {
+            errors.append("Filial é obrigatória. ");
+            valid = false;
+        }
+
+        if (commissionField.getText() != null && !commissionField.getText().isBlank()) {
+            try {
+                double comm = Double.parseDouble(commissionField.getText().trim().replace(",", "."));
+                if (comm < 0 || comm > 100) {
+                    errors.append("Comissão deve estar entre 0 e 100%. ");
+                    valid = false;
+                }
+            } catch (NumberFormatException e) {
+                errors.append("Comissão inválida. ");
+                valid = false;
+            }
+        }
 
         boolean isNewUser = (user == null || user.getId() == null);
         if (isNewUser) {
             String pwd = passwordField.getText();
             if (pwd == null || pwd.isBlank()) {
+                errors.append("Password é obrigatória. ");
                 valid = false;
             } else if (pwd.length() < 6) {
                 errors.append("Password muito curta (mín. 6 caracteres). ");
@@ -138,10 +162,29 @@ public class UserFormController extends BaseFormController {
 
         formValidProperty.set(valid);
 
-        if (!valid && errors.length() > 0) {
-            showError(errors.toString().trim());
+        if (!valid) {
+            showError(errors.length() > 0 ? errors.toString().trim() : "Preencha todos os campos obrigatórios.");
+            return;
         } else {
             hideError();
+        }
+
+        if (isNewUser && username != null && !username.isBlank() && username.trim().length() >= 4 && username.matches("\\w+")) {
+            String trimmedUsername = username.trim();
+            if (duplicateCheckTask != null) duplicateCheckTask.cancel(false);
+            duplicateCheckTask = new Task<>() {
+                @Override
+                protected Boolean call() {
+                    return userRepository.findByUsername(trimmedUsername).isPresent();
+                }
+            };
+            duplicateCheckTask.setOnSucceeded(e -> {
+                if (duplicateCheckTask.getValue()) {
+                    formValidProperty.set(false);
+                    showError("Username já existe.");
+                }
+            });
+            new Thread(duplicateCheckTask).start();
         }
     }
 
@@ -177,6 +220,18 @@ public class UserFormController extends BaseFormController {
         if (checkTrainingBlock()) return;
         if (!formValidProperty.get()) return;
 
+        String username = usernameField.getText();
+        String fullName = fullNameField.getText();
+        if (username == null || username.isBlank()) { showError("Username é obrigatório."); return; }
+        if (fullName == null || fullName.isBlank()) { showError("Nome completo é obrigatório."); return; }
+        if (roleCombo.getValue() == null) { showError("Perfil é obrigatório."); return; }
+        if (branchCombo.getValue() == null) { showError("Filial é obrigatória."); return; }
+        boolean isNewUser = (user == null || user.getId() == null);
+        if (isNewUser && (passwordField.getText() == null || passwordField.getText().isBlank())) {
+            showError("Password é obrigatória.");
+            return;
+        }
+
         showSaveSpinner();
 
         javafx.concurrent.Task<Void> saveTask = new javafx.concurrent.Task<>() {
@@ -185,10 +240,11 @@ public class UserFormController extends BaseFormController {
                 boolean isNew = user.getId() == null;
 
                 if (isNew) {
-                    if (userRepository.findByUsername(usernameField.getText().trim()).isPresent()) {
-                        throw new Exception("Username já existe");
+                    String trimmedUsername = username.trim();
+                    if (userRepository.findByUsername(trimmedUsername).isPresent()) {
+                        throw new IllegalArgumentException("Username '" + trimmedUsername + "' já existe.");
                     }
-                    user.setUsername(usernameField.getText().trim());
+                    user.setUsername(trimmedUsername);
                     user.setPasswordHash(passwordEncoder.encode(passwordField.getText()));
                 }
 

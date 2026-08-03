@@ -6,7 +6,6 @@
       spacing="12" style="-fx-padding:18; -fx-background-color:#F8FAFC;" prefWidth="600" prefHeight="500">
 
     <HBox alignment="CENTER_LEFT" spacing="10">
-        <Label text="🏭" style="-fx-font-size:22px;"/>
         <Label text="Armazém" style="-fx-font-size:16px; -fx-font-weight:800; -fx-text-fill:#0F172A;"/>
         <Region HBox.hgrow="ALWAYS"/>
         <CheckBox fx:id="activeCheck" text="Activo" selected="true"

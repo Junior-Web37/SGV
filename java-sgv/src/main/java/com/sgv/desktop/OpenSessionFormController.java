@@ -1,6 +1,5 @@
 package com.sgv.desktop;
 
-import com.sgv.entity.User;
 import com.sgv.service.CashSessionService;
 import javafx.fxml.FXML;
 import javafx.scene.control.TextField;
@@ -35,12 +34,22 @@ public class OpenSessionFormController extends BaseFormController {
     protected void validateRealTime() {
         String text = initialValueField.getText();
         boolean valid = true;
+        String errorMsg = null;
         if (text != null && !text.trim().isEmpty()) {
-            try { double val = Double.parseDouble(text.trim().replace(",", ".")); if (val < 0) valid = false; }
-            catch (NumberFormatException e) { valid = false; }
+            try {
+                double val = Double.parseDouble(text.trim().replace(",", "."));
+                if (val < 0) {
+                    errorMsg = "Valor inicial não pode ser negativo.";
+                    valid = false;
+                }
+            } catch (NumberFormatException e) {
+                errorMsg = "Valor inicial inválido.";
+                valid = false;
+            }
         }
         formValidProperty.set(valid);
         if (valid) hideError();
+        else showError(errorMsg);
     }
 
     public void setOnSuccess(Runnable onSuccess) { this.onSuccess = onSuccess; }
@@ -62,7 +71,12 @@ public class OpenSessionFormController extends BaseFormController {
             }
         };
         saveTask.setOnSucceeded(e -> { if (onSuccess != null) onSuccess.run(); doCancel(); });
-        saveTask.setOnFailed(e -> { showError(((javafx.concurrent.Task<?>)e.getSource()).getException().getMessage()); hideSaveSpinner(); });
+        saveTask.setOnFailed(e -> {
+            Throwable ex = saveTask.getException();
+            String msg = ex != null && ex.getMessage() != null ? ex.getMessage() : "Erro desconhecido";
+            showError(msg);
+            hideSaveSpinner();
+        });
         new Thread(saveTask).start();
     }
 }

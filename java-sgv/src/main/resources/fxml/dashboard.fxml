@@ -36,6 +36,7 @@
                         <Button fx:id="navModOperacoes" text="Operações  ▸" styleClass="nav-btn"/>
                         <Button fx:id="navModFinanceiro" text="Financeiro  ▸" styleClass="nav-btn"/>
                         <Button fx:id="navModAdministracao" text="Admin  ▸" styleClass="nav-btn"/>
+                        <Button fx:id="navModArmazens" text="Armazém  ▸" styleClass="nav-btn"/>
                         <Button fx:id="navModLogs" text="Logs" styleClass="nav-btn"/>
                     </HBox>
 
@@ -54,14 +55,11 @@
                             <Button fx:id="navMenuProdutos" text="Produtos"   styleClass="nav-btn"/>
                         </HBox>
 
-                        <!-- Operações: Stock | Caixa | Compras | Fornecedores -->
+                        <!-- Operações: Stock | Caixa | Compras -->
                         <HBox fx:id="navOperacoesItems" spacing="4" alignment="CENTER_LEFT" visible="false" managed="false">
-                            <Button fx:id="navMenuArmazens"     text="Armazéns"           styleClass="nav-btn"/>
-                            <Button fx:id="navMenuTransferir"   text="Transferir Stock"   styleClass="nav-btn"/>
                             <Button fx:id="navMenuStock"        text="Stock"              styleClass="nav-btn"/>
                             <Button fx:id="navMenuCaixa"        text="Caixa"              styleClass="nav-btn"/>
                             <Button fx:id="navMenuCompras"      text="Compras"            styleClass="nav-btn"/>
-                            <Button fx:id="navMenuFornecedores" text="Fornecedores"      styleClass="nav-btn"/>
                         </HBox>
 
                         <!-- Financeiro: Pagamentos | Despesas -->
@@ -75,6 +73,13 @@
                             <Button fx:id="navMenuCatalogos" text="Catálogos"       styleClass="nav-btn"/>
                             <Button fx:id="navMenuRelatorios" text="Relatórios"     styleClass="nav-btn"/>
                             <Button fx:id="navMenuSistema" text="Sistema"           styleClass="nav-btn"/>
+                        </HBox>
+
+                        <!-- Armazém: Armazéns | Transferir Stock | Fornecedores -->
+                        <HBox fx:id="navArmazensItems" spacing="4" alignment="CENTER_LEFT" visible="false" managed="false">
+                            <Button fx:id="navMenuArmazens"    text="Armazéns"         styleClass="nav-btn"/>
+                            <Button fx:id="navMenuTransferir"  text="Transferir Stock" styleClass="nav-btn"/>
+                            <Button fx:id="navMenuFornecedores" text="Fornecedores"    styleClass="nav-btn"/>
                         </HBox>
                     </HBox>
                 </StackPane>

@@ -37,10 +37,13 @@ public class Role {
         }
         String normalizedPage = page != null ? page.toUpperCase() : "";
         String normalizedAction = action != null ? action.toUpperCase() : "";
-        return permissions.contains("*:*")
-                || permissions.contains(normalizedPage + ":" + normalizedAction)
-                || permissions.contains(normalizedPage + ":*")
-                || permissions.contains("*:" + normalizedAction);
+        return permissions.stream()
+                .filter(Objects::nonNull)
+                .map(String::toUpperCase)
+                .anyMatch(p -> "*:*".equals(p)
+                        || (normalizedPage + ":" + normalizedAction).equals(p)
+                        || (normalizedPage + ":*").equals(p)
+                        || ("*:" + normalizedAction).equals(p));
     }
 
     @Override

@@ -2,6 +2,9 @@ package com.sgv.desktop;
 
 import com.sgv.entity.Warehouse;
 import com.sgv.repository.WarehouseRepository;
+import com.sgv.service.SystemLogService;
+import javafx.application.Platform;
+import javafx.concurrent.Task;
 import javafx.fxml.FXML;
 import javafx.scene.control.CheckBox;
 import javafx.scene.control.TextArea;
@@ -24,34 +27,64 @@ public class WarehouseFormController extends BaseFormController {
     @FXML private CheckBox   activeCheck;
 
     private final WarehouseRepository repository;
+    private final SystemLogService systemLogService;
     private Warehouse editing;
     private Runnable onSaved;
+    private Task<Boolean> duplicateCheckTask;
 
-    public WarehouseFormController(WarehouseRepository repository) {
+    public WarehouseFormController(WarehouseRepository repository, SystemLogService systemLogService) {
         this.repository = repository;
+        this.systemLogService = systemLogService;
     }
 
     @FXML
     public void initialize() {
         initCommonFields();
-        UiUtils.attachSafe(saveButton, this::doSave, null, "WAREHOUSE_SAVE");
-        UiUtils.attachSafe(cancelButton, this::doCancel, null, "WAREHOUSE_CANCEL");
+        UiUtils.attachSafe(saveButton, this::doSave, systemLogService, "WAREHOUSE_SAVE");
+        UiUtils.attachSafe(cancelButton, this::doCancel, systemLogService, "WAREHOUSE_CANCEL");
         activeCheck.setSelected(true);
         codeField.textProperty().addListener((obs, o, n) -> validateRealTime());
         nameField.textProperty().addListener((obs, o, n) -> validateRealTime());
-        javafx.application.Platform.runLater(this::validateRealTime);
+        Platform.runLater(this::validateRealTime);
     }
 
     @Override
     protected void validateRealTime() {
+        StringBuilder errors = new StringBuilder();
+        boolean valid = true;
+
         String code = codeField.getText() == null ? "" : codeField.getText().trim();
         String name = nameField.getText() == null ? "" : nameField.getText().trim();
-        formValidProperty.set(!code.isBlank() && !name.isBlank());
+
+        if (code.isBlank()) { errors.append("Código é obrigatório. "); valid = false; }
+        if (name.isBlank()) { errors.append("Nome é obrigatório. "); valid = false; }
+        else if (name.length() < 3) { errors.append("Nome muito curto (mín. 3 caracteres). "); valid = false; }
+
+        formValidProperty.set(valid);
+        if (!valid) { showError(errors.length() > 0 ? errors.toString().trim() : "Preencha todos os campos obrigatórios."); return; }
+        else hideError();
+
+        if (!code.isBlank() && (editing == null || editing.getId() == null)) {
+            if (duplicateCheckTask != null) duplicateCheckTask.cancel(false);
+            duplicateCheckTask = new Task<>() {
+                @Override
+                protected Boolean call() {
+                    return repository.findByCode(code).isPresent();
+                }
+            };
+            duplicateCheckTask.setOnSucceeded(e -> {
+                if (duplicateCheckTask.getValue()) {
+                    formValidProperty.set(false);
+                    showError("Código '" + code + "' já existe noutro armazém.");
+                }
+            });
+            new Thread(duplicateCheckTask).start();
+        }
     }
 
     public void setWarehouse(Warehouse w) {
         this.editing = w;
-        if (w != null) {
+        if (w != null && w.getId() != null) {
             codeField.setText(w.getCode());
             nameField.setText(w.getName());
             nuitField.setText(w.getNuit());
@@ -59,6 +92,17 @@ public class WarehouseFormController extends BaseFormController {
             contactField.setText(w.getContact());
             notesArea.setText(w.getNotes());
             activeCheck.setSelected(w.isActive());
+            codeField.setDisable(true);
+        } else {
+            this.editing = null;
+            codeField.setDisable(false);
+            codeField.clear();
+            nameField.clear();
+            nuitField.clear();
+            addressField.clear();
+            contactField.clear();
+            notesArea.clear();
+            activeCheck.setSelected(true);
         }
     }
 
@@ -68,33 +112,46 @@ public class WarehouseFormController extends BaseFormController {
     protected void doSave() {
         if (checkTrainingBlock()) return;
         if (!formValidProperty.get()) return;
-        errorLabel.setVisible(false);
+        if (codeField.getText() == null || codeField.getText().isBlank()) { showError("Código é obrigatório."); return; }
+        if (nameField.getText() == null || nameField.getText().isBlank()) { showError("Nome é obrigatório."); return; }
 
-        String code = codeField.getText() == null ? "" : codeField.getText().trim();
-        String name = nameField.getText() == null ? "" : nameField.getText().trim();
-        java.util.Optional<Warehouse> existing = repository.findByCode(code);
-        if (existing.isPresent() && (editing == null || !existing.get().getId().equals(editing.getId()))) {
-            showError("Já existe um armazém com este código.");
-            return;
-        }
+        showSaveSpinner();
 
-        try {
-            Warehouse w = (editing != null) ? editing : new Warehouse();
-            w.setCode(code);
-            w.setName(name);
-            w.setNuit(blankToNull(nuitField.getText()));
-            w.setAddress(blankToNull(addressField.getText()));
-            w.setContact(blankToNull(contactField.getText()));
-            w.setNotes(blankToNull(notesArea.getText()));
-            w.setActive(activeCheck.isSelected());
-            repository.save(w);
+        javafx.concurrent.Task<Void> saveTask = new javafx.concurrent.Task<>() {
+            @Override
+            protected Void call() throws Exception {
+                String code = codeField.getText().trim();
+                Warehouse w = (editing != null) ? editing : new Warehouse();
+                if (editing == null && repository.findByCode(code).isPresent()) {
+                    throw new IllegalArgumentException("Código '" + code + "' já existe noutro armazém.");
+                }
+                w.setCode(code);
+                w.setName(nameField.getText().trim());
+                w.setNuit(blankToNull(nuitField.getText()));
+                w.setAddress(blankToNull(addressField.getText()));
+                w.setContact(blankToNull(contactField.getText()));
+                w.setNotes(blankToNull(notesArea.getText()));
+                w.setActive(activeCheck.isSelected());
+                repository.save(w);
+                return null;
+            }
+        };
+
+        saveTask.setOnSucceeded(e -> {
             if (onSaved != null) onSaved.run();
             doCancel();
-        } catch (Exception ex) {
-            log.error("Erro ao salvar armazém", ex);
-            showError("Erro: " + ex.getMessage());
-        }
+        });
+
+        saveTask.setOnFailed(e -> {
+            Throwable ex = saveTask.getException();
+            String msg = ex.getMessage() != null ? ex.getMessage() : "Erro desconhecido";
+            systemLogService.logError("WAREHOUSE_SAVE_FAILED", "Erro ao salvar armazém: " + msg, ex);
+            showError("Erro: " + msg);
+            hideSaveSpinner();
+        });
+
+        new Thread(saveTask).start();
     }
 
-    private String blankToNull(String s) { return (s == null || s.isBlank()) ? null : s.trim(); }
+    private static String blankToNull(String s) { return (s == null || s.isBlank()) ? null : s.trim(); }
 }

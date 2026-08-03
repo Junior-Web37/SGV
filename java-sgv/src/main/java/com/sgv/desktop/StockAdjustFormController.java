@@ -1,7 +1,6 @@
 package com.sgv.desktop;
 
 import com.sgv.entity.StockBranch;
-import com.sgv.entity.User;
 import com.sgv.service.StockBranchService;
 import javafx.fxml.FXML;
 import javafx.scene.control.Label;
@@ -59,42 +58,78 @@ public class StockAdjustFormController extends BaseFormController {
 
     @Override
     protected void validateRealTime() {
+        StringBuilder errors = new StringBuilder();
         boolean valid = true;
-        try {
-            String t = currentStockField.getText();
-            if (t == null || t.isBlank()) {
+
+        String current = currentStockField.getText();
+        if (current == null || current.isBlank()) {
+            errors.append("Stock actual é obrigatório. ");
+            valid = false;
+        } else {
+            try {
+                BigDecimal val = new BigDecimal(current.replace(",", "."));
+                if (val.compareTo(BigDecimal.ZERO) < 0) {
+                    errors.append("Stock actual não pode ser negativo. ");
+                    valid = false;
+                }
+            } catch (Exception e) {
+                errors.append("Stock actual inválido. ");
                 valid = false;
-            } else {
-                BigDecimal val = new BigDecimal(t.replace(",", "."));
-                if (val.compareTo(BigDecimal.ZERO) < 0) valid = false;
             }
-        } catch (Exception e) { valid = false; }
+        }
 
-        try {
-            String t = minStockField.getText();
-            if (t == null || t.isBlank()) { valid = false; }
-            else { Double.parseDouble(t.replace(",", ".")); }
-        } catch (Exception e) { valid = false; }
+        String min = minStockField.getText();
+        if (min == null || min.isBlank()) {
+            errors.append("Stock mínimo é obrigatório. ");
+            valid = false;
+        } else {
+            try {
+                new BigDecimal(min.replace(",", "."));
+            } catch (Exception e) {
+                errors.append("Stock mínimo inválido. ");
+                valid = false;
+            }
+        }
 
-        try {
-            String t = maxStockField.getText();
-            if (t == null || t.isBlank()) { valid = false; }
-            else { Double.parseDouble(t.replace(",", ".")); }
-        } catch (Exception e) { valid = false; }
+        String max = maxStockField.getText();
+        if (max == null || max.isBlank()) {
+            errors.append("Stock máximo é obrigatório. ");
+            valid = false;
+        } else {
+            try {
+                new BigDecimal(max.replace(",", "."));
+            } catch (Exception e) {
+                errors.append("Stock máximo inválido. ");
+                valid = false;
+            }
+        }
 
         if (valid) {
             try {
-                BigDecimal min = new BigDecimal(minStockField.getText().replace(",", "."));
-                BigDecimal max = new BigDecimal(maxStockField.getText().replace(",", "."));
-                if (min.compareTo(max) > 0) valid = false;
-            } catch (Exception e) { valid = false; }
+                BigDecimal minVal = new BigDecimal(minStockField.getText().replace(",", "."));
+                BigDecimal maxVal = new BigDecimal(maxStockField.getText().replace(",", "."));
+                if (minVal.compareTo(maxVal) > 0) {
+                    errors.append("Stock mínimo não pode ser maior que o stock máximo. ");
+                    valid = false;
+                }
+            } catch (Exception e) {
+                errors.append("Valores de stock inválidos. ");
+                valid = false;
+            }
         }
 
         String motivo = reasonArea.getText();
-        if (motivo == null || motivo.trim().isEmpty()) valid = false;
+        if (motivo == null || motivo.trim().isEmpty()) {
+            errors.append("Motivo é obrigatório. ");
+            valid = false;
+        }
 
         formValidProperty.set(valid);
-        if (valid) hideError();
+        if (!valid) {
+            showError(errors.length() > 0 ? errors.toString().trim() : "Preencha todos os campos obrigatórios.");
+        } else {
+            hideError();
+        }
     }
 
     public void setStock(StockBranch stock) {
@@ -115,6 +150,7 @@ public class StockAdjustFormController extends BaseFormController {
     protected void doSave() {
         if (checkTrainingBlock()) return;
         if (!formValidProperty.get() || editingStock == null) return;
+        if (reasonArea.getText() == null || reasonArea.getText().trim().isEmpty()) { showError("Motivo é obrigatório."); return; }
         showSaveSpinner();
 
         javafx.concurrent.Task<Void> saveTask = new javafx.concurrent.Task<>() {
@@ -132,7 +168,9 @@ public class StockAdjustFormController extends BaseFormController {
         };
         saveTask.setOnSucceeded(e -> { if (onSave != null) onSave.run(); doCancel(); });
         saveTask.setOnFailed(e -> {
-            showError("Erro ao salvar: " + saveTask.getException().getMessage());
+            Throwable ex = saveTask.getException();
+            String msg = ex != null && ex.getMessage() != null ? ex.getMessage() : "Erro desconhecido";
+            showError("Erro ao salvar: " + msg);
             hideSaveSpinner();
         });
         new Thread(saveTask).start();

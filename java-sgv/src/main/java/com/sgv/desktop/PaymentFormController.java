@@ -80,7 +80,7 @@ public class PaymentFormController extends BaseFormController {
         if (paymentMethodCombo.getValue() == null) { errors.append("Método de pagamento é obrigatório. "); valid = false; }
 
         formValidProperty.set(valid);
-        if (!valid && errors.length() > 0) showError(errors.toString().trim());
+        if (!valid) showError(errors.toString().trim());
         else hideError();
     }
 
@@ -101,6 +101,9 @@ public class PaymentFormController extends BaseFormController {
     protected void doSave() {
         if (checkTrainingBlock()) return;
         if (!formValidProperty.get()) return;
+        if (saleCombo.getValue() == null) { showError("Selecione uma venda."); return; }
+        if (amountField.getText() == null || amountField.getText().isBlank()) { showError("Valor é obrigatório."); return; }
+        if (paymentMethodCombo.getValue() == null) { showError("Método de pagamento é obrigatório."); return; }
         showSaveSpinner();
 
         javafx.concurrent.Task<java.io.File> saveTask = new javafx.concurrent.Task<>() {
@@ -148,8 +151,9 @@ public class PaymentFormController extends BaseFormController {
         });
         saveTask.setOnFailed(e -> {
             Throwable ex = saveTask.getException();
-            systemLogService.logError("PAYMENT_SAVE_FAILED", "Erro ao salvar pagamento: " + ex.getMessage(), ex);
-            showError("Erro ao salvar: " + ex.getMessage());
+            String msg = ex != null && ex.getMessage() != null ? ex.getMessage() : "Erro desconhecido";
+            systemLogService.logError("PAYMENT_SAVE_FAILED", "Erro ao salvar pagamento: " + msg, ex);
+            showError("Erro ao salvar: " + msg);
             hideSaveSpinner();
         });
         new Thread(saveTask).start();

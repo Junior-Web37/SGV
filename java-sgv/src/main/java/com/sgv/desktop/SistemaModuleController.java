@@ -1,7 +1,6 @@
 package com.sgv.desktop;
 
 import com.sgv.entity.AppConfig;
-import com.sgv.entity.Branch;
 import com.sgv.entity.Role;
 import com.sgv.entity.SystemBackup;
 import com.sgv.entity.User;
@@ -25,7 +24,6 @@ import javafx.scene.control.*;
 import javafx.scene.layout.GridPane;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.Region;
-import javafx.scene.layout.VBox;
 import javafx.stage.DirectoryChooser;
 import javafx.stage.Modality;
 import javafx.stage.Screen;

@@ -2,7 +2,6 @@ package com.sgv.desktop;
 
 import com.sgv.entity.Branch;
 import com.sgv.entity.Product;
-import com.sgv.entity.User;
 import com.sgv.repository.BranchRepository;
 import com.sgv.repository.ProductRepository;
 import com.sgv.service.StockBranchService;
@@ -83,14 +82,28 @@ public class StockNewFormController extends BaseFormController {
 
     @Override
     protected void validateRealTime() {
+        StringBuilder errors = new StringBuilder();
         boolean valid = true;
-        if (productCombo.getValue() == null) valid = false;
-        if (branchCombo.getValue() == null) valid = false;
+        if (productCombo.getValue() == null) {
+            errors.append("Seleccione o produto. ");
+            valid = false;
+        }
+        if (branchCombo.getValue() == null) {
+            errors.append("Seleccione a filial. ");
+            valid = false;
+        }
         try {
             String t = currentStockField.getText();
-            if (t == null || t.isBlank()) valid = false;
-            else new BigDecimal(t.replace(",", "."));
-        } catch (Exception e) { valid = false; }
+            if (t == null || t.isBlank()) {
+                errors.append("Quantidade é obrigatória. ");
+                valid = false;
+            } else {
+                new BigDecimal(t.replace(",", "."));
+            }
+        } catch (Exception e) {
+            errors.append("Quantidade inválida. ");
+            valid = false;
+        }
         if (valid) {
             try {
                 String minText = minStockField.getText();
@@ -98,18 +111,31 @@ public class StockNewFormController extends BaseFormController {
                 if (minText != null && !minText.isBlank() && maxText != null && !maxText.isBlank()) {
                     BigDecimal min = new BigDecimal(minText.replace(",", "."));
                     BigDecimal max = new BigDecimal(maxText.replace(",", "."));
-                    if (min.compareTo(max) > 0) valid = false;
+                    if (min.compareTo(max) > 0) {
+                        errors.append("Stock mínimo não pode ser maior que o stock máximo. ");
+                        valid = false;
+                    }
                 }
-            } catch (Exception e) { valid = false; }
+            } catch (Exception e) {
+                errors.append("Valores de stock inválidos. ");
+                valid = false;
+            }
         }
         formValidProperty.set(valid);
-        if (valid) hideError();
+        if (!valid) {
+            showError(errors.length() > 0 ? errors.toString().trim() : "Preencha todos os campos obrigatórios.");
+        } else {
+            hideError();
+        }
     }
 
     @Override
     protected void doSave() {
         if (checkTrainingBlock()) return;
         if (!formValidProperty.get()) return;
+        if (productCombo.getValue() == null) { showError("Seleccione o produto."); return; }
+        if (branchCombo.getValue() == null) { showError("Seleccione a filial."); return; }
+        if (currentStockField.getText() == null || currentStockField.getText().isBlank()) { showError("Quantidade é obrigatória."); return; }
         showSaveSpinner();
 
         javafx.concurrent.Task<Void> saveTask = new javafx.concurrent.Task<>() {
@@ -131,7 +157,9 @@ public class StockNewFormController extends BaseFormController {
         };
         saveTask.setOnSucceeded(e -> { if (onSave != null) onSave.run(); doCancel(); });
         saveTask.setOnFailed(e -> {
-            showError("Erro ao salvar: " + saveTask.getException().getMessage());
+            Throwable ex = saveTask.getException();
+            String msg = ex != null && ex.getMessage() != null ? ex.getMessage() : "Erro desconhecido";
+            showError("Erro ao salvar: " + msg);
             hideSaveSpinner();
         });
         new Thread(saveTask).start();

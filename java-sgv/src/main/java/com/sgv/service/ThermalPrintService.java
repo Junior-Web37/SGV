@@ -14,7 +14,6 @@ import org.springframework.stereotype.Service;
 import java.io.File;
 import java.io.IOException;
 import java.time.format.DateTimeFormatter;
-import java.util.List;
 
 /**
  * Impressão térmica em PDF (80mm). Compatível com impressoras térmicas de 80mm

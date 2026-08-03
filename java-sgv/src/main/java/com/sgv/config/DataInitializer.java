@@ -14,7 +14,6 @@ import com.sgv.entity.Branch;
 import com.sgv.entity.Category;
 import com.sgv.entity.Product;
 import com.sgv.entity.Customer;
-import com.sgv.entity.StockBranch;
 import com.sgv.entity.Sale;
 import com.sgv.entity.SaleItem;
 import com.sgv.entity.Payment;

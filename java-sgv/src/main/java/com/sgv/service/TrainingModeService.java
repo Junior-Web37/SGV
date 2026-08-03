@@ -50,6 +50,8 @@ public class TrainingModeService {
      * Exceção lançada quando uma operação de escrita é bloqueada pelo modo treino.
      */
     public static class TrainingModeBlockedException extends RuntimeException {
+        private static final long serialVersionUID = 1L;
+
         public TrainingModeBlockedException(String message) {
             super(message);
         }

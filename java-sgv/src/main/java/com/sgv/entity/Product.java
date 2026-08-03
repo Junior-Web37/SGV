@@ -85,10 +85,12 @@ public class Product {
     public String getName() { return name; }
     public void setName(String name) { this.name = name; }
     
-    public Boolean getActive() { return isActive != null && isActive; }
-    public void setActive(Boolean active) { isActive = active; }
     public Boolean getIsActive() { return isActive; }
     public void setIsActive(Boolean isActive) { this.isActive = isActive; }
+    /** @deprecated Usar {@link #getIsActive()} com Boolean.TRUE.equals() */
+    @Deprecated
+    public Boolean getActive() { return isActive != null && isActive; }
+    public void setActive(Boolean active) { isActive = active; }
     
     public Category getCategory() { return category; }
     public void setCategory(Category category) { this.category = category; }
@@ -209,13 +211,11 @@ public class Product {
     // ─── Utilitários ───────────────────────────────────────────────────────
     
     /**
-     * Gera código automático: 3 primeiras letras do nome (maiúsculas) + ID ou timestamp.
-     * Ex: "Água Mineral" → "AGU-001" ou "AGU-1234567890"
+     * Gera o prefixo do código: 3 primeiras letras do nome (maiúsculas, sem acentos).
+     * Ex: "Água Mineral" → "AGU", "Arroz" → "ARR", "Milho" → "MIL"
      */
-    public static String generateCode(String name, Long existingId) {
-        if (name == null || name.isBlank()) return "PROD-" + System.currentTimeMillis();
-        
-        // Remove acentos e pega as 3 primeiras letras
+    public static String generatePrefix(String name) {
+        if (name == null || name.isBlank()) return "PRO";
         String cleaned = name.toUpperCase()
                 .replaceAll("[ÀÁÂÃÄÅ]", "A")
                 .replaceAll("[ÈÉÊË]", "E")
@@ -225,14 +225,17 @@ public class Product {
                 .replaceAll("[Ç]", "C")
                 .replaceAll("[Ñ]", "N")
                 .replaceAll("[^A-Z0-9]", "");
-        
         String prefix = cleaned.length() >= 3 ? cleaned.substring(0, 3) : cleaned;
         if (prefix.length() < 3) prefix = String.format("%-3s", prefix).replace(' ', 'X');
-        
-        if (existingId != null && existingId > 0) {
-            return prefix + "-" + String.format("%04d", existingId % 10000);
-        }
-        return prefix + "-" + (System.currentTimeMillis() % 100000);
+        return prefix;
+    }
+
+    /**
+     * Gera código sequencial: prefixo + número de 5 dígitos.
+     * Ex: "Água Mineral" (produto #1) → "AGU-00001"
+     */
+    public static String generateCode(String prefix, long seqNumber) {
+        return prefix + "-" + String.format("%05d", seqNumber);
     }
     
     /**
