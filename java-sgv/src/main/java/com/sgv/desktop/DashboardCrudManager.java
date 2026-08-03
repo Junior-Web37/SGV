@@ -316,6 +316,22 @@ public class DashboardCrudManager {
         }
     }
 
+    public void openSupplierForm(Supplier supplier, Window owner, Runnable onDataChanged) {
+        if (trainingModeService.isTrainingMode()) { showTrainingBlockedAlert(); return; }
+        try {
+            FXMLLoader loader = new FXMLLoader(getClass().getResource("/fxml/supplier_form.fxml"));
+            loader.setControllerFactory(applicationContext::getBean);
+            Parent root = loader.load();
+            SupplierFormController controller = loader.getController();
+            controller.setSupplier(supplier);
+            controller.setOnSave(onDataChanged);
+            openModal(root, owner);
+        } catch (Exception ex) {
+            systemLogService.logError("OPEN_SUPPLIER_FORM", "Erro ao abrir formulário de fornecedor.", ex);
+            log.error("Erro inesperado", ex);
+        }
+    }
+
     public void openWarehouseForm(Window owner, Runnable onSaved) {
         openWarehouseForm(null, owner, onSaved);
     }

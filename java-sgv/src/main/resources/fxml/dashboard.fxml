@@ -242,6 +242,9 @@
                         <!-- COMPRAS / FORNECEDORES -->
                         <VBox fx:id="comprasPane" spacing="16" visible="false" managed="false" maxWidth="Infinity" VBox.vgrow="ALWAYS"/>
 
+                        <!-- FORNECEDORES -->
+                        <VBox fx:id="fornecedoresPane" spacing="16" visible="false" managed="false" maxWidth="Infinity" VBox.vgrow="ALWAYS"/>
+
                         <!-- FINANCEIRO: Pagamentos | Despesas -->
                         <VBox fx:id="financeiroPane" spacing="16" visible="false" managed="false" maxWidth="Infinity" VBox.vgrow="ALWAYS"/>
 

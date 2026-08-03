@@ -32,6 +32,7 @@ public class DashboardKpiManager {
     private final ProductionOrderRepository productionOrderRepository;
     private final CategoryRepository categoryRepository;
     private final MetricUnitRepository metricUnitRepository;
+    private final SupplierRepository supplierRepository;
     private final StockBranchService stockBranchService;
     private final CashSessionService cashSessionService;
 
@@ -45,6 +46,7 @@ public class DashboardKpiManager {
                                ProductionOrderRepository productionOrderRepository,
                                CategoryRepository categoryRepository,
                                MetricUnitRepository metricUnitRepository,
+                               SupplierRepository supplierRepository,
                                StockBranchService stockBranchService,
                                CashSessionService cashSessionService) {
         this.saleRepository = saleRepository;
@@ -57,6 +59,7 @@ public class DashboardKpiManager {
         this.productionOrderRepository = productionOrderRepository;
         this.categoryRepository = categoryRepository;
         this.metricUnitRepository = metricUnitRepository;
+        this.supplierRepository = supplierRepository;
         this.stockBranchService = stockBranchService;
         this.cashSessionService = cashSessionService;
     }
@@ -382,6 +385,18 @@ public class DashboardKpiManager {
             updateKPICard(grid, 1, String.valueOf(pendentes));
             updateKPICard(grid, 2, String.valueOf(emCurso));
             updateKPICard(grid, 3, String.valueOf(concluidas));
+        } catch (Exception ex) { log.error("Erro inesperado", ex); }
+    }
+
+    public void updateSuppliersKPIs(GridPane grid) {
+        if (grid == null) return;
+        try {
+            List<Supplier> all = supplierRepository.findAll();
+            long total = all.size();
+            long activos = all.stream().filter(s -> Boolean.TRUE.equals(s.getActive())).count();
+            updateKPICard(grid, 0, String.valueOf(total));
+            updateKPICard(grid, 1, String.valueOf(activos));
+            updateKPICard(grid, 2, String.valueOf(total - activos));
         } catch (Exception ex) { log.error("Erro inesperado", ex); }
     }
 

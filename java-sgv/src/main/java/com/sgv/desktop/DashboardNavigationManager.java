@@ -51,6 +51,7 @@ public class DashboardNavigationManager {
     private final MetricUnitRepository metricUnitRepository;
     private final StockWarehouseRepository stockWarehouseRepository;
     private final WarehouseRepository warehouseRepository;
+    private final SupplierRepository supplierRepository;
     private final SystemLogService systemLogService;
     private final CashSessionService cashSessionService;
 
@@ -60,12 +61,19 @@ public class DashboardNavigationManager {
     private TableView<Customer> customersTable;
     private TableView<Category> categoriesTable;
     private TableView<MetricUnit> unitsTable;
+    private TableView<Supplier> suppliersTable;
+    private Runnable suppliersLoadRunnable;
 
     public TableView<Product> getProductsTable() { return productsTable; }
     public TableView<Sale> getSalesTable() { return salesTable; }
     public TableView<Customer> getCustomersTable() { return customersTable; }
     public TableView<Category> getCategoriesTable() { return categoriesTable; }
     public TableView<MetricUnit> getUnitsTable() { return unitsTable; }
+    public TableView<Supplier> getSuppliersTable() { return suppliersTable; }
+
+    public void reloadSuppliers() {
+        if (suppliersLoadRunnable != null) suppliersLoadRunnable.run();
+    }
 
     public DashboardNavigationManager(ApplicationContext applicationContext,
                                        DashboardCrudManager crudManager,
@@ -82,8 +90,9 @@ public class DashboardNavigationManager {
                                        PurchaseRepository purchaseRepository,
                                        ExpenseRepository expenseRepository,
                                        MetricUnitRepository metricUnitRepository,
-                                       StockWarehouseRepository stockWarehouseRepository,
+                                        StockWarehouseRepository stockWarehouseRepository,
                                        WarehouseRepository warehouseRepository,
+                                       SupplierRepository supplierRepository,
                                        SystemLogService systemLogService,
                                        CashSessionService cashSessionService) {
         this.applicationContext = applicationContext;
@@ -103,6 +112,7 @@ public class DashboardNavigationManager {
         this.metricUnitRepository = metricUnitRepository;
         this.stockWarehouseRepository = stockWarehouseRepository;
         this.warehouseRepository = warehouseRepository;
+        this.supplierRepository = supplierRepository;
         this.systemLogService = systemLogService;
         this.cashSessionService = cashSessionService;
     }
@@ -953,6 +963,103 @@ public class DashboardNavigationManager {
         });
 
         return table;
+    }
+
+    public void showFornecedoresPane(Button navFornecedores, Label pageTitleLabel, Label pageSubtitleLabel,
+                                     VBox fornecedoresPane, User currentUser,
+                                     VBox[] allPanes, Button[] allNavButtons,
+                                     Runnable updateCashBadge,
+                                     Runnable onNewSupplier, Runnable onEditSupplier, Runnable onDeleteSupplier) {
+        setActiveNav(navFornecedores, allNavButtons);
+        pageTitleLabel.setText("Fornecedores");
+        pageSubtitleLabel.setText("Gestão de fornecedores");
+        setPaneVisibility(fornecedoresPane, allPanes);
+
+        if (fornecedoresPane.getChildren().isEmpty()) {
+            VBox main = new VBox(0);
+            main.setStyle("-fx-background-color: #F8FAFC;");
+
+            HBox toolbar = new HBox(10);
+            toolbar.setStyle("-fx-background-color: #ffffff; -fx-padding: 12 16; -fx-border-color: #E2E8F0; -fx-border-width: 0 0 1 0;");
+
+            Button btnNovo = makeActionButton("+ Novo Fornecedor", "#2563EB", "#ffffff");
+            Button btnEditar = makeActionButton("Editar", "#475569", "#ffffff");
+            Button btnEliminar = makeActionButton("Eliminar", "#EF4444", "#ffffff");
+            Button btnAtualizar = makeActionButton("Atualizar", "#10B981", "#ffffff");
+
+            Region spacer = new Region();
+            HBox.setHgrow(spacer, Priority.ALWAYS);
+
+            TextField searchField = new TextField();
+            searchField.setPromptText("Pesquisar por nome, NUIT, contacto...");
+            searchField.setPrefWidth(280);
+            searchField.setStyle("-fx-font-size: 13px; -fx-font-weight: 600; -fx-padding: 8 12; -fx-background-radius: 6; -fx-border-color: #E2E8F0; -fx-border-radius: 6; -fx-background-color: #F8FAFC;");
+
+            UiUtils.attachSafe(btnNovo, onNewSupplier, systemLogService, "SUPPLIER_NEW");
+            UiUtils.attachSafe(btnEditar, onEditSupplier, systemLogService, "SUPPLIER_EDIT");
+            UiUtils.attachSafe(btnEliminar, onDeleteSupplier, systemLogService, "SUPPLIER_DELETE");
+            UiUtils.attachSafe(btnAtualizar, () -> reloadSuppliers(), systemLogService, "SUPPLIER_REFRESH");
+
+            toolbar.getChildren().addAll(btnNovo, btnEditar, btnEliminar, btnAtualizar, spacer, searchField);
+
+            TableView<Supplier> table = new TableView<>();
+            table.setStyle("-fx-font-size: 13px; -fx-background-color: #ffffff; -fx-border-color: #E2E8F0; -fx-border-width: 0 1 1 1; -fx-padding: 0 20 20 20;");
+            table.setRowFactory(makeTableRowFactory());
+            this.suppliersTable = table;
+
+            TableColumn<Supplier, String> s1 = new TableColumn<>("Nome");
+            s1.setPrefWidth(260);
+            s1.setCellValueFactory(d -> new SimpleStringProperty(d.getValue().getName() != null ? d.getValue().getName() : "—"));
+
+            TableColumn<Supplier, String> s2 = new TableColumn<>("NUIT");
+            s2.setPrefWidth(140);
+            s2.setCellValueFactory(d -> new SimpleStringProperty(d.getValue().getNuit() != null && !d.getValue().getNuit().isBlank() ? d.getValue().getNuit() : "—"));
+
+            TableColumn<Supplier, String> s3 = new TableColumn<>("Contacto");
+            s3.setPrefWidth(180);
+            s3.setCellValueFactory(d -> new SimpleStringProperty(d.getValue().getContact() != null ? d.getValue().getContact() : "—"));
+
+            TableColumn<Supplier, String> s4 = new TableColumn<>("Endereço");
+            s4.setPrefWidth(260);
+            s4.setCellValueFactory(d -> new SimpleStringProperty(d.getValue().getAddress() != null ? d.getValue().getAddress() : "—"));
+
+            TableColumn<Supplier, String> s5 = new TableColumn<>("Estado");
+            s5.setPrefWidth(100);
+            s5.setCellValueFactory(d -> new SimpleStringProperty(Boolean.TRUE.equals(d.getValue().getActive()) ? "Activo" : "Inactivo"));
+            s5.setCellFactory(coloredStateCell());
+
+            table.getColumns().addAll(List.of(s1, s2, s3, s4, s5));
+
+            suppliersLoadRunnable = () -> {
+                String q = searchField.getText() == null ? "" : searchField.getText().trim();
+                List<Supplier> list;
+                if (q.isEmpty()) {
+                    list = supplierRepository.findAllByOrderByNameAsc();
+                } else {
+                    list = supplierRepository.findByNameContainingIgnoreCaseOrNuitContainingOrContactContaining(q, q, q);
+                }
+                table.setItems(FXCollections.observableArrayList(list));
+            };
+            UiUtils.setupDebounce(searchField, suppliersLoadRunnable, 400);
+            suppliersLoadRunnable.run();
+
+            GridPane kpiGrid = buildKPIGrid(
+                new String[]{"Total Fornecedores", "Activos", "Inactivos"},
+                new String[]{"Registos de fornecedores", "Fornecedores activos", "Fornecedores inactivos"},
+                new String[]{"blue", "green", "orange"}
+            );
+            kpiGrid.setId("suppliersKPI");
+
+            main.getChildren().addAll(kpiGrid, toolbar, table);
+            fornecedoresPane.getChildren().add(main);
+        }
+
+        GridPane kpi = (GridPane) fornecedoresPane.lookup("#suppliersKPI");
+        if (kpi != null) {
+            kpiManager.updateSuppliersKPIs(kpi);
+        }
+
+        updateCashBadge.run();
     }
 
     public void showComprasPane(Button navCompras, Label pageTitleLabel, Label pageSubtitleLabel,

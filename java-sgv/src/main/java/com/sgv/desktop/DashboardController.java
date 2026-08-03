@@ -97,6 +97,7 @@ public class DashboardController {
     @FXML private VBox productsPane;
     @FXML private VBox customersPane;
     @FXML private VBox comprasPane;
+    @FXML private VBox fornecedoresPane;
     @FXML private VBox financeiroPane;
     @FXML private VBox reportsPane;
     @FXML private VBox sistemaPane;
@@ -565,7 +566,7 @@ public class DashboardController {
 
     private VBox[] allPanes() {
         return new VBox[]{summaryPane, salesStatsPane, salesPane, productsPane, customersPane, stockPane,
-            turnoCaixaPane, comprasPane, financeiroPane, catalogsPane, reportsPane, producaoPane,
+            turnoCaixaPane, comprasPane, fornecedoresPane, financeiroPane, catalogsPane, reportsPane, producaoPane,
             sistemaPane, usersPane, warehousesPane, logsPane};
     }
 
@@ -593,9 +594,12 @@ public class DashboardController {
 
     private void showSalesStatsPane() {
         navManager.showSalesStatsPane(navMenuVendas, pageTitleLabel, pageSubtitleLabel,
-            salesStatsPane, allPanes()[0], salesPane, allPanes()[3], allPanes()[4], allPanes()[5],
-            allPanes()[6], allPanes()[7], allPanes()[8], allPanes()[9], allPanes()[10], allPanes()[11],
-            allPanes()[12], allPanes()[13], allPanes()[14], allPanes()[15], allNavButtons(),
+            salesStatsPane, summaryPane, salesPane,
+            productsPane, customersPane, stockPane,
+            turnoCaixaPane, comprasPane, financeiroPane,
+            catalogsPane, reportsPane, producaoPane,
+            sistemaPane, usersPane, warehousesPane, logsPane,
+            allNavButtons(),
             salesTable, currentUser,
             criteria -> {
                 if (criteria != null) {
@@ -677,8 +681,39 @@ public class DashboardController {
     }
 
     private void showFornecedoresPane() {
-        navManager.showComprasPane(navMenuFornecedores, pageTitleLabel, pageSubtitleLabel,
-            comprasPane, currentUser, allPanes(), allNavButtons(), this::updateCashBadge);
+        navManager.showFornecedoresPane(navMenuFornecedores, pageTitleLabel, pageSubtitleLabel,
+            fornecedoresPane, currentUser, allPanes(), allNavButtons(), this::updateCashBadge,
+            () -> crudManager.openSupplierForm(null, getOwner(), () -> navManager.reloadSuppliers()),
+            () -> {
+                TableView<Supplier> tbl = navManager.getSuppliersTable();
+                Supplier sel = tbl != null ? tbl.getSelectionModel().getSelectedItem() : null;
+                if (sel != null) {
+                    crudManager.openSupplierForm(sel, getOwner(), () -> navManager.reloadSuppliers());
+                } else {
+                    Alert a = new Alert(Alert.AlertType.WARNING, "Selecione um fornecedor na lista.");
+                    a.setHeaderText(null);
+                    a.showAndWait();
+                }
+            },
+            () -> {
+                TableView<Supplier> tbl = navManager.getSuppliersTable();
+                Supplier sel = tbl != null ? tbl.getSelectionModel().getSelectedItem() : null;
+                if (sel != null) {
+                    Alert confirm = new Alert(Alert.AlertType.CONFIRMATION, "Eliminar fornecedor \"" + sel.getName() + "\"?", ButtonType.OK, ButtonType.CANCEL);
+                    confirm.setHeaderText(null);
+                    confirm.showAndWait().ifPresent(r -> {
+                        if (r == ButtonType.OK) {
+                            crudManager.safeDelete(
+                                () -> applicationContext.getBean(SupplierRepository.class).deleteById(sel.getId()),
+                                () -> navManager.reloadSuppliers(), "Fornecedor", currentUser);
+                        }
+                    });
+                } else {
+                    Alert a = new Alert(Alert.AlertType.WARNING, "Selecione um fornecedor na lista.");
+                    a.setHeaderText(null);
+                    a.showAndWait();
+                }
+            });
     }
 
     private void showProducaoPane() {
