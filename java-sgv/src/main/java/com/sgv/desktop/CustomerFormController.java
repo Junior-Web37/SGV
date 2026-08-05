@@ -24,13 +24,13 @@ public class CustomerFormController extends BaseFormController {
     @FXML private TextField contactField;
     @FXML private Button deleteButton;
 
-    private final CustomerRepository customerRepository;
+    private final com.sgv.service.CustomerService customerService;
     private final SystemLogService systemLogService;
     private Customer customer;
     private boolean codeAlreadyExists = false;
 
-    public CustomerFormController(CustomerRepository customerRepository, SystemLogService systemLogService) {
-        this.customerRepository = customerRepository;
+    public CustomerFormController(com.sgv.service.CustomerService customerService, SystemLogService systemLogService) {
+        this.customerService = customerService;
         this.systemLogService = systemLogService;
     }
 
@@ -76,12 +76,10 @@ public class CustomerFormController extends BaseFormController {
 
     private void checkDuplicateCode(String code) {
         new Thread(() -> {
-            try {
+                try {
                 String finalCode = code;
-                Optional<Customer> existing = customerRepository.findByCodeIgnoreCase(finalCode);
-                codeAlreadyExists = existing.isPresent()
-                        && (customer == null || customer.getId() == null
-                        || !existing.get().getId().equals(customer.getId()));
+                Long excludeId = customer != null ? customer.getId() : null;
+                codeAlreadyExists = customerService.existsByCode(finalCode, excludeId);
             } catch (Exception e) {
                 codeAlreadyExists = false;
                 systemLogService.logError("CUSTOMER_DUPL_CHECK", "Erro ao verificar código", e);
@@ -198,7 +196,7 @@ public class CustomerFormController extends BaseFormController {
             codeAlreadyExists = false;
         } else {
             this.customer = new Customer();
-            codeField.setText(Customer.generateCode(customerRepository));
+            codeField.setText(customerService.generateNewCode());
             codeField.setDisable(true);
         }
         validateRealTime();
@@ -217,7 +215,7 @@ public class CustomerFormController extends BaseFormController {
         javafx.concurrent.Task<Void> deleteTask = new javafx.concurrent.Task<>() {
             @Override
             protected Void call() {
-                customerRepository.deleteById(customer.getId());
+                customerService.deleteById(customer.getId());
                 return null;
             }
         };
@@ -250,11 +248,9 @@ public class CustomerFormController extends BaseFormController {
             @Override
             protected Void call() throws Exception {
                 String trimmedCode = code.trim();
-                customerRepository.findByCodeIgnoreCase(trimmedCode)
-                        .filter(existing -> customer == null || customer.getId() == null || !existing.getId().equals(customer.getId()))
-                        .ifPresent(existing -> {
-                            throw new RuntimeException("Código '" + trimmedCode + "' já existe.");
-                        });
+                if (customerService.existsByCode(trimmedCode, customer != null ? customer.getId() : null)) {
+                    throw new RuntimeException("Código '" + trimmedCode + "' já existe.");
+                }
 
                 customer.setCode(trimmedCode);
                 customer.setName(nameField.getText().trim());
@@ -264,11 +260,8 @@ public class CustomerFormController extends BaseFormController {
                 customer.setDefaultDiscountAmount(parseBigDecimalOrZero(defaultDiscountField.getText()));
                 customer.setAddress(addressField.getText() != null ? addressField.getText().trim() : "");
                 customer.setContact(contactField.getText() != null ? contactField.getText().trim() : "");
-                if (customer.getCreatedAt() == null) {
-                    customer.setCreatedAt(java.time.LocalDateTime.now());
-                }
 
-                customerRepository.save(customer);
+                customerService.saveCustomer(customer);
                 return null;
             }
         };

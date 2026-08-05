@@ -52,6 +52,9 @@ public interface SaleRepository extends JpaRepository<Sale, Long> {
             @Param("state") String state,
             Pageable pageable);
 
+    @Query("SELECT s FROM Sale s WHERE s.state != 'CANCELLED' ORDER BY s.createdAt DESC")
+    List<Sale> findRecentNonCancelled(Pageable pageable);
+
     @Query("SELECT COALESCE(SUM(s.subtotal), 0) FROM Sale s WHERE s.createdAt IS NOT NULL")
     BigDecimal sumSubtotalAll();
 

@@ -18,3 +18,8 @@ temp-test-output.txt
 *.swp
 *.swo
 *~
+
+# Build artifacts / scratch
+release/
+javap_output.txt
+run_output.txt

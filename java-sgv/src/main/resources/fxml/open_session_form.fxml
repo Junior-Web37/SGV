@@ -3,38 +3,41 @@
 <?import javafx.scene.layout.*?>
 <VBox fx:id="rootPane" xmlns="http://javafx.com/javafx/17" xmlns:fx="http://javafx.com/fxml/1"
       fx:controller="com.sgv.desktop.OpenSessionFormController"
-      spacing="0" styleClass="card-pane" style="-fx-padding:0; -fx-background-radius:8; -fx-background-color:#ffffff;"
-      prefWidth="500" prefHeight="350" stylesheets="@/styles/styles.css">
+      spacing="0" styleClass="card-pane" prefWidth="500" prefHeight="350" stylesheets="@/styles/styles.css">
 
-        <HBox alignment="CENTER_LEFT" spacing="14"
-              style="-fx-background-color:#0F172A; -fx-padding:16 24; -fx-border-color:#E2E8F0; -fx-border-width:0 0 1 0; -fx-background-radius:3 3 0 0;">
+        <HBox alignment="CENTER_LEFT" spacing="14" styleClass="card-header">
             <VBox spacing="4">
-                <Label text="Abrir Caixa" style="-fx-font-size:17px; -fx-font-weight:600; -fx-text-fill:#ffffff;"/>
-                <Label text="Iniciar novo turno" style="-fx-font-size:12px; -fx-text-fill:#94A3B8;"/>
+                <Label text="Abrir Caixa" styleClass="card-title"/>
+                <Label text="Iniciar novo turno" styleClass="card-subtitle"/>
             </VBox>
         </HBox>
 
-        <VBox spacing="20" style="-fx-padding:24; -fx-background-color:#ffffff; -fx-background-radius:0 0 3 3;">
-            <Label fx:id="errorLabel" text=""
-                   style="-fx-text-fill:#EF4444; -fx-font-size:13px; -fx-font-weight:600; -fx-background-color:#FEE2E2; -fx-background-radius:3; -fx-padding:8 12;"
-                   managed="false" visible="false"/>
+        <VBox spacing="18" styleClass="card-body">
+            <HBox spacing="24">
+                <VBox spacing="6">
+                    <Label text="Operador" styleClass="form-label"/>
+                    <Label fx:id="operatorLabel" text="-" styleClass="form-field-strong"/>
+                </VBox>
+                <VBox spacing="6">
+                    <Label text="Filial" styleClass="form-label"/>
+                    <Label fx:id="branchLabel" text="-" styleClass="form-field-strong"/>
+                </VBox>
+                <Region HBox.hgrow="ALWAYS"/>
+            </HBox>
+
+            <Label fx:id="errorLabel" text="" styleClass="form-alert" managed="false" visible="false"/>
 
             <VBox spacing="6">
-                <Label text="Valor Inicial em Caixa *"
-                       style="-fx-font-weight:600; -fx-text-fill:#0F172A; -fx-font-size:12px;"/>
-                <TextField fx:id="initialValueField" promptText="0.00"
-                           style="-fx-padding:10 12; -fx-background-radius:3; -fx-border-color:#10B981; -fx-border-radius:3; -fx-font-size:22px; -fx-font-weight:700; -fx-text-fill:#10B981; -fx-background-color:#F8FAFC;"/>
+                <Label text="Valor Inicial em Caixa *" styleClass="form-label"/>
+                <TextField fx:id="initialValueField" promptText="0.00" styleClass="form-input"/>
             </VBox>
 
-            <Separator style="-fx-opacity:0.2;"/>
+            <Separator styleClass="separator-light"/>
             <HBox spacing="12" alignment="CENTER_RIGHT">
-                <Button fx:id="cancelButton" text="Cancelar" styleClass="btn-secondary-ux"
-                        style="-fx-padding:8 16; -fx-font-size:13px; -fx-background-color:#ffffff; -fx-text-fill:#0F172A; -fx-background-radius:3; -fx-cursor:hand; -fx-font-weight:600; -fx-border-color:#E2E8F0; -fx-border-radius:3;"/>
+                <Button fx:id="cancelButton" text="Cancelar" styleClass="secondary-button"/>
                 <StackPane>
-                    <Button fx:id="saveButton" text="Abrir Caixa" disable="true" styleClass="btn-primary-ux"
-                            style="-fx-padding:8 16; -fx-font-size:13px; -fx-background-color:#10B981; -fx-text-fill:white; -fx-font-weight:700; -fx-background-radius:3; -fx-cursor:hand;"/>
-                    <ProgressIndicator fx:id="saveSpinner" visible="false" managed="false"
-                                       style="-fx-progress-color:white; -fx-max-width:20; -fx-max-height:20;"/>
+                    <Button fx:id="saveButton" text="Abrir Caixa" disable="true" styleClass="primary-button-success"/>
+                    <ProgressIndicator fx:id="saveSpinner" visible="false" managed="false" styleClass="progress-indicator-white"/>
                 </StackPane>
             </HBox>
         </VBox>

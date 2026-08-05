@@ -43,7 +43,6 @@ public class WarehouseTransferFormController extends BaseFormController {
     private final WarehouseRepository warehouseRepository;
     private final BranchRepository branchRepository;
     private final ProductRepository productRepository;
-    private final StockWarehouseRepository stockWarehouseRepository;
     private final WarehouseService warehouseService;
     private final WarehouseTransferService transferService;
 
@@ -58,13 +57,11 @@ public class WarehouseTransferFormController extends BaseFormController {
     public WarehouseTransferFormController(WarehouseRepository warehouseRepository,
                                           BranchRepository branchRepository,
                                           ProductRepository productRepository,
-                                          StockWarehouseRepository stockWarehouseRepository,
                                           WarehouseService warehouseService,
                                           WarehouseTransferService transferService) {
         this.warehouseRepository = warehouseRepository;
         this.branchRepository = branchRepository;
         this.productRepository = productRepository;
-        this.stockWarehouseRepository = stockWarehouseRepository;
         this.warehouseService = warehouseService;
         this.transferService = transferService;
     }
@@ -181,10 +178,7 @@ public class WarehouseTransferFormController extends BaseFormController {
     private double getWarehouseStock(Product p) {
         Warehouse wh = warehouseCombo != null ? warehouseCombo.getValue() : null;
         if (wh == null || p == null) return 0;
-        return warehouseService.getStock(wh.getId(), p.getId())
-                .map(sw -> sw.getStockCurrentAmount() != null ? sw.getStockCurrentAmount() : java.math.BigDecimal.ZERO)
-                .orElse(java.math.BigDecimal.ZERO)
-                .doubleValue();
+        return warehouseService.getCurrentStockAmount(wh.getId(), p.getId()).doubleValue();
     }
 
     private String extractCodeFromDisplayText(String text) {
@@ -240,9 +234,7 @@ public class WarehouseTransferFormController extends BaseFormController {
             Warehouse wh = warehouseCombo != null ? warehouseCombo.getValue() : null;
 
             List<Long> inStockIds = wh != null
-                    ? stockWarehouseRepository.findByWarehouseId(wh.getId()).stream()
-                        .filter(sw -> sw.getStockCurrentAmount() != null && sw.getStockCurrentAmount().compareTo(java.math.BigDecimal.ZERO) > 0)
-                        .map(sw -> sw.getProduct().getId()).collect(Collectors.toList())
+                    ? warehouseService.findProductIdsInStock(wh.getId())
                     : allProducts.stream().map(Product::getId).collect(Collectors.toList());
 
             filteredProducts.setPredicate(p -> {
@@ -420,11 +412,7 @@ public class WarehouseTransferFormController extends BaseFormController {
                 return;
             }
 
-            WarehouseTransfer saved = transferService.create(t, currentUser);
-            transferService.complete(saved.getId(), currentUser);
-            WarehouseTransfer done = transferService.listAll().stream()
-                    .filter(x -> x.getId().equals(saved.getId()))
-                    .findFirst().orElse(saved);
+            WarehouseTransfer done = transferService.createAndComplete(t, currentUser);
             Alert ok = new Alert(Alert.AlertType.INFORMATION);
             ok.setTitle("OK");
             ok.setHeaderText("Transferência concluída com sucesso!");

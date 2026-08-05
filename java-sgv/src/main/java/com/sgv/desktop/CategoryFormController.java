@@ -1,7 +1,7 @@
 package com.sgv.desktop;
 
 import com.sgv.entity.Category;
-import com.sgv.repository.CategoryRepository;
+import com.sgv.service.CategoryService;
 import com.sgv.service.SystemLogService;
 import javafx.fxml.FXML;
 import javafx.scene.control.TextField;
@@ -12,12 +12,12 @@ public class CategoryFormController extends BaseFormController {
 
     @FXML private TextField nameField;
 
-    private final CategoryRepository categoryRepository;
+    private final CategoryService categoryService;
     private final SystemLogService systemLogService;
     private Category editingCategory;
 
-    public CategoryFormController(CategoryRepository categoryRepository, SystemLogService systemLogService) {
-        this.categoryRepository = categoryRepository;
+    public CategoryFormController(CategoryService categoryService, SystemLogService systemLogService) {
+        this.categoryService = categoryService;
         this.systemLogService = systemLogService;
     }
 
@@ -71,11 +71,11 @@ public class CategoryFormController extends BaseFormController {
             protected Void call() {
                 Category cat = editingCategory != null ? editingCategory : new Category();
                 String trimmedName = nameField.getText().trim();
-                categoryRepository.findByNameIgnoreCase(trimmedName)
+                categoryService.findByName(trimmedName)
                         .filter(existing -> editingCategory == null || !existing.getId().equals(editingCategory.getId()))
                         .ifPresent(existing -> { throw new RuntimeException("Já existe uma categoria com este nome."); });
                 cat.setName(trimmedName);
-                categoryRepository.save(cat);
+                categoryService.saveCategory(cat);
                 return null;
             }
         };

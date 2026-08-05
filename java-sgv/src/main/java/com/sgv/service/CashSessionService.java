@@ -6,16 +6,22 @@ import com.sgv.entity.User;
 import com.sgv.repository.CashMovementRepository;
 import com.sgv.repository.CashSessionRepository;
 import org.springframework.stereotype.Service;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.data.domain.Sort;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
+import com.sgv.entity.OperationKind;
 import java.util.Optional;
 
 @Service
 public class CashSessionService {
+
+    private static final Logger log = LoggerFactory.getLogger(CashSessionService.class);
 
     /** Mensagem devolvida por {@link #requireOpenToday(User)} quando tudo OK. */
     public static final String OK = "OK";
@@ -81,6 +87,28 @@ public class CashSessionService {
         return cashSessionRepository.findByStateAndOpenedAtBefore("OPEN", startOfToday);
     }
 
+    public List<CashSession> findSessions(User currentUser) {
+        if (currentUser == null) {
+            return List.of();
+        }
+        if (currentUser.isSuperAdmin() || currentUser.hasPermission("CAIXA", "VIEW")) {
+            return cashSessionRepository.findAll(Sort.by(Sort.Direction.DESC, "openedAt"));
+        }
+        return cashSessionRepository.findByUserOrderByOpenedAtDesc(currentUser);
+    }
+
+    @org.springframework.transaction.annotation.Transactional(readOnly = true)
+    public List<CashSession> findSessionsWithUser(User currentUser) {
+        List<CashSession> sessions = findSessions(currentUser);
+        // Force initialize session.user to avoid LazyInitializationException in UI
+        for (CashSession s : sessions) {
+            if (s.getUser() != null) {
+                s.getUser().getFullName();
+            }
+        }
+        return sessions;
+    }
+
     /**
      * Abre um novo turno de caixa para o utilizador.
      * Lança exceção se já existir um turno aberto.
@@ -125,25 +153,84 @@ public class CashSessionService {
      */
     @Transactional
     public CashMovement registerMovement(User user, String type, BigDecimal amount, String description) {
-        requirePermission(user, "CAIXA", "VIEW");
+        return registerMovement(user, type, amount, description, null);
+    }
+
+    @Transactional
+    public CashMovement registerMovement(User user, String type, BigDecimal amount, String description, String reason) {
+        return registerMovement(user, type, amount, description, reason, true);
+    }
+
+    @Transactional
+    public CashMovement registerMovement(User user, String type, BigDecimal amount, String description, String reason, boolean requireCashPermission) {
+        return registerMovement(user, type, amount, description, reason, null, requireCashPermission);
+    }
+
+    @Transactional
+    public CashMovement registerMovement(User user, String type, BigDecimal amount, String description, String reason, OperationKind operationKind, boolean requireCashPermission) {
+        log.info("registerMovement called by user={} type={} amount={} description={} reason={} operationKind={} permissionCheck={}",
+            user != null ? user.getUsername() : "null", type, amount, description, reason, operationKind, requireCashPermission);
+        if (requireCashPermission) {
+            requirePermission(user, "CAIXA", "VIEW");
+        }
         CashSession session = cashSessionRepository.findByUserAndState(user, "OPEN")
-                .orElseThrow(() -> new IllegalStateException("Não existe turno aberto para registar movimentos."));
+            .orElseThrow(() -> new IllegalStateException("Não existe turno aberto para registar movimentos."));
 
         CashMovement movement = new CashMovement();
         movement.setSession(session);
         movement.setType(type); // IN or OUT
         movement.setAmount(amount);
         movement.setDescription(description);
+        movement.setReason(reason);
+        // Use explicit operationKind when provided, otherwise infer
+        OperationKind kind = operationKind != null ? operationKind : inferOperationKind(description, reason);
+        movement.setOperationKind(kind);
         movement.setCreatedAt(LocalDateTime.now());
         movement.setCreatedBy(user);
-        return cashMovementRepository.save(movement);
+        CashMovement saved = cashMovementRepository.save(movement);
+        log.info("registerMovement saved id={} sessionId={}", saved != null ? saved.getId() : null,
+            saved != null && saved.getSession() != null ? saved.getSession().getId() : null);
+        return saved;
+    }
+
+    /**
+     * Heurística simples para inferir `OperationKind` a partir da descrição/motivo.
+     * Pode ser expandida ou substituída por um parâmetro explícito nas chamadas.
+     */
+    private OperationKind inferOperationKind(String description, String reason) {
+        String text = "";
+        if (reason != null) text += reason + " ";
+        if (description != null) text += description;
+        text = text.trim().toLowerCase();
+        if (text.contains("venda") || text.matches(".*\\bv-?\\d+.*")) {
+            return OperationKind.SALE;
+        }
+        if (text.contains("cota") || text.contains("cotação") || text.contains("cotacao")) {
+            return OperationKind.QUOTE;
+        }
+        if (text.contains("devol") || text.contains("reembolso") || text.contains("refund")) {
+            return OperationKind.REFUND;
+        }
+        if (text.contains("transfer") || text.contains("transferência") || text.contains("transferencia")) {
+            return OperationKind.TRANSFER;
+        }
+        return OperationKind.OTHER;
     }
 
     /**
      * Lista todos os movimentos de um turno.
      */
+    @org.springframework.transaction.annotation.Transactional(readOnly = true)
     public List<CashMovement> getMovements(CashSession session) {
-        return cashMovementRepository.findBySessionOrderByCreatedAtAsc(session);
+        List<CashMovement> movements = cashMovementRepository.findBySessionOrderByCreatedAtAsc(session);
+        // Force initialization of lazy associations used by the UI (createdBy)
+        // to avoid Hibernate LazyInitializationException when accessed in the JavaFX thread.
+        for (CashMovement m : movements) {
+            if (m.getCreatedBy() != null) {
+                m.getCreatedBy().getFullName();
+            }
+        }
+        return movements;
     }
 
     /**

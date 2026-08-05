@@ -2,6 +2,10 @@ package com.sgv.desktop;
 
 import com.sgv.entity.*;
 import com.sgv.repository.*;
+import com.sgv.service.BranchService;
+import com.sgv.service.CategoryService;
+import com.sgv.service.CustomerService;
+import com.sgv.service.ProductService;
 import com.sgv.service.StockBranchService;
 import javafx.collections.FXCollections;
 import javafx.fxml.FXML;
@@ -66,10 +70,6 @@ public class SaleFormController extends BaseFormController {
     @FXML private Label headerTotalLabel;
 
     private final SaleRepository saleRepository;
-    private final BranchRepository branchRepository;
-    private final CustomerRepository customerRepository;
-    private final ProductRepository productRepository;
-    private final CategoryRepository categoryRepository;
     private final SaleItemRepository saleItemRepository;
     private final StockBranchService stockBranchService;
     private final SaleDocumentService saleDocumentService;
@@ -78,6 +78,10 @@ public class SaleFormController extends BaseFormController {
     private final CashSessionService cashSessionService;
     private final com.sgv.service.AppConfigService appConfigService;
     private final com.sgv.service.SaleService saleService;
+    private final ProductService productService;
+    private final BranchService branchService;
+    private final CustomerService customerService;
+    private final CategoryService categoryService;
     private final com.sgv.repository.ProductBarcodeRepository productBarcodeRepository;
 
     private final ObservableList<Category> categories = FXCollections.observableArrayList();
@@ -96,10 +100,6 @@ public class SaleFormController extends BaseFormController {
     private final ToggleGroup modeGroup = new ToggleGroup();
 
     public SaleFormController(SaleRepository saleRepository,
-                              BranchRepository branchRepository,
-                              CustomerRepository customerRepository,
-                              ProductRepository productRepository,
-                              CategoryRepository categoryRepository,
                               SaleItemRepository saleItemRepository,
                               StockBranchService stockBranchService,
                               SaleDocumentService saleDocumentService,
@@ -108,12 +108,12 @@ public class SaleFormController extends BaseFormController {
                               CashSessionService cashSessionService,
                               com.sgv.service.SaleService saleService,
                               com.sgv.service.AppConfigService appConfigService,
-                              com.sgv.repository.ProductBarcodeRepository productBarcodeRepository) {
+                              com.sgv.repository.ProductBarcodeRepository productBarcodeRepository,
+                              ProductService productService,
+                              BranchService branchService,
+                              CustomerService customerService,
+                              CategoryService categoryService) {
         this.saleRepository = saleRepository;
-        this.branchRepository = branchRepository;
-        this.customerRepository = customerRepository;
-        this.productRepository = productRepository;
-        this.categoryRepository = categoryRepository;
         this.saleItemRepository = saleItemRepository;
         this.stockBranchService = stockBranchService;
         this.saleDocumentService = saleDocumentService;
@@ -123,6 +123,10 @@ public class SaleFormController extends BaseFormController {
         this.saleService = saleService;
         this.appConfigService = appConfigService;
         this.productBarcodeRepository = productBarcodeRepository;
+        this.productService = productService;
+        this.branchService = branchService;
+        this.customerService = customerService;
+        this.categoryService = categoryService;
     }
 
     /**
@@ -191,14 +195,14 @@ public class SaleFormController extends BaseFormController {
                 diverseCustomerCheck.setSelected(false);
                 diverseCustomerCheck.setDisable(true);
                 if (customerCombo.getItems().isEmpty()) {
-                    customerCombo.setItems(FXCollections.observableArrayList(customerRepository.findAll()));
+                    customerCombo.setItems(FXCollections.observableArrayList(customerService.findAll()));
                 }
             } else {
                 diverseCustomerCheck.setDisable(false);
             }
         });
         
-        branchCombo.setItems(FXCollections.observableArrayList(branchRepository.findAll()));
+        branchCombo.setItems(FXCollections.observableArrayList(branchService.findAll()));
         if(!branchCombo.getItems().isEmpty()) branchCombo.getSelectionModel().selectFirst();
         branchCombo.valueProperty().addListener((obs, oldVal, newVal) -> {
             refreshCashSessionAvailability();
@@ -206,7 +210,7 @@ public class SaleFormController extends BaseFormController {
             refreshProductSearchResults();
         });
         
-        customerCombo.setItems(FXCollections.observableArrayList(customerRepository.findAll()));
+        customerCombo.setItems(FXCollections.observableArrayList(customerService.findAll()));
         
         paymentMethodCombo.setItems(FXCollections.observableArrayList(
             com.sgv.model.PaymentMethod.DINHEIRO.name(),
@@ -221,7 +225,7 @@ public class SaleFormController extends BaseFormController {
         currencyCombo.setItems(FXCollections.observableArrayList("MZN", "USD", "EUR", "ZAR"));
         currencyCombo.setValue("MZN");
 
-        categories.setAll(categoryRepository.findAll().stream()
+        categories.setAll(categoryService.findAll().stream()
                 .sorted(Comparator.comparing(Category::getName, Comparator.nullsLast(String.CASE_INSENSITIVE_ORDER)))
                 .collect(Collectors.toList()));
         categories.add(0, ALL_CATEGORIES);
@@ -460,7 +464,7 @@ public class SaleFormController extends BaseFormController {
     private volatile boolean enterProcessingGuard = false;
 
     private void setupProductSearch() {
-        allProducts.setAll(productRepository.findAllActive());
+        allProducts.setAll(productService.findAllActive());
         filteredProducts = new FilteredList<>(allProducts, p -> true);
         
         productSearchCombo.setItems(comboDisplayList);
@@ -892,7 +896,7 @@ public class SaleFormController extends BaseFormController {
             }
 
             // 2. Fallback: pesquisar pelo código do produto diretamente
-            Product byCode = productRepository.findByCode(text).orElse(null);
+            Product byCode = productService.findByBarcodeOrCode(text).orElse(null);
             if (byCode != null) {
                 double qty = 1.0;
                 try {

@@ -1,7 +1,7 @@
 package com.sgv.desktop;
 
 import com.sgv.entity.Branch;
-import com.sgv.repository.BranchRepository;
+import com.sgv.service.BranchService;
 import com.sgv.service.SystemLogService;
 import com.sgv.util.NuitValidator;
 import javafx.concurrent.Task;
@@ -21,13 +21,13 @@ public class BranchFormController extends BaseFormController {
     @FXML private TextField softwareCertField;
     @FXML private TextField licenseField;
 
-    private final BranchRepository branchRepository;
+    private final BranchService branchService;
     private final SystemLogService systemLogService;
     private Branch branch;
     private Task<Boolean> duplicateCheckTask;
 
-    public BranchFormController(BranchRepository branchRepository, SystemLogService systemLogService) {
-        this.branchRepository = branchRepository;
+    public BranchFormController(BranchService branchService, SystemLogService systemLogService) {
+        this.branchService = branchService;
         this.systemLogService = systemLogService;
     }
 
@@ -71,7 +71,7 @@ public class BranchFormController extends BaseFormController {
             duplicateCheckTask = new Task<>() {
                 @Override
                 protected Boolean call() {
-                    return branchRepository.findByNameIgnoreCase(trimmedName)
+                    return branchService.findByName(trimmedName)
                             .filter(b -> branch == null || branch.getId() == null || !branch.getId().equals(b.getId()))
                             .isPresent();
                 }
@@ -113,7 +113,7 @@ public class BranchFormController extends BaseFormController {
             @Override
             protected Void call() {
                 String trimmedName = nameField.getText().trim();
-                branchRepository.findByNameIgnoreCase(trimmedName)
+                branchService.findByName(trimmedName)
                         .filter(b -> branch == null || branch.getId() == null || !branch.getId().equals(b.getId()))
                         .ifPresent(b -> { throw new RuntimeException("Nome de filial '" + trimmedName + "' já existe."); });
                 branch.setName(trimmedName);
@@ -123,7 +123,7 @@ public class BranchFormController extends BaseFormController {
                 branch.setHead(isHeadCheckbox.isSelected());
                 branch.setSoftwareCertNumber(softwareCertField.getText() != null ? softwareCertField.getText().trim() : "");
                 branch.setLicenseNumber(licenseField.getText() != null ? licenseField.getText().trim() : "");
-                branchRepository.save(branch);
+                branchService.saveBranch(branch);
                 return null;
             }
         };

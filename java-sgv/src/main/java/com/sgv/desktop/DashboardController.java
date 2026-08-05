@@ -193,6 +193,7 @@ public class DashboardController {
     private final DashboardCrudManager crudManager;
     private final DashboardKpiManager kpiManager;
     private final CashSessionService cashSessionService;
+    private final DashboardCrudService dashboardCrudService;
     private final SystemLogService systemLogService;
     private final ApplicationContext applicationContext;
     private final TrainingModeService trainingModeService;
@@ -218,6 +219,7 @@ public class DashboardController {
                                DashboardCrudManager crudManager,
                                DashboardKpiManager kpiManager,
                                CashSessionService cashSessionService,
+                               DashboardCrudService dashboardCrudService,
                                SystemLogService systemLogService,
                                 ApplicationContext applicationContext,
                                 TrainingModeService trainingModeService,
@@ -227,6 +229,7 @@ public class DashboardController {
         this.crudManager = crudManager;
         this.kpiManager = kpiManager;
         this.cashSessionService = cashSessionService;
+        this.dashboardCrudService = dashboardCrudService;
         this.systemLogService = systemLogService;
         this.applicationContext = applicationContext;
         this.trainingModeService = trainingModeService;
@@ -366,6 +369,15 @@ public class DashboardController {
 
         setupCrudButtons();
 
+        if (paymentsTable != null) {
+            paymentsTable.setRowFactory(navManager.makeTableRowFactory());
+            paymentsTable.setPlaceholder(new Label("Nenhum pagamento encontrado."));
+        }
+        if (expensesTable != null) {
+            expensesTable.setRowFactory(navManager.makeTableRowFactory());
+            expensesTable.setPlaceholder(new Label("Nenhuma despesa encontrada."));
+        }
+
         if (notificationBellButton != null) notificationBellButton.setOnAction(e -> kpiManager.showNotificationPopup(notificationBellButton));
 
         navManager.loadReportsPane(reportsPane);
@@ -387,7 +399,7 @@ public class DashboardController {
                 Customer sel = cTbl != null ? cTbl.getSelectionModel().getSelectedItem() : null;
                 if (sel != null) {
                     Alert confirm = new Alert(Alert.AlertType.CONFIRMATION, "Tem certeza que deseja apagar este cliente?", ButtonType.OK, ButtonType.CANCEL);
-                    confirm.showAndWait().ifPresent(res -> { if (res == ButtonType.OK) crudManager.safeDelete(() -> applicationContext.getBean(CustomerRepository.class).deleteById(sel.getId()), this::loadCustomers, "Cliente", currentUser); });
+                    confirm.showAndWait().ifPresent(res -> { if (res == ButtonType.OK) crudManager.safeDelete(() -> dashboardCrudService.deleteCustomer(sel.getId()), this::loadCustomers, "Cliente", currentUser); });
                 }
             });
         }
@@ -407,7 +419,7 @@ public class DashboardController {
                 Purchase sel = purchasesTable != null ? purchasesTable.getSelectionModel().getSelectedItem() : null;
                 if (sel != null) {
                     Alert confirm = new Alert(Alert.AlertType.CONFIRMATION, "Tem certeza que deseja apagar esta compra?", ButtonType.OK, ButtonType.CANCEL);
-                    confirm.showAndWait().ifPresent(res -> { if (res == ButtonType.OK) crudManager.safeDelete(() -> applicationContext.getBean(PurchaseRepository.class).deleteById(sel.getId()), this::loadPurchases, "Compra", currentUser); });
+                    confirm.showAndWait().ifPresent(res -> { if (res == ButtonType.OK) crudManager.safeDelete(() -> dashboardCrudService.deletePurchase(sel.getId()), this::loadPurchases, "Compra", currentUser); });
                 }
             });
         }
@@ -419,7 +431,7 @@ public class DashboardController {
                 Expense sel = expensesTable != null ? expensesTable.getSelectionModel().getSelectedItem() : null;
                 if (sel != null) {
                     Alert confirm = new Alert(Alert.AlertType.CONFIRMATION, "Tem certeza que deseja apagar esta despesa?", ButtonType.OK, ButtonType.CANCEL);
-                    confirm.showAndWait().ifPresent(res -> { if (res == ButtonType.OK) crudManager.safeDelete(() -> applicationContext.getBean(ExpenseRepository.class).deleteById(sel.getId()), this::loadExpenses, "Despesa", currentUser); });
+                    confirm.showAndWait().ifPresent(res -> { if (res == ButtonType.OK) crudManager.safeDelete(() -> dashboardCrudService.deleteExpense(sel.getId()), this::loadExpenses, "Despesa", currentUser); });
                 }
             });
         }
@@ -430,7 +442,7 @@ public class DashboardController {
                 Payment sel = paymentsTable != null ? paymentsTable.getSelectionModel().getSelectedItem() : null;
                 if (sel != null) {
                     Alert confirm = new Alert(Alert.AlertType.CONFIRMATION, "Tem certeza que deseja apagar este pagamento?", ButtonType.OK, ButtonType.CANCEL);
-                    confirm.showAndWait().ifPresent(res -> { if (res == ButtonType.OK) crudManager.safeDelete(() -> applicationContext.getBean(PaymentRepository.class).deleteById(sel.getId()), this::loadFinanceiro, "Pagamento", currentUser); });
+                    confirm.showAndWait().ifPresent(res -> { if (res == ButtonType.OK) crudManager.safeDelete(() -> dashboardCrudService.deletePayment(sel.getId()), this::loadFinanceiro, "Pagamento", currentUser); });
                 }
             });
         }
@@ -440,7 +452,7 @@ public class DashboardController {
             editUserButton.setOnAction(e -> { if (usersTable != null && usersTable.getSelectionModel().getSelectedItem() != null) openUserForm(usersTable.getSelectionModel().getSelectedItem()); });
             toggleUserButton.setOnAction(e -> {
                 User sel = usersTable != null ? usersTable.getSelectionModel().getSelectedItem() : null;
-                if (sel != null) { sel.setActive(!sel.isActive()); applicationContext.getBean(UserRepository.class).save(sel); loadSystem(); }
+                if (sel != null) { dashboardCrudService.toggleUser(sel); loadSystem(); }
             });
         }
 
@@ -456,16 +468,14 @@ public class DashboardController {
                 ProductionOrder sel = ordersTable != null ? ordersTable.getSelectionModel().getSelectedItem() : null;
                 if (sel != null) {
                     Alert confirm = new Alert(Alert.AlertType.CONFIRMATION, "Tem certeza que deseja apagar esta ordem?", ButtonType.OK, ButtonType.CANCEL);
-                    confirm.showAndWait().ifPresent(res -> { if (res == ButtonType.OK) crudManager.safeDelete(() -> applicationContext.getBean(ProductionOrderRepository.class).deleteById(sel.getId()), this::loadProductionOrders, "Ordem de Produção", currentUser); });
+                    confirm.showAndWait().ifPresent(res -> { if (res == ButtonType.OK) crudManager.safeDelete(() -> dashboardCrudService.deleteProductionOrder(sel.getId()), this::loadProductionOrders, "Ordem de Produção", currentUser); });
                 }
             });
             if (completeOrderButton != null) {
                 completeOrderButton.setOnAction(e -> {
                     ProductionOrder sel = ordersTable != null ? ordersTable.getSelectionModel().getSelectedItem() : null;
                     if (sel != null && !"COMPLETED".equals(sel.getState())) {
-                        sel.setState("COMPLETED");
-                        sel.setCompletedAt(LocalDateTime.now());
-                        applicationContext.getBean(ProductionOrderRepository.class).save(sel);
+                        dashboardCrudService.completeProductionOrder(sel);
                         loadProductionOrders();
                     }
                 });
@@ -630,6 +640,7 @@ public class DashboardController {
             this::printSelectedSale,
             this::viewSelectedSale,
             this::invoiceSelectedQuote,
+            this::createCreditNoteFromSelectedSale,
             this::annulSelectedSale);
     }
 
@@ -650,7 +661,13 @@ public class DashboardController {
                 }
             },
             () -> crudManager.deleteSelectedCustomer(navManager.getCustomersTable(), this::loadCustomers, currentUser),
-            () -> crudManager.viewSelectedCustomer(navManager.getCustomersTable(), getOwner()));
+            () -> crudManager.viewSelectedCustomer(navManager.getCustomersTable(), getOwner()),
+            () -> {
+                Customer sel = navManager.getCustomersTable() != null ? navManager.getCustomersTable().getSelectionModel().getSelectedItem() : null;
+                if (sel != null) crudManager.openLiquidarDivida(sel, getOwner(), currentUser, this::loadCustomers);
+                else { Alert a = new Alert(Alert.AlertType.WARNING, "Selecione um cliente para liquidar a dívida."); a.setHeaderText(null); a.showAndWait(); }
+            },
+            () -> crudManager.reconcileSelectedCustomerCredits(navManager.getCustomersTable(), getOwner(), currentUser));
     }
 
     private void showWarehousesPane() {
@@ -671,7 +688,7 @@ public class DashboardController {
                     confirm.setHeaderText(null);
                     confirm.showAndWait().ifPresent(r -> {
                         if (r == ButtonType.OK) {
-                            crudManager.safeDelete(() -> applicationContext.getBean(WarehouseRepository.class).deleteById(sel.getId()), () -> { warehousesPane.getChildren().clear(); loadCards[0].run(); }, "Armazém", currentUser);
+                            crudManager.safeDelete(() -> dashboardCrudService.deleteWarehouse(sel.getId()), () -> { warehousesPane.getChildren().clear(); loadCards[0].run(); }, "Armazém", currentUser);
                         }
                     });
                 } else { Alert a = new Alert(Alert.AlertType.WARNING, "Selecione um armazém (clique nele)."); a.setHeaderText(null); a.showAndWait(); }
@@ -703,6 +720,17 @@ public class DashboardController {
                 Supplier sel = tbl != null ? tbl.getSelectionModel().getSelectedItem() : null;
                 if (sel != null) {
                     crudManager.openSupplierForm(sel, getOwner(), () -> navManager.reloadSuppliers());
+                } else {
+                    Alert a = new Alert(Alert.AlertType.WARNING, "Selecione um fornecedor na lista.");
+                    a.setHeaderText(null);
+                    a.showAndWait();
+                }
+            },
+            () -> {
+                TableView<Supplier> tbl = navManager.getSuppliersTable();
+                Supplier sel = tbl != null ? tbl.getSelectionModel().getSelectedItem() : null;
+                if (sel != null) {
+                    crudManager.openSupplierPaymentForm(sel, getOwner(), () -> navManager.reloadSuppliers());
                 } else {
                     Alert a = new Alert(Alert.AlertType.WARNING, "Selecione um fornecedor na lista.");
                     a.setHeaderText(null);
@@ -757,6 +785,7 @@ public class DashboardController {
 
     private void showFinanceiroPane() {
         navManager.showFinanceiroPane(pageTitleLabel, pageSubtitleLabel, financeiroPane, currentUser, allPanes(), allNavButtons(), this::updateCashBadge);
+        loadFinanceiro();
     }
 
     private void showUsersPane() {
@@ -788,7 +817,7 @@ public class DashboardController {
             return;
         }
         Alert confirm = new Alert(Alert.AlertType.CONFIRMATION, "Tem certeza que deseja apagar este produto?", ButtonType.OK, ButtonType.CANCEL);
-        confirm.showAndWait().ifPresent(res -> { if (res == ButtonType.OK) crudManager.safeDelete(() -> applicationContext.getBean(ProductRepository.class).deleteById(product.getId()), this::loadProducts, "Produto", currentUser); });
+        confirm.showAndWait().ifPresent(res -> { if (res == ButtonType.OK) crudManager.safeDelete(() -> dashboardCrudService.deleteProduct(product.getId()), this::loadProducts, "Produto", currentUser); });
     }
 
     // ═══════════════════════════════════════════════════════════════════════════
@@ -844,6 +873,9 @@ public class DashboardController {
     }
     private void openSaleFormWithType(Sale sale, String forceType) {
         crudManager.openSaleFormWithType(sale, forceType, getOwner(), currentUser, () -> { loadSales(); loadStats(); });
+    }
+    private void createCreditNoteFromSelectedSale() {
+        crudManager.createCreditNoteFromSelectedSale(navManager.getSalesTable(), currentUser, () -> { loadSales(); loadStats(); });
     }
     private void openPDVSaleFormWithType(Sale sale, String forceType) {
         crudManager.openPDVSaleFormWithType(sale, forceType, getOwner(), currentUser, () -> { loadSales(); loadStats(); });

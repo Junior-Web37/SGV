@@ -1,18 +1,26 @@
 package com.sgv.desktop;
 
+import com.sgv.entity.User;
 import com.sgv.service.CashSessionService;
 import javafx.fxml.FXML;
+import javafx.scene.control.Label;
 import javafx.scene.control.TextField;
 import org.springframework.stereotype.Component;
 import java.math.BigDecimal;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 @Component
 public class OpenSessionFormController extends BaseFormController {
 
+    @FXML private Label operatorLabel;
+    @FXML private Label branchLabel;
     @FXML private TextField initialValueField;
 
     private final CashSessionService cashSessionService;
     private Runnable onSuccess;
+
+    private static final Logger log = LoggerFactory.getLogger(OpenSessionFormController.class);
 
     public OpenSessionFormController(CashSessionService cashSessionService) {
         this.cashSessionService = cashSessionService;
@@ -28,6 +36,23 @@ public class OpenSessionFormController extends BaseFormController {
 
         initialValueField.textProperty().addListener((obs, o, n) -> validateRealTime());
         javafx.application.Platform.runLater(this::validateRealTime);
+        updateUserLabels();
+    }
+
+    @Override
+    public void setCurrentUser(User user) {
+        super.setCurrentUser(user);
+        updateUserLabels();
+    }
+
+    private void updateUserLabels() {
+        if (operatorLabel != null) {
+            operatorLabel.setText(currentUser != null && currentUser.getFullName() != null ? currentUser.getFullName() : "-");
+        }
+        if (branchLabel != null) {
+            branchLabel.setText(currentUser != null && currentUser.getBranch() != null && currentUser.getBranch().getName() != null
+                    ? currentUser.getBranch().getName() : "-");
+        }
     }
 
     @Override
@@ -66,6 +91,7 @@ public class OpenSessionFormController extends BaseFormController {
                 BigDecimal initialValue = BigDecimal.ZERO;
                 String text = initialValueField.getText();
                 if (text != null && !text.trim().isEmpty()) initialValue = new BigDecimal(text.trim().replace(",", "."));
+                log.info("Opening session for user={} initialValue={}", currentUser != null ? currentUser.getUsername() : "null", initialValue);
                 cashSessionService.openSession(currentUser, initialValue);
                 return null;
             }

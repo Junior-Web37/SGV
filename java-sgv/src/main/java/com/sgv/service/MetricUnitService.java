@@ -2,7 +2,6 @@ package com.sgv.service;
 
 import com.sgv.entity.MetricUnit;
 import com.sgv.repository.MetricUnitRepository;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -12,8 +11,11 @@ import java.util.Optional;
 @Service
 public class MetricUnitService {
 
-    @Autowired
-    private MetricUnitRepository metricUnitRepository;
+    private final MetricUnitRepository metricUnitRepository;
+
+    public MetricUnitService(MetricUnitRepository metricUnitRepository) {
+        this.metricUnitRepository = metricUnitRepository;
+    }
 
     public List<MetricUnit> getAllUnits() {
         return metricUnitRepository.findAll();
@@ -27,16 +29,35 @@ public class MetricUnitService {
         return metricUnitRepository.findByAbbreviation(abbreviation);
     }
 
+    public boolean existsByAbbreviation(String abbreviation, Long excludeId) {
+        if (abbreviation == null || abbreviation.isBlank()) return false;
+        String trimmed = abbreviation.trim();
+        return metricUnitRepository.existsByAbbreviation(trimmed)
+                && (excludeId == null || !excludeId.equals(excludeId));
+    }
+
     @Transactional
     public MetricUnit createUnit(String abbreviation, String description) {
         if (metricUnitRepository.existsByAbbreviation(abbreviation)) {
             throw new RuntimeException("Já existe uma unidade com a abreviatura: " + abbreviation);
         }
-        
+
         MetricUnit unit = new MetricUnit();
         unit.setAbbreviation(abbreviation.toUpperCase());
         unit.setDescription(description);
-        
+
+        return metricUnitRepository.save(unit);
+    }
+
+    @Transactional
+    public MetricUnit saveMetricUnit(MetricUnit unit) {
+        if (unit == null) throw new IllegalArgumentException("MetricUnit is null");
+        String trimmedAbbr = unit.getAbbreviation() == null ? "" : unit.getAbbreviation().trim();
+        if (trimmedAbbr.isBlank()) throw new IllegalArgumentException("Abreviatura é obrigatória.");
+        if (existsByAbbreviation(trimmedAbbr, unit.getId())) {
+            throw new IllegalArgumentException("Abreviatura já existe.");
+        }
+        unit.setAbbreviation(trimmedAbbr.toUpperCase());
         return metricUnitRepository.save(unit);
     }
 
@@ -44,16 +65,15 @@ public class MetricUnitService {
     public MetricUnit updateUnit(Long id, String abbreviation, String description) {
         MetricUnit unit = metricUnitRepository.findById(id)
             .orElseThrow(() -> new RuntimeException("Unidade não encontrada: " + id));
-        
-        // Verificar se a nova abreviatura já existe (se for diferente da atual)
-        if (!unit.getAbbreviation().equalsIgnoreCase(abbreviation) 
+
+        if (!unit.getAbbreviation().equalsIgnoreCase(abbreviation)
             && metricUnitRepository.existsByAbbreviation(abbreviation)) {
             throw new RuntimeException("Já existe uma unidade com a abreviatura: " + abbreviation);
         }
-        
+
         unit.setAbbreviation(abbreviation.toUpperCase());
         unit.setDescription(description);
-        
+
         return metricUnitRepository.save(unit);
     }
 
@@ -65,9 +85,6 @@ public class MetricUnitService {
         metricUnitRepository.deleteById(id);
     }
 
-    /**
-     * Seed de unidades padrão para novos installs
-     */
     @Transactional
     public void seedDefaultUnits() {
         if (metricUnitRepository.count() == 0) {

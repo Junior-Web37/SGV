@@ -2,6 +2,7 @@ package com.sgv.entity;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
 @Entity
@@ -16,7 +17,8 @@ public class Payment {
     @JoinColumn(name = "sale_id")
     private Sale sale;
 
-    private Double amount;
+    @Column(precision = 19, scale = 4)
+    private BigDecimal amount;
     private String method;
     // ─── AT — Detalhes de pagamento electrónico ───────────────────────────────
     /** Referência do terminal bancário / POS (para pagamentos por cartão) */
@@ -30,8 +32,10 @@ public class Payment {
     public void setId(Long id) { this.id = id; }
     public Sale getSale() { return sale; }
     public void setSale(Sale sale) { this.sale = sale; }
-    public Double getAmount() { return amount; }
-    public void setAmount(Double amount) { this.amount = amount; }
+    public Double getAmount() { return amount != null ? amount.doubleValue() : 0.0; }
+    public void setAmount(Double amount) { this.amount = amount != null ? BigDecimal.valueOf(amount) : null; }
+    public BigDecimal getAmountValue() { return amount; }
+    public void setAmountValue(BigDecimal amount) { this.amount = amount; }
     public String getMethod() { return method; }
     public void setMethod(String method) { this.method = method; }
     public LocalDateTime getCreatedAt() { return createdAt; }

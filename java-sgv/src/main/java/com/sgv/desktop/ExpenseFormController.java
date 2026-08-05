@@ -20,12 +20,12 @@ public class ExpenseFormController extends BaseFormController {
     @FXML private DatePicker dueDateDatePicker;
     @FXML private CheckBox isPaidCheckBox;
 
-    private final ExpenseRepository expenseRepository;
+    private final com.sgv.service.ExpenseService expenseService;
     private final SystemLogService systemLogService;
     private Expense editingExpense;
 
-    public ExpenseFormController(ExpenseRepository expenseRepository, SystemLogService systemLogService) {
-        this.expenseRepository = expenseRepository;
+    public ExpenseFormController(com.sgv.service.ExpenseService expenseService, SystemLogService systemLogService) {
+        this.expenseService = expenseService;
         this.systemLogService = systemLogService;
     }
 
@@ -107,8 +107,6 @@ public class ExpenseFormController extends BaseFormController {
                 expense.setAmount(amount.doubleValue());
                 String docNum = documentNumberField.getText() != null ? documentNumberField.getText().trim() : "";
                 expense.setNotes(docNum.isEmpty() ? null : "Doc: " + docNum);
-                expense.setUser(currentUser);
-                if (currentUser != null) expense.setBranch(currentUser.getBranch());
                 if (dueDateDatePicker.getValue() != null) expense.setDueDate(dueDateDatePicker.getValue());
                 if (expenseDatePicker != null && expenseDatePicker.getValue() != null) {
                     expense.setCreatedAt(expenseDatePicker.getValue().atStartOfDay());
@@ -118,7 +116,8 @@ public class ExpenseFormController extends BaseFormController {
                 boolean paid = isPaidCheckBox.isSelected();
                 expense.setState(paid ? "PAID" : "PENDING");
                 if (paid && expense.getPaidAt() == null) expense.setPaidAt(LocalDateTime.now());
-                expenseRepository.save(expense);
+
+                expenseService.createOrUpdateExpense(expense, currentUser, paid);
                 return null;
             }
         };

@@ -33,6 +33,7 @@ public class DashboardKpiManager {
     private final CategoryRepository categoryRepository;
     private final MetricUnitRepository metricUnitRepository;
     private final SupplierRepository supplierRepository;
+    private final PaymentRepository paymentRepository;
     private final StockBranchService stockBranchService;
     private final CashSessionService cashSessionService;
 
@@ -47,6 +48,7 @@ public class DashboardKpiManager {
                                CategoryRepository categoryRepository,
                                MetricUnitRepository metricUnitRepository,
                                SupplierRepository supplierRepository,
+                               PaymentRepository paymentRepository,
                                StockBranchService stockBranchService,
                                CashSessionService cashSessionService) {
         this.saleRepository = saleRepository;
@@ -60,6 +62,7 @@ public class DashboardKpiManager {
         this.categoryRepository = categoryRepository;
         this.metricUnitRepository = metricUnitRepository;
         this.supplierRepository = supplierRepository;
+        this.paymentRepository = paymentRepository;
         this.stockBranchService = stockBranchService;
         this.cashSessionService = cashSessionService;
     }
@@ -299,26 +302,27 @@ public class DashboardKpiManager {
     public void updateFinanceiroKPIs(GridPane grid) {
         if (grid == null) return;
         try {
-            List<Sale> sales = saleRepository.findAll();
-            double total = 0, pago = 0;
-            for (Sale s : sales) {
-                if (s.getTotal() == null) continue;
-                total += s.getTotal();
-                if ("PAGO".equalsIgnoreCase(s.getState())) pago += s.getTotal();
+            double total = 0;
+            for (Sale s : saleRepository.findAll()) {
+                if (s.getTotal() != null) total += s.getTotal();
             }
-            List<Expense> exps = expenseRepository.findAll();
-            LocalDate now = LocalDate.now();
-            double despMes = 0;
-            for (Expense e : exps) {
-                if (e.getDueDate() != null && e.getDueDate().getMonth() == now.getMonth() && e.getDueDate().getYear() == now.getYear()) {
-                    despMes += (e.getAmount() != null ? e.getAmount() : 0);
-                }
+            List<Payment> payments = paymentRepository.findAll();
+            double recebido = 0;
+            for (Payment p : payments) {
+                if (p.getAmount() != null) recebido += p.getAmount();
             }
-            updateKPICard(grid, 0, String.format("%.0f MT", total));
-            updateKPICard(grid, 1, String.format("%.0f MT", pago));
-            updateKPICard(grid, 2, String.format("%.0f MT", total - pago));
-            updateKPICard(grid, 3, String.format("%.0f MT", despMes));
+            setFinanceiroLabel(grid, "finTotalVendasLabel", String.format("%.2f MT", total));
+            setFinanceiroLabel(grid, "finTotalRecebidoLabel", String.format("%.2f MT", recebido));
+            setFinanceiroLabel(grid, "finPendenteLabel", String.format("%.2f MT", total - recebido));
+            setFinanceiroLabel(grid, "finNumPagamentosLabel", String.valueOf(payments.size()));
         } catch (Exception ex) { log.error("Erro inesperado", ex); }
+    }
+
+    private void setFinanceiroLabel(GridPane grid, String id, String value) {
+        javafx.scene.Node node = grid.lookup("#" + id);
+        if (node instanceof javafx.scene.control.Label lbl) {
+            lbl.setText(value);
+        }
     }
 
     public void updateStockKPIs(GridPane grid) {

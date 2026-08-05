@@ -1,6 +1,8 @@
 package com.sgv.entity;
 
 import jakarta.persistence.*;
+import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.time.LocalDateTime;
 
 @Entity
@@ -38,14 +40,19 @@ public class Product {
     @JoinColumn(name = "unit_bulk_id")
     private MetricUnit unitBulk;
     
-    private Double priceCost = 0.0;
-    private Double priceSale = 0.0;
-    private Double priceSaleBulk = 0.0;
+    @Column(name = "price_cost", precision = 19, scale = 4)
+    private BigDecimal priceCost = BigDecimal.ZERO;
+    @Column(name = "price_sale", precision = 19, scale = 4)
+    private BigDecimal priceSale = BigDecimal.ZERO;
+    @Column(name = "price_sale_bulk", precision = 19, scale = 4)
+    private BigDecimal priceSaleBulk = BigDecimal.ZERO;
     private Double bulkQuantity = 0.0;
     private Double conversionFactor = 1.0;
     
     /** Margem de lucro em percentagem (calculada: ((priceSale - priceCost) / priceCost) * 100) */
     private Double profitMargin = 0.0;
+    @Transient
+    private BigDecimal profitMarginAmount = BigDecimal.ZERO;
     
     private Double taxRate = 0.0;      // IVA definido por produto (pode herdar da categoria)
     private Double iceRate = 0.0;      // ICE definido por produto (pode herdar da categoria)
@@ -107,14 +114,20 @@ public class Product {
     public MetricUnit getUnitBulk() { return unitBulk; }
     public void setUnitBulk(MetricUnit unitBulk) { this.unitBulk = unitBulk; }
     
-    public Double getPriceCost() { return priceCost; }
-    public void setPriceCost(Double priceCost) { this.priceCost = priceCost; recalculateProfitMargin(); }
+    public Double getPriceCost() { return priceCost != null ? priceCost.doubleValue() : 0.0; }
+    public void setPriceCost(Double priceCost) { this.priceCost = priceCost != null ? BigDecimal.valueOf(priceCost) : BigDecimal.ZERO; recalculateProfitMargin(); }
+    public BigDecimal getPriceCostAmount() { return priceCost; }
+    public void setPriceCostAmount(BigDecimal priceCost) { this.priceCost = priceCost; recalculateProfitMargin(); }
     
-    public Double getPriceSale() { return priceSale; }
-    public void setPriceSale(Double priceSale) { this.priceSale = priceSale; recalculateProfitMargin(); }
+    public Double getPriceSale() { return priceSale != null ? priceSale.doubleValue() : 0.0; }
+    public void setPriceSale(Double priceSale) { this.priceSale = priceSale != null ? BigDecimal.valueOf(priceSale) : BigDecimal.ZERO; recalculateProfitMargin(); }
+    public BigDecimal getPriceSaleAmount() { return priceSale; }
+    public void setPriceSaleAmount(BigDecimal priceSale) { this.priceSale = priceSale; recalculateProfitMargin(); }
     
-    public Double getPriceSaleBulk() { return priceSaleBulk; }
-    public void setPriceSaleBulk(Double priceSaleBulk) { this.priceSaleBulk = priceSaleBulk; }
+    public Double getPriceSaleBulk() { return priceSaleBulk != null ? priceSaleBulk.doubleValue() : 0.0; }
+    public void setPriceSaleBulk(Double priceSaleBulk) { this.priceSaleBulk = priceSaleBulk != null ? BigDecimal.valueOf(priceSaleBulk) : BigDecimal.ZERO; }
+    public BigDecimal getPriceSaleBulkAmount() { return priceSaleBulk; }
+    public void setPriceSaleBulkAmount(BigDecimal priceSaleBulk) { this.priceSaleBulk = priceSaleBulk; }
     
     public Double getBulkQuantity() { return bulkQuantity; }
     public void setBulkQuantity(Double bulkQuantity) { this.bulkQuantity = bulkQuantity; }
@@ -123,17 +136,35 @@ public class Product {
     public void setConversionFactor(Double conversionFactor) { this.conversionFactor = conversionFactor; }
     
     public Double getProfitMargin() { return profitMargin; }
-    public void setProfitMargin(Double profitMargin) { this.profitMargin = profitMargin; }
+    public void setProfitMargin(Double profitMargin) {
+        this.profitMargin = profitMargin != null ? profitMargin : 0.0;
+        this.profitMarginAmount = BigDecimal.valueOf(this.profitMargin)
+                .setScale(4, RoundingMode.HALF_UP);
+    }
+
+    public BigDecimal getProfitMarginAmount() {
+        return profitMarginAmount != null ? profitMarginAmount : BigDecimal.ZERO;
+    }
+
+    public void setProfitMarginAmount(BigDecimal profitMarginAmount) {
+        this.profitMarginAmount = profitMarginAmount != null
+                ? profitMarginAmount.setScale(4, RoundingMode.HALF_UP)
+                : BigDecimal.ZERO;
+        this.profitMargin = this.profitMarginAmount.doubleValue();
+    }
     
     /**
      * Calcula e define a margem de lucro automaticamente.
      * Fórmula: ((priceSale - priceCost) / priceCost) * 100
      */
     public void recalculateProfitMargin() {
-        if (priceCost != null && priceCost > 0 && priceSale != null) {
-            this.profitMargin = ((priceSale - priceCost) / priceCost) * 100.0;
+        if (priceCost != null && priceCost.compareTo(BigDecimal.ZERO) > 0 && priceSale != null) {
+            BigDecimal delta = priceSale.subtract(priceCost);
+            BigDecimal percentage = delta.divide(priceCost, 10, RoundingMode.HALF_UP)
+                    .multiply(BigDecimal.valueOf(100));
+            setProfitMarginAmount(percentage.setScale(4, RoundingMode.HALF_UP));
         } else {
-            this.profitMargin = 0.0;
+            setProfitMarginAmount(BigDecimal.ZERO);
         }
     }
     
@@ -142,8 +173,15 @@ public class Product {
      * Fórmula: priceSale = priceCost * (1 + profitMargin/100)
      */
     public void calculatePriceFromMargin() {
-        if (priceCost != null && priceCost > 0 && profitMargin != null) {
-            this.priceSale = priceCost * (1 + profitMargin / 100.0);
+        BigDecimal margin = profitMarginAmount != null && profitMarginAmount.compareTo(BigDecimal.ZERO) != 0
+                ? profitMarginAmount
+                : (profitMargin != null ? BigDecimal.valueOf(profitMargin) : BigDecimal.ZERO);
+
+        if (priceCost != null && priceCost.compareTo(BigDecimal.ZERO) > 0 && margin != null) {
+            BigDecimal percentFactor = margin.divide(BigDecimal.valueOf(100), 10, RoundingMode.HALF_UP);
+            this.priceSale = priceCost.multiply(BigDecimal.ONE.add(percentFactor))
+                    .setScale(4, RoundingMode.HALF_UP);
+            setProfitMarginAmount(margin.setScale(4, RoundingMode.HALF_UP));
         }
     }
     

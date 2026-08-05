@@ -129,6 +129,12 @@ public class WarehouseTransferService {
         return transferRepository.save(t);
     }
 
+    @Transactional
+    public WarehouseTransfer createAndComplete(WarehouseTransfer draft, User user) {
+        WarehouseTransfer created = create(draft, user);
+        return complete(created.getId(), user);
+    }
+
     /**
      * Confirma a recepção na filial. Move o stock:
      *   - Decrementa StockWarehouse (saída do armazém)

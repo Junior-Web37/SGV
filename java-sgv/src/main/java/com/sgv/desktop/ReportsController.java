@@ -3,6 +3,7 @@ package com.sgv.desktop;
 import com.sgv.entity.*;
 import com.sgv.repository.*;
 import com.sgv.service.AppConfigService;
+import com.sgv.service.ReportService;
 import com.sgv.service.SafTExportService;
 import com.sgv.service.StockBranchService;
 import javafx.beans.property.SimpleStringProperty;
@@ -36,10 +37,14 @@ public class ReportsController {
     private final BranchRepository branchRepository;
     private final StockMovementRepository stockMovementRepository;
     private final SaleItemRepository saleItemRepository;
+    private final ReportService reportService;
     private final StockBranchService stockBranchService;
     private final TransferRepository transferRepository;
     private final SafTExportService safTExportService;
     private final AppConfigService appConfigService;
+    private final SupplierPaymentRepository supplierPaymentRepository;
+    private final PurchaseRepository purchaseRepository;
+    private final SupplierRepository supplierRepository;
 
     // Vendas tab state (so filter button can access date pickers)
     private DatePicker vendasDe;
@@ -73,26 +78,48 @@ public class ReportsController {
     private Button movementsNextBtn;
     private Label movementsCountLabel;
 
+    // Pagamentos a Fornecedores tab state
+    private int pagPage = 0;
+    private DatePicker pagDe;
+    private DatePicker pagAte;
+    private ComboBox<String> pagFornecedorCombo;
+    private TableView<SupplierPaymentRow> pagTable;
+    private Label pagPageLabel;
+    private Label pagCountLabel;
+    private Button pagPrevBtn;
+    private Button pagNextBtn;
+    private Label pagKpiTotalLabel;
+    private Label pagKpiCountLabel;
+    private Label pagKpiDebtLabel;
+
     public ReportsController(SaleRepository saleRepository,
                              ProductRepository productRepository,
                              CustomerRepository customerRepository,
                              BranchRepository branchRepository,
                              StockMovementRepository stockMovementRepository,
                              SaleItemRepository saleItemRepository,
+                             ReportService reportService,
                              StockBranchService stockBranchService,
                              TransferRepository transferRepository,
                              SafTExportService safTExportService,
-                             AppConfigService appConfigService) {
+                             AppConfigService appConfigService,
+                             SupplierPaymentRepository supplierPaymentRepository,
+                             PurchaseRepository purchaseRepository,
+                             SupplierRepository supplierRepository) {
         this.saleRepository = saleRepository;
         this.productRepository = productRepository;
         this.customerRepository = customerRepository;
         this.branchRepository = branchRepository;
         this.stockMovementRepository = stockMovementRepository;
         this.saleItemRepository = saleItemRepository;
+        this.reportService = reportService;
         this.stockBranchService = stockBranchService;
         this.transferRepository = transferRepository;
         this.safTExportService = safTExportService;
         this.appConfigService = appConfigService;
+        this.supplierPaymentRepository = supplierPaymentRepository;
+        this.purchaseRepository = purchaseRepository;
+        this.supplierRepository = supplierRepository;
     }
 
     @FXML
@@ -112,9 +139,11 @@ public class ReportsController {
                 buildProdutosEmFaltaTab(),
                 buildMaisVendidosTab(),
                 buildIvaTab(),
+                buildAccountsReceivableTab(),
                 buildStockMovimentosTab(),
                 buildStockMatrixTab(),
-                buildTransferenciasTab()
+                buildTransferenciasTab(),
+                buildPagamentosFornecedoresTab()
         );
     }
 
@@ -564,7 +593,137 @@ public class ReportsController {
         updatePaginationButtons(ivaPageLabel, ivaPrevBtn, ivaNextBtn, ivaPage, page.getTotalPages());
     }
 
-    // ── TAB 5: MOVIMENTOS DE ESTOQUE ─────────────────
+    // ── TAB 5: CONTAS A RECEBER ─────────────────────
+
+    private Tab buildAccountsReceivableTab() {
+        Tab tab = new Tab("📑  Contas a Receber");
+
+        ScrollPane sp = new ScrollPane();
+        sp.setFitToWidth(true);
+        sp.setStyle("-fx-background:#F8FAFC;");
+
+        VBox content = new VBox(16);
+        content.setStyle("-fx-padding:20;");
+        content.setMaxWidth(1100);
+
+        DatePicker fromDate = new DatePicker(LocalDate.now().minusMonths(1));
+        fromDate.setPrefWidth(130);
+        DatePicker toDate = new DatePicker(LocalDate.now());
+        toDate.setPrefWidth(130);
+        TextField searchField = new TextField();
+        searchField.setPromptText("Pesquisar cliente ou documento...");
+        searchField.setPrefWidth(260);
+
+        Button refresh = btn("Filtrar", "#2563EB");
+        HBox filterBar = new HBox(10);
+        filterBar.setAlignment(javafx.geometry.Pos.CENTER_LEFT);
+        filterBar.getChildren().addAll(
+                label("De:", "12px"), fromDate,
+                label("Até:", "12px"), toDate,
+                label("Cliente / Documento:", "12px"), searchField,
+                refresh);
+
+        Label totalDueLabel = new Label("0,00 MT");
+        Label overdue30Label = new Label("0,00 MT");
+        Label overdue60Label = new Label("0,00 MT");
+        Label overdue90Label = new Label("0,00 MT");
+        HBox kpiH = new HBox(12);
+        kpiH.getChildren().addAll(
+                kpiCard("Total em Aberto", totalDueLabel, "#2563EB"),
+                kpiCard("Vencido >30d", overdue30Label, "#F59E0B"),
+                kpiCard("Vencido >60d", overdue60Label, "#EA580C"),
+                kpiCard("Vencido >90d", overdue90Label, "#DC2626")
+        );
+
+        TableView<ReceivableRow> table = new TableView<>();
+        table.setStyle("-fx-font-size:13px; -fx-background-color:#ffffff;");
+        table.setColumnResizePolicy(TableView.UNCONSTRAINED_RESIZE_POLICY);
+        table.setPlaceholder(new Label("Nenhuma conta a receber encontrada"));
+
+        TableColumn<ReceivableRow, String> c1 = col("Documento", 130);
+        TableColumn<ReceivableRow, String> c2 = col("Cliente", 220);
+        TableColumn<ReceivableRow, String> c3 = col("Data", 120);
+        TableColumn<ReceivableRow, String> c4 = col("Total", 110);
+        TableColumn<ReceivableRow, String> c5 = col("Pago", 110);
+        TableColumn<ReceivableRow, String> c6 = col("Saldo", 110);
+        TableColumn<ReceivableRow, String> c7 = col("Dias em Aberto", 110);
+        TableColumn<ReceivableRow, String> c8 = col("Faixa", 130);
+        c1.setCellValueFactory(r -> r.getValue().document);
+        c2.setCellValueFactory(r -> r.getValue().customer);
+        c3.setCellValueFactory(r -> r.getValue().date);
+        c4.setCellValueFactory(r -> r.getValue().total);
+        c5.setCellValueFactory(r -> r.getValue().paid);
+        c6.setCellValueFactory(r -> r.getValue().due);
+        c7.setCellValueFactory(r -> r.getValue().daysOpen);
+        c8.setCellValueFactory(r -> r.getValue().bucket);
+        table.getColumns().addAll(List.of(c1, c2, c3, c4, c5, c6, c7, c8));
+
+        Runnable loadAging = () -> {
+            LocalDate from = fromDate.getValue() != null ? fromDate.getValue() : LocalDate.now().minusMonths(1);
+            LocalDate to = toDate.getValue() != null ? toDate.getValue() : LocalDate.now();
+            String filter = searchField.getText() != null ? searchField.getText().trim().toLowerCase() : "";
+            Map<String, Object> aging = reportService.getAccountsReceivableAging(from, to);
+            @SuppressWarnings("unchecked")
+            List<Map<String, Object>> mapRows = (List<Map<String, Object>>) aging.get("rows");
+            List<ReceivableRow> rows = mapRows.stream()
+                    .map(row -> new ReceivableRow(
+                            String.valueOf(row.get("document")),
+                            String.valueOf(row.get("customer")),
+                            String.valueOf(row.get("date")),
+                            String.valueOf(row.get("total")),
+                            String.valueOf(row.get("paid")),
+                            String.valueOf(row.get("due")),
+                            String.valueOf(row.get("daysOpen")),
+                            String.valueOf(row.get("bucket"))
+                    ))
+                    .toList();
+            if (!filter.isBlank()) {
+                rows = rows.stream()
+                        .filter(r -> r.document.getValue().toLowerCase().contains(filter)
+                                || r.customer.getValue().toLowerCase().contains(filter))
+                        .toList();
+            }
+            table.setItems(FXCollections.observableArrayList(rows));
+            totalDueLabel.setText(aging.get("totalDue") + " MT");
+            overdue30Label.setText(aging.get("overdue30") + " MT");
+            overdue60Label.setText(aging.get("overdue60") + " MT");
+            overdue90Label.setText(aging.get("overdue90") + " MT");
+        };
+
+        refresh.setOnAction(e -> loadAging.run());
+
+        VBox card = card("CONTAS A RECEBER", new VBox(filterBar, kpiH, table));
+        content.getChildren().addAll(card);
+        sp.setContent(content);
+        tab.setContent(sp);
+
+        loadAging.run();
+        return tab;
+    }
+
+    private static class ReceivableRow {
+        private final SimpleStringProperty document;
+        private final SimpleStringProperty customer;
+        private final SimpleStringProperty date;
+        private final SimpleStringProperty total;
+        private final SimpleStringProperty paid;
+        private final SimpleStringProperty due;
+        private final SimpleStringProperty daysOpen;
+        private final SimpleStringProperty bucket;
+
+        ReceivableRow(String document, String customer, String date, String total, String paid, String due, String daysOpen, String bucket) {
+            this.document = new SimpleStringProperty(document);
+            this.customer = new SimpleStringProperty(customer);
+            this.date = new SimpleStringProperty(date);
+            this.total = new SimpleStringProperty(total);
+            this.paid = new SimpleStringProperty(paid);
+            this.due = new SimpleStringProperty(due);
+            this.daysOpen = new SimpleStringProperty(daysOpen);
+            this.bucket = new SimpleStringProperty(bucket);
+        }
+    }
+
+    // ── TAB 6: MOVIMENTOS DE ESTOQUE ─────────────────
 
     private Tab buildStockMovimentosTab() {
         Tab tab = new Tab("📦  Movimentos de Estoque");
@@ -887,6 +1046,185 @@ public class ReportsController {
             }
         }
         return rows;
+    }
+
+    // ── TAB 8: PAGAMENTOS A FORNECEDORES ──────────────
+
+    private Tab buildPagamentosFornecedoresTab() {
+        Tab tab = new Tab("💰  Pagamentos a Fornecedores");
+
+        ScrollPane sp = new ScrollPane();
+        sp.setFitToWidth(true);
+        sp.setStyle("-fx-background:#F8FAFC;");
+
+        VBox content = new VBox(16);
+        content.setStyle("-fx-padding:20;");
+        content.setMaxWidth(1100);
+
+        pagDe = new DatePicker(LocalDate.now().withDayOfMonth(1));
+        pagDe.setPrefWidth(130);
+        pagAte = new DatePicker(LocalDate.now());
+        pagAte.setPrefWidth(130);
+
+        pagFornecedorCombo = new ComboBox<>();
+        List<String> fornecedores = new ArrayList<>();
+        fornecedores.add("Todos os Fornecedores");
+        supplierRepository.findAllByOrderByNameAsc().forEach(s -> {
+            if (s.getName() != null) fornecedores.add(s.getName());
+        });
+        pagFornecedorCombo.setItems(FXCollections.observableArrayList(fornecedores));
+        pagFornecedorCombo.getSelectionModel().selectFirst();
+        pagFornecedorCombo.setPrefWidth(200);
+
+        Button filtrar = btn("FILTRAR", "#2563EB");
+        Button mes = btn("ESTE MÊS", "#1E40AF");
+        mes.setOnAction(e -> {
+            LocalDate t = LocalDate.now();
+            pagDe.setValue(t.withDayOfMonth(1));
+            pagAte.setValue(t.withDayOfMonth(t.lengthOfMonth()));
+            loadPagamentosData();
+        });
+        Button ano = btn("ESTE ANO", "#0F172A");
+        ano.setOnAction(e -> {
+            LocalDate t = LocalDate.now();
+            pagDe.setValue(t.withDayOfYear(1));
+            pagAte.setValue(t.withDayOfYear(t.lengthOfYear()));
+            loadPagamentosData();
+        });
+
+        Region spacer = new Region();
+        HBox.setHgrow(spacer, Priority.ALWAYS);
+        HBox filterBar = new HBox(10);
+        filterBar.setAlignment(javafx.geometry.Pos.CENTER_LEFT);
+        filterBar.getChildren().addAll(
+                label("De:", "12px"), pagDe,
+                label("Até:", "12px"), pagAte,
+                label("Fornecedor:", "12px"), pagFornecedorCombo,
+                filtrar, spacer, mes, ano
+        );
+        filtrar.setOnAction(e -> loadPagamentosData());
+
+        pagKpiTotalLabel = new Label("0,00 MZN");
+        pagKpiCountLabel = new Label("0");
+        pagKpiDebtLabel = new Label("0,00 MZN");
+        HBox kpiH = new HBox(12);
+        kpiH.getChildren().addAll(
+                kpiCard("Total Pago no Período", pagKpiTotalLabel, "#10B981"),
+                kpiCard("Nº de Pagamentos",       pagKpiCountLabel,  "#2563EB"),
+                kpiCard("Total em Dívida",        pagKpiDebtLabel,   "#DC2626")
+        );
+
+        pagTable = new TableView<>();
+        pagTable.setStyle("-fx-font-size:13px; -fx-background-color:#ffffff;");
+        pagTable.setColumnResizePolicy(TableView.UNCONSTRAINED_RESIZE_POLICY);
+        pagTable.setPlaceholder(new Label("Nenhum pagamento a fornecedor neste período"));
+
+        TableColumn<SupplierPaymentRow, String> pc1 = col("Data", 140);
+        TableColumn<SupplierPaymentRow, String> pc2 = col("Fornecedor", 220);
+        TableColumn<SupplierPaymentRow, String> pc3 = col("Compra", 130);
+        TableColumn<SupplierPaymentRow, String> pc4 = col("Valor", 120);
+        TableColumn<SupplierPaymentRow, String> pc5 = col("Método", 170);
+        TableColumn<SupplierPaymentRow, String> pc6 = col("Referência", 160);
+        pc1.setCellValueFactory(r -> sv(r.getValue().getData()));
+        pc2.setCellValueFactory(r -> sv(r.getValue().getFornecedor()));
+        pc3.setCellValueFactory(r -> sv(r.getValue().getCompra()));
+        pc4.setCellValueFactory(r -> sv(r.getValue().getValor()));
+        pc5.setCellValueFactory(r -> sv(r.getValue().getMetodo()));
+        pc6.setCellValueFactory(r -> sv(r.getValue().getReferencia()));
+        pagTable.getColumns().addAll(List.of(pc1, pc2, pc3, pc4, pc5, pc6));
+
+        pagPrevBtn = btn("← Anterior", "#2563EB");
+        pagNextBtn = btn("Próximo →", "#2563EB");
+        pagPageLabel = new Label("Página 1 de 1");
+        pagPageLabel.setStyle("-fx-font-size:12px; -fx-font-weight:600; -fx-text-fill:#475569;");
+        pagPrevBtn.setOnAction(e -> { pagPage--; loadPagamentosData(); });
+        pagNextBtn.setOnAction(e -> { pagPage++; loadPagamentosData(); });
+        HBox pagination = new HBox(10);
+        pagination.setAlignment(javafx.geometry.Pos.CENTER);
+        pagination.getChildren().addAll(pagPrevBtn, pagPageLabel, pagNextBtn);
+
+        pagCountLabel = new Label("0 pagamentos");
+        pagCountLabel.setStyle("-fx-font-size:12px; -fx-font-weight:600; -fx-text-fill:#475569;");
+        Region spacer2 = new Region();
+        HBox.setHgrow(spacer2, Priority.ALWAYS);
+        HBox toolbar = new HBox(8);
+        toolbar.getChildren().addAll(pagCountLabel, spacer2);
+
+        VBox card1 = card("RESUMO DE PAGAMENTOS", kpiH);
+        VBox card2 = card("", new VBox(toolbar, pagTable, pagination));
+        VBox card3 = card("FILTRO DE PERÍODO", filterBar);
+
+        content.getChildren().addAll(card3, card1, card2);
+        sp.setContent(content);
+        tab.setContent(sp);
+
+        loadPagamentosData();
+        return tab;
+    }
+
+    private void loadPagamentosData() {
+        LocalDate from = pagDe.getValue() != null ? pagDe.getValue() : LocalDate.now().withDayOfMonth(1);
+        LocalDate to = pagAte.getValue() != null ? pagAte.getValue() : LocalDate.now();
+        LocalDateTime fromDt = from.atStartOfDay();
+        LocalDateTime toDt = to.atTime(23, 59, 59);
+
+        List<SupplierPayment> all = supplierPaymentRepository.findByCreatedAtBetweenOrderByCreatedAtDesc(fromDt, toDt);
+        String supplierFilter = pagFornecedorCombo.getValue();
+        if (supplierFilter != null && !"Todos os Fornecedores".equals(supplierFilter)) {
+            all = all.stream()
+                    .filter(p -> p.getSupplier() != null && supplierFilter.equals(p.getSupplier().getName()))
+                    .toList();
+        }
+
+        double total = all.stream()
+                .mapToDouble(p -> p.getAmountValue() != null ? p.getAmountValue().doubleValue() : 0)
+                .sum();
+        pagKpiTotalLabel.setText(fmt(total) + " MZN");
+        pagKpiCountLabel.setText(String.valueOf(all.size()));
+
+        BigDecimal debt = BigDecimal.ZERO;
+        for (Object[] row : purchaseRepository.findOutstandingBalanceBySupplier()) {
+            if (row[1] != null) debt = debt.add((BigDecimal) row[1]);
+        }
+        pagKpiDebtLabel.setText(fmt(debt) + " MZN");
+
+        int totalSize = all.size();
+        int totalPages = Math.max(1, (totalSize + PAGE_SIZE - 1) / PAGE_SIZE);
+        if (pagPage < 0) pagPage = 0;
+        if (pagPage >= totalPages) pagPage = totalPages - 1;
+        List<SupplierPayment> page = all.stream()
+                .skip((long) pagPage * PAGE_SIZE)
+                .limit(PAGE_SIZE)
+                .toList();
+
+        List<SupplierPaymentRow> rows = page.stream().map(p -> new SupplierPaymentRow(
+                p.getCreatedAt() != null ? p.getCreatedAt().format(DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm")) : "—",
+                p.getSupplier() != null ? p.getSupplier().getName() : "—",
+                p.getPurchase() != null
+                        ? (p.getPurchase().getInvoiceNumber() != null ? p.getPurchase().getInvoiceNumber() : "Compra #" + p.getPurchase().getId())
+                        : "—",
+                p.getAmountValue() != null ? fmt(p.getAmountValue()) + " MZN" : "—",
+                p.getMethod() != null ? p.getMethod() : "—",
+                p.getReference() != null ? p.getReference() : "—"
+        )).toList();
+        pagTable.setItems(FXCollections.observableArrayList(rows));
+        pagCountLabel.setText(totalSize + " pagamentos");
+
+        updatePaginationButtons(pagPageLabel, pagPrevBtn, pagNextBtn, pagPage, totalPages);
+    }
+
+    public static class SupplierPaymentRow {
+        private final String data, fornecedor, compra, valor, metodo, referencia;
+        public SupplierPaymentRow(String data, String fornecedor, String compra, String valor, String metodo, String referencia) {
+            this.data = data; this.fornecedor = fornecedor; this.compra = compra;
+            this.valor = valor; this.metodo = metodo; this.referencia = referencia;
+        }
+        public String getData()       { return data; }
+        public String getFornecedor() { return fornecedor; }
+        public String getCompra()     { return compra; }
+        public String getValor()      { return valor; }
+        public String getMetodo()     { return metodo; }
+        public String getReferencia() { return referencia; }
     }
 
     // ══════════════════════════════════════════════════

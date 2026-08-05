@@ -1,8 +1,8 @@
 package com.sgv.desktop;
 
 import com.sgv.entity.Warehouse;
-import com.sgv.repository.WarehouseRepository;
 import com.sgv.service.SystemLogService;
+import com.sgv.service.WarehouseService;
 import javafx.application.Platform;
 import javafx.concurrent.Task;
 import javafx.fxml.FXML;
@@ -26,14 +26,14 @@ public class WarehouseFormController extends BaseFormController {
     @FXML private TextArea  notesArea;
     @FXML private CheckBox   activeCheck;
 
-    private final WarehouseRepository repository;
+    private final WarehouseService warehouseService;
     private final SystemLogService systemLogService;
     private Warehouse editing;
     private Runnable onSaved;
     private Task<Boolean> duplicateCheckTask;
 
-    public WarehouseFormController(WarehouseRepository repository, SystemLogService systemLogService) {
-        this.repository = repository;
+    public WarehouseFormController(WarehouseService warehouseService, SystemLogService systemLogService) {
+        this.warehouseService = warehouseService;
         this.systemLogService = systemLogService;
     }
 
@@ -69,7 +69,7 @@ public class WarehouseFormController extends BaseFormController {
             duplicateCheckTask = new Task<>() {
                 @Override
                 protected Boolean call() {
-                    return repository.findByCode(code).isPresent();
+                    return warehouseService.findByCode(code).isPresent();
                 }
             };
             duplicateCheckTask.setOnSucceeded(e -> {
@@ -122,7 +122,7 @@ public class WarehouseFormController extends BaseFormController {
             protected Void call() throws Exception {
                 String code = codeField.getText().trim();
                 Warehouse w = (editing != null) ? editing : new Warehouse();
-                if (editing == null && repository.findByCode(code).isPresent()) {
+                if (editing == null && warehouseService.findByCode(code).isPresent()) {
                     throw new IllegalArgumentException("Código '" + code + "' já existe noutro armazém.");
                 }
                 w.setCode(code);
@@ -132,7 +132,7 @@ public class WarehouseFormController extends BaseFormController {
                 w.setContact(blankToNull(contactField.getText()));
                 w.setNotes(blankToNull(notesArea.getText()));
                 w.setActive(activeCheck.isSelected());
-                repository.save(w);
+                warehouseService.save(w);
                 return null;
             }
         };

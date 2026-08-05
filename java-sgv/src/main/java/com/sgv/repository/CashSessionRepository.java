@@ -16,6 +16,8 @@ public interface CashSessionRepository extends JpaRepository<CashSession, Long> 
 
     boolean existsByUserAndState(User user, String state);
 
+    List<CashSession> findByUserOrderByOpenedAtDesc(User user);
+
     /**
      * Devolve todas as sessões em aberto (state="OPEN") abertas ANTES de uma
      * data/hora — usado para detectar sessões "esquecidas" de dias anteriores.

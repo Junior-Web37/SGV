@@ -66,9 +66,10 @@
                             </VBox>
                             <!-- Serviço -->
                             <VBox alignment="CENTER_LEFT" spacing="6" GridPane.columnIndex="2" GridPane.rowIndex="1">
-                                <Label text="" style="-fx-font-weight:600; -fx-text-fill:#0F172A; -fx-font-size:12px;"/>
+                                <Label text="Tipo de cadastro" style="-fx-font-weight:600; -fx-text-fill:#0F172A; -fx-font-size:12px;"/>
                                 <CheckBox fx:id="isServiceCheckbox" text="É um serviço"
                                           style="-fx-text-fill:#0F172A; -fx-font-size:13px;"/>
+                                <Label text="Serviço não usa stock, unidade base nem venda por atacado." style="-fx-text-fill:#94A3B8; -fx-font-size:11px;"/>
                             </VBox>
                         </children>
                     </GridPane>
@@ -120,7 +121,7 @@
                 <Separator style="-fx-opacity:0.2;"/>
 
                 <!-- 3. VENDA POR ATACADO -->
-                <VBox spacing="12">
+                <VBox fx:id="wholesaleSection" spacing="12">
                     <Label text="VENDA POR ATACADO" style="-fx-font-size:11px; -fx-font-weight:700; -fx-text-fill:#475569;"/>
                     <GridPane hgap="16" vgap="16">
                         <columnConstraints>
@@ -168,7 +169,7 @@
                 <Separator style="-fx-opacity:0.2;"/>
 
                 <!-- 4. STOCK MÁXIMO E MÍNIMO -->
-                <VBox spacing="12">
+                <VBox fx:id="stockSection" spacing="12">
                     <Label text="CONTROLO DE STOCK" style="-fx-font-size:11px; -fx-font-weight:700; -fx-text-fill:#475569;"/>
                     <GridPane hgap="16" vgap="16">
                         <columnConstraints>
@@ -197,7 +198,7 @@
                 <Separator style="-fx-opacity:0.2;"/>
 
                 <!-- 5. CÓDIGOS DE BARRAS -->
-                <VBox spacing="12">
+                <VBox fx:id="barcodeSection" spacing="12">
                     <Label text="CÓDIGOS DE BARRAS" style="-fx-font-size:11px; -fx-font-weight:700; -fx-text-fill:#475569;"/>
                     <HBox spacing="12" alignment="CENTER_LEFT">
                         <TextField fx:id="barcodeField" promptText="Código de barras..."

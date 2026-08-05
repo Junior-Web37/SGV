@@ -25,6 +25,9 @@ import org.springframework.boot.WebApplicationType;
 import org.springframework.boot.builder.SpringApplicationBuilder;
 import org.springframework.context.ConfigurableApplicationContext;
 
+import java.util.Arrays;
+import java.util.Locale;
+
 public class MainApp extends Application {
 
     private static final Logger log = LoggerFactory.getLogger(MainApp.class);
@@ -58,6 +61,9 @@ public class MainApp extends Application {
             }
         });
 
+        // Definir localização padrão para Moçambique em toda a aplicação
+        Locale.setDefault(Locale.forLanguageTag("pt-MZ"));
+
         // ── 1. Mostrar o Splash Screen instantaneamente (apenas JavaFX puro) ──
         Stage splashStage = buildSplashScreen();
         splashStage.show();
@@ -69,9 +75,10 @@ public class MainApp extends Application {
             protected ConfigurableApplicationContext call() {
                 updateMessage("A inicializar base de dados...");
                 log.info("[APP] A iniciar contexto Spring Boot na background thread...");
+                String[] springArgs = resolveSpringStartupArgs(getParameters().getRaw().toArray(new String[0]));
                 ConfigurableApplicationContext ctx = new SpringApplicationBuilder(SgvApplication.class)
                         .web(WebApplicationType.NONE)
-                        .run(getParameters().getRaw().toArray(new String[0]));
+                        .run(springArgs);
                 log.info("[APP] Contexto Spring Boot iniciado com sucesso.");
                 updateMessage("Pronto.");
                 return ctx;
@@ -249,6 +256,25 @@ public class MainApp extends Application {
             context.close();
         }
         super.stop();
+    }
+
+    static String[] resolveSpringStartupArgs(String[] rawArgs) {
+        if (rawArgs == null || rawArgs.length == 0) {
+            return new String[]{"--spring.profiles.active=mysql"};
+        }
+
+        boolean hasExplicitProfile = Arrays.stream(rawArgs)
+                .anyMatch(arg -> arg.startsWith("--spring.profiles.active=")
+                        || arg.startsWith("spring.profiles.active=")
+                        || arg.startsWith("-Dspring.profiles.active="));
+
+        if (hasExplicitProfile) {
+            return rawArgs;
+        }
+
+        String[] normalized = Arrays.copyOf(rawArgs, rawArgs.length + 1);
+        normalized[rawArgs.length] = "--spring.profiles.active=mysql";
+        return normalized;
     }
 
     public static void main(String[] args) {

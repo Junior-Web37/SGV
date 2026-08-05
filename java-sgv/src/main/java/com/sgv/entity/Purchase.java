@@ -37,6 +37,8 @@ public class Purchase {
     private BigDecimal total = BigDecimal.ZERO;
     private String state = "RECEIVED"; // RECEIVED, PENDING, CANCELLED
     private String notes;
+    @Column(precision = 19, scale = 4)
+    private BigDecimal paidAmount = BigDecimal.ZERO;
     private LocalDateTime createdAt = LocalDateTime.now();
 
     @OneToMany(mappedBy = "purchase", cascade = CascadeType.ALL, orphanRemoval = true)
@@ -72,6 +74,10 @@ public class Purchase {
     public void setState(String state) { this.state = state; }
     public String getNotes() { return notes; }
     public void setNotes(String notes) { this.notes = notes; }
+    public Double getPaidAmount() { return paidAmount != null ? paidAmount.doubleValue() : null; }
+    public void setPaidAmount(Double paidAmount) { this.paidAmount = paidAmount != null ? BigDecimal.valueOf(paidAmount) : null; }
+    public BigDecimal getPaidAmountValue() { return paidAmount; }
+    public void setPaidAmountValue(BigDecimal paidAmount) { this.paidAmount = paidAmount; }
     public LocalDateTime getCreatedAt() { return createdAt; }
     public void setCreatedAt(LocalDateTime createdAt) { this.createdAt = createdAt; }
     public List<PurchaseItem> getItems() { return items; }

@@ -3,7 +3,7 @@
 <?import javafx.scene.layout.*?>
 <VBox fx:id="rootPane" xmlns="http://javafx.com/javafx/17" xmlns:fx="http://javafx.com/fxml/1"
       fx:controller="com.sgv.desktop.SaleFormController"
-      spacing="0" style="-fx-padding:0; -fx-background-color:#F8FAFC;"
+      spacing="0" styleClass="card-box"
       prefWidth="960" prefHeight="680">
 
     <!-- TOP BAR: igual ao botão PDV do dashboard (#2563EB) -->
@@ -78,7 +78,7 @@
                                    style="-fx-font-size:14px; -fx-font-weight:800; -fx-padding:6; -fx-background-radius:4; -fx-border-color:#E2E8F0; -fx-border-radius:4; -fx-pref-width:75; -fx-background-color:#ffffff; -fx-text-fill:#0F172A; -fx-alignment:center;"/>
                     </VBox>
                     <Button fx:id="addItemButton" text="+ Adicionar"
-                            style="-fx-padding:8 18; -fx-background-color:#2563EB; -fx-text-fill:#ffffff; -fx-font-weight:800; -fx-font-size:13px; -fx-background-radius:6; -fx-cursor:hand; -fx-effect:dropshadow(gaussian,rgba(2,132,199,0.3),4,0,0,2);"/>
+                            styleClass="primary-button"/>
                 </HBox>
             </VBox>
 
@@ -146,10 +146,9 @@
 
             <VBox spacing="6">
                 <Button fx:id="cancelButton" text="Cancelar"
-                        style="-fx-padding:9 20; -fx-font-size:12px; -fx-background-color:#F8FAFC; -fx-text-fill:#475569; -fx-background-radius:6; -fx-cursor:hand; -fx-font-weight:700; -fx-border-color:#E2E8F0; -fx-border-radius:6; -fx-border-width:1;"/>
+                        styleClass="secondary-button"/>
                 <StackPane>
-                    <Button fx:id="saveButton" text="FINALIZAR" styleClass="btn-primary-ux"
-                            style="-fx-padding:12 20; -fx-font-size:14px; -fx-background-color:#10B981; -fx-text-fill:#ffffff; -fx-font-weight:900; -fx-background-radius:6; -fx-cursor:hand;"/>
+                    <Button fx:id="saveButton" text="FINALIZAR" styleClass="btn-primary-ux"/>
                     <ProgressIndicator fx:id="saveSpinner" visible="false" managed="false"
                                        style="-fx-progress-color:#ffffff; -fx-max-width:18; -fx-max-height:18;"/>
                 </StackPane>

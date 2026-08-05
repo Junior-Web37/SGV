@@ -1,7 +1,7 @@
 package com.sgv.desktop;
 
 import com.sgv.entity.MetricUnit;
-import com.sgv.repository.MetricUnitRepository;
+import com.sgv.service.MetricUnitService;
 import com.sgv.service.SystemLogService;
 import javafx.concurrent.Task;
 import javafx.fxml.FXML;
@@ -14,13 +14,13 @@ public class MetricUnitFormController extends BaseFormController {
     @FXML private TextField abbreviationField;
     @FXML private TextField descriptionField;
 
-    private final MetricUnitRepository metricUnitRepository;
+    private final MetricUnitService metricUnitService;
     private final SystemLogService systemLogService;
     private MetricUnit editingUnit;
     private Task<Boolean> duplicateCheckTask;
 
-    public MetricUnitFormController(MetricUnitRepository metricUnitRepository, SystemLogService systemLogService) {
-        this.metricUnitRepository = metricUnitRepository;
+    public MetricUnitFormController(MetricUnitService metricUnitService, SystemLogService systemLogService) {
+        this.metricUnitService = metricUnitService;
         this.systemLogService = systemLogService;
     }
 
@@ -64,8 +64,7 @@ public class MetricUnitFormController extends BaseFormController {
             duplicateCheckTask = new Task<>() {
                 @Override
                 protected Boolean call() {
-                    return metricUnitRepository.existsByAbbreviation(trimmedAbbr)
-                            && (editingUnit == null || !trimmedAbbr.equalsIgnoreCase(editingUnit.getAbbreviation()));
+                    return metricUnitService.existsByAbbreviation(trimmedAbbr, editingUnit != null ? editingUnit.getId() : null);
                 }
             };
             duplicateCheckTask.setOnSucceeded(e -> {
@@ -100,13 +99,12 @@ public class MetricUnitFormController extends BaseFormController {
             protected Void call() throws Exception {
                 MetricUnit unit = editingUnit != null ? editingUnit : new MetricUnit();
                 String trimmedAbbr = abbreviationField.getText().trim();
-                if (metricUnitRepository.existsByAbbreviation(trimmedAbbr)
-                        && (editingUnit == null || !trimmedAbbr.equalsIgnoreCase(editingUnit.getAbbreviation()))) {
+                if (metricUnitService.existsByAbbreviation(trimmedAbbr, editingUnit != null ? editingUnit.getId() : null)) {
                     throw new IllegalArgumentException("Abreviatura '" + trimmedAbbr + "' já existe.");
                 }
                 unit.setAbbreviation(trimmedAbbr);
                 unit.setDescription(descriptionField.getText().trim());
-                metricUnitRepository.save(unit);
+                metricUnitService.saveMetricUnit(unit);
                 return null;
             }
         };

@@ -35,7 +35,7 @@
 }
 
 /* ── Inputs ───────────────────────────────────────────────── */
-.text-field, .combo-box, .date-picker, .form-input {
+.text-field, .text-area, .combo-box, .date-picker, .form-input {
     -fx-padding: 10 12 10 12;
     -fx-background-color: #F8FAFC;
     -fx-text-fill: #0F172A;
@@ -209,6 +209,41 @@
     -fx-background-radius: 10;
 }
 
+.form-title {
+    -fx-font-size: 15px;
+    -fx-font-weight: 700;
+    -fx-text-fill: #0F172A;
+}
+
+.form-field-strong {
+    -fx-font-weight: 700;
+    -fx-font-size: 14px;
+    -fx-text-fill: #0F172A;
+}
+
+.amount-input {
+    -fx-font-size: 20px;
+    -fx-font-weight: 700;
+    -fx-text-fill: #2563EB;
+}
+
+.difference-label {
+    -fx-font-weight: 700;
+    -fx-font-size: 16px;
+    -fx-text-fill: #475569;
+}
+
+.status-box-title {
+    -fx-font-size: 16px;
+    -fx-font-weight: 700;
+    -fx-text-fill: #0F172A;
+}
+
+.status-box-text {
+    -fx-font-size: 13px;
+    -fx-text-fill: #475569;
+}
+
 /* ── TableView ────────────────────────────────────────────── */
 .table-view {
     -fx-background-color: #ffffff;
@@ -284,3 +319,193 @@
 .filter-card {
     -fx-max-width: Infinity;
 }
+
+.separator-light {
+    -fx-opacity: 0.2;
+}
+
+.cash-page {
+    -fx-background-color: transparent;
+}
+
+.status-card-success {
+    -fx-text-fill: #10B981;
+}
+
+.status-card-danger {
+    -fx-text-fill: #EF4444;
+}
+
+.status-card-neutral {
+    -fx-text-fill: #0F172A;
+}
+
+.progress-indicator-white {
+    -fx-progress-color: white;
+    -fx-max-width: 20;
+    -fx-max-height: 20;
+}
+
+/* ============================================================
+   Cash Session specific styles (semantic, theme-driven)
+   Use these classes to control visual language of the caixa module
+   Adjust these values to change the page palette centrally.
+   ============================================================ */
+
+/* Theme tokens (referenced by classes below) */
+.theme-bg-dark     { -fx-background-color: #0F172A; }
+.theme-accent      { -fx-background-color: #2563EB; }
+.theme-success     { -fx-background-color: #10B981; }
+.theme-muted       { -fx-text-fill: #94A3B8; }
+.theme-surface     { -fx-background-color: #0B1220; }
+
+.muted-label { -fx-text-fill: #94A3B8; -fx-font-size: 12px; }
+.muted-italic { -fx-text-fill: #94A3B8; -fx-font-style: italic; }
+
+.cash-header {
+    -fx-background-color: transparent; /* container handled by parent */
+    -fx-padding: 20 24;
+    -fx-background-radius: 6;
+}
+
+.cash-actions { -fx-padding: 12 0; }
+
+.section-title { -fx-font-weight: 700; -fx-font-size: 11px; -fx-text-fill: #94A3B8; }
+
+.cash-movements {
+    -fx-background-color: transparent;
+    -fx-padding: 20 24;
+    -fx-background-radius: 6;
+}
+
+.cash-table {
+    -fx-background-color: transparent;
+    -fx-border-color: transparent;
+}
+
+.card-header {
+    -fx-background-color: #0F172A;
+    -fx-padding: 16 24;
+    -fx-border-color: #E2E8F0;
+    -fx-border-width: 0 0 1 0;
+    -fx-background-radius: 3 3 0 0;
+}
+
+.card-title {
+    -fx-font-size: 17px;
+    -fx-font-weight: 600;
+    -fx-text-fill: #ffffff;
+}
+
+.card-subtitle {
+    -fx-font-size: 12px;
+    -fx-text-fill: #94A3B8;
+}
+
+.card-body {
+    -fx-padding: 24;
+    -fx-background-color: #ffffff;
+    -fx-background-radius: 0 0 3 3;
+}
+
+.form-row {
+    -fx-padding: 4 0 12 0;
+}
+
+.form-label {
+    -fx-font-weight: 600;
+    -fx-text-fill: #0F172A;
+    -fx-font-size: 12px;
+}
+
+.form-strong {
+    -fx-font-weight: 700;
+    -fx-font-size: 14px;
+    -fx-text-fill: #0F172A;
+}
+
+.form-alert {
+    -fx-text-fill: #EF4444;
+    -fx-font-size: 13px;
+    -fx-font-weight: 600;
+    -fx-background-color: #FEE2E2;
+    -fx-background-radius: 3;
+    -fx-padding: 8 12;
+}
+
+.form-input-wide {
+    -fx-pref-width: 1000;
+}
+
+.vertical-separator {
+    -fx-padding: 10 0;
+    -fx-background-color: #334155;
+}
+
+.info-panel {
+    -fx-background-color: #F8FAFC;
+    -fx-padding: 14;
+    -fx-background-radius: 3;
+    -fx-border-color: #E2E8F0;
+    -fx-border-radius: 3;
+    -fx-border-width: 1;
+}
+
+.status-box {
+    -fx-padding: 24;
+    -fx-background-color: #ffffff;
+    -fx-background-radius: 10;
+    -fx-border-color: #E2E8F0;
+    -fx-border-width: 1;
+    -fx-border-radius: 10;
+}
+
+.status-card {
+    -fx-background-color: #F8FAFC;
+    -fx-padding: 16;
+    -fx-background-radius: 10;
+    -fx-min-width: 140;
+}
+
+.status-card-value {
+    -fx-font-weight: 700;
+    -fx-font-size: 18px;
+}
+
+.status-card-success {
+    -fx-text-fill: #10B981;
+}
+
+.status-card-danger {
+    -fx-text-fill: #EF4444;
+}
+
+.status-summary {
+    -fx-font-size: 13px;
+    -fx-text-fill: #475569;
+}
+
+.tab-card {
+    -fx-padding: 16 24;
+}
+
+.primary-button-success {
+    -fx-background-color: #10B981;
+    -fx-text-fill: #ffffff;
+    -fx-font-weight: 700;
+    -fx-padding: 10 20 10 20;
+    -fx-background-radius: 6;
+    -fx-effect: dropshadow(gaussian, rgba(16,185,129,0.25), 6, 0, 0, 2);
+}
+.primary-button-success:hover {
+    -fx-background-color: #059669;
+}
+
+/* Badge overrides to keep compact shape on cash panel */
+.badge { -fx-padding: 6 12; -fx-background-radius: 20; }
+
+/* Metric typography used in caixa header */
+.metric-small { -fx-font-size: 12px; -fx-text-fill: #F8FAFC; }
+.metric-value { -fx-font-weight: 700; -fx-font-size: 20px; -fx-text-fill: #F8FAFC; }
+.metric-large { -fx-font-weight: 700; -fx-font-size: 26px; -fx-text-fill: #10B981; }
+

@@ -8,15 +8,16 @@ import com.sgv.repository.CategoryRepository;
 import com.sgv.repository.ProductRepository;
 import com.sgv.repository.MetricUnitRepository;
 import com.sgv.repository.SupplierRepository;
-import com.sgv.repository.ProductBarcodeRepository;
 import com.sgv.entity.MetricUnit;
 import com.sgv.service.AppConfigService;
+import com.sgv.service.ProductService;
 import com.sgv.service.SystemLogService;
 import javafx.collections.FXCollections;
 import javafx.collections.ObservableList;
 import javafx.fxml.FXML;
 import javafx.scene.control.*;
 import javafx.scene.control.cell.PropertyValueFactory;
+import javafx.scene.layout.VBox;
 import javafx.stage.Stage;
 import org.springframework.stereotype.Component;
 import org.springframework.beans.factory.config.ConfigurableBeanFactory;
@@ -51,9 +52,11 @@ public class ProductFormController extends BaseFormController {
     @FXML private ComboBox<MetricUnit> unitBulkField;
     @FXML private TextField priceSaleBulkField;
     @FXML private TextField bulkQuantityField;
+    @FXML private VBox wholesaleSection;
     
     @FXML private TextField stockMinField;
     @FXML private TextField stockMaxField;
+    @FXML private VBox stockSection;
     
     @FXML private TextField barcodeField;
     @FXML private TextField barcodeQtyField;
@@ -62,6 +65,7 @@ public class ProductFormController extends BaseFormController {
     @FXML private TableColumn<ProductBarcode, Double> barcodeQtyColumn;
     @FXML private Button addBarcodeButton;
     @FXML private Button removeBarcodeButton;
+    @FXML private VBox barcodeSection;
     
     @FXML private TextArea descriptionArea;
     @FXML private TextField conversionFactorField;
@@ -75,7 +79,7 @@ public class ProductFormController extends BaseFormController {
     private final AppConfigService appConfigService;
     private final SystemLogService systemLogService;
     private final com.sgv.repository.SaleItemRepository saleItemRepository;
-    private final ProductBarcodeRepository productBarcodeRepository;
+    private final ProductService productService;
 
     // ─── Estado ─────────────────────────────────────────────────────────────
     private final ObservableList<ProductBarcode> barcodeList = FXCollections.observableArrayList();
@@ -97,7 +101,7 @@ public class ProductFormController extends BaseFormController {
                                  AppConfigService appConfigService,
                                  SystemLogService systemLogService,
                                  com.sgv.repository.SaleItemRepository saleItemRepository,
-                                 ProductBarcodeRepository productBarcodeRepository) {
+                                 ProductService productService) {
         this.productRepository = productRepository;
         this.categoryRepository = categoryRepository;
         this.supplierRepository = supplierRepository;
@@ -105,7 +109,7 @@ public class ProductFormController extends BaseFormController {
         this.appConfigService = appConfigService;
         this.systemLogService = systemLogService;
         this.saleItemRepository = saleItemRepository;
-        this.productBarcodeRepository = productBarcodeRepository;
+        this.productService = productService;
     }
 
     @FXML
@@ -142,6 +146,7 @@ public class ProductFormController extends BaseFormController {
         setupRealTimeValidation();
         setupMarginCalculation();
         setupServiceToggle();
+        applyServiceToggleState();
     }
 
     private void setupServiceToggle() {
@@ -166,6 +171,10 @@ public class ProductFormController extends BaseFormController {
         bulkQuantityField.setDisable(isService);
         stockMinField.setDisable(isService);
         stockMaxField.setDisable(isService);
+        wholesaleSection.setVisible(!isService);
+        wholesaleSection.setManaged(!isService);
+        stockSection.setVisible(!isService);
+        stockSection.setManaged(!isService);
         updateStylesForService(isService);
     }
 
@@ -233,7 +242,7 @@ public class ProductFormController extends BaseFormController {
         javafx.concurrent.Task<Boolean> checkTask = new javafx.concurrent.Task<>() {
             @Override
             protected Boolean call() {
-                return productBarcodeRepository.findByBarcodeIgnoreCase(finalCode).isPresent();
+                return productService.barcodeExists(finalCode);
             }
         };
         checkTask.setOnSucceeded(ev -> {
@@ -251,7 +260,7 @@ public class ProductFormController extends BaseFormController {
                 javafx.concurrent.Task<Void> saveTask = new javafx.concurrent.Task<>() {
                     @Override
                     protected Void call() {
-                        productBarcodeRepository.save(pb);
+                        productService.saveBarcode(pb);
                         return null;
                     }
                 };
@@ -289,7 +298,7 @@ public class ProductFormController extends BaseFormController {
             javafx.concurrent.Task<Void> task = new javafx.concurrent.Task<>() {
                 @Override
                 protected Void call() {
-                    productBarcodeRepository.deleteById(selectedId);
+                    productService.deleteBarcodeById(selectedId);
                     return null;
                 }
             };
@@ -310,7 +319,7 @@ public class ProductFormController extends BaseFormController {
 
     private void loadBarcodes() {
         if (product != null && product.getId() != null) {
-            barcodeList.setAll(productBarcodeRepository.findByProductOrderByBarcode(product));
+            barcodeList.setAll(productService.findBarcodesByProduct(product));
         }
     }
 
@@ -322,7 +331,7 @@ public class ProductFormController extends BaseFormController {
         for (ProductBarcode pb : barcodeList) {
             if (pb.getId() == null) {
                 pb.setProduct(product);
-                productBarcodeRepository.save(pb);
+                productService.saveBarcode(pb);
             }
         }
     }
@@ -425,7 +434,7 @@ public class ProductFormController extends BaseFormController {
     private void checkDuplicateCode(String code) {
         new Thread(() -> {
             try {
-                Optional<Product> existing = productRepository.findByCode(code.trim().toUpperCase());
+                Optional<Product> existing = productService.findByCode(code.trim().toUpperCase());
                 if (existing.isPresent() && (product == null || product.getId() == null || !existing.get().getId().equals(product.getId()))) {
                     codeAlreadyExists = true;
                 } else {
@@ -442,7 +451,7 @@ public class ProductFormController extends BaseFormController {
     private void checkDuplicateName(String name) {
         new Thread(() -> {
             try {
-                Optional<Product> existing = productRepository.findByNameIgnoreCase(name.trim());
+                Optional<Product> existing = productService.findByNameIgnoreCase(name.trim());
                 if (existing.isPresent() && (product == null || product.getId() == null || !existing.get().getId().equals(product.getId()))) {
                     nameAlreadyExists = true;
                 } else {
@@ -613,7 +622,7 @@ public class ProductFormController extends BaseFormController {
             
             // Busca próximo número sequencial para o código
             try {
-                nextSeqNumber = productRepository.findMaxId() + 1;
+                nextSeqNumber = productService.findMaxId() + 1;
             } catch (Exception e) {
                 nextSeqNumber = 1;
             }
@@ -667,7 +676,7 @@ public class ProductFormController extends BaseFormController {
                 javafx.concurrent.Task<Void> deleteTask = new javafx.concurrent.Task<>() {
                     @Override
                     protected Void call() {
-                        productRepository.deleteById(product.getId());
+                        productService.deleteById(product.getId());
                         return null;
                     }
                 };
@@ -715,8 +724,8 @@ public class ProductFormController extends BaseFormController {
                     code = com.sgv.entity.Product.generateCode(prefix, nextSeqNumber);
                 }
 
-                if (productRepository.findByCode(code.trim().toUpperCase()).isPresent()
-                        && (product == null || product.getId() == null || !productRepository.findByCode(code.trim().toUpperCase()).get().getId().equals(product.getId()))) {
+                if (productService.findByCode(code.trim().toUpperCase()).isPresent()
+                        && (product == null || product.getId() == null || !productService.findByCode(code.trim().toUpperCase()).get().getId().equals(product.getId()))) {
                     throw new IllegalArgumentException("Código '" + code + "' já existe.");
                 }
 
@@ -748,8 +757,7 @@ public class ProductFormController extends BaseFormController {
                 
                 product.setDescription(descriptionArea.getText() != null ? descriptionArea.getText().trim() : "");
 
-                productRepository.save(product);
-                flushPendingBarcodes();
+                productService.saveProduct(product, barcodeList);
                 return null;
             }
         };

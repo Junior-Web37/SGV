@@ -4,6 +4,7 @@ import com.sgv.entity.*;
 import com.sgv.model.DocumentType;
 import com.sgv.repository.*;
 import com.sgv.service.*;
+import com.sgv.service.ReconciliationResult;
 import javafx.collections.FXCollections;
 import javafx.fxml.FXMLLoader;
 import javafx.geometry.Pos;
@@ -50,6 +51,7 @@ public class DashboardCrudManager {
     private final UserRepository userRepository;
     private final PurchaseRepository purchaseRepository;
     private final ExpenseRepository expenseRepository;
+    private final SupplierPaymentService supplierPaymentService;
     private final CashSessionService cashSessionService;
     private final MetricUnitRepository metricUnitRepository;
     private final SaleDocumentService saleDocumentService;
@@ -57,6 +59,9 @@ public class DashboardCrudManager {
     private final StockWarehouseRepository stockWarehouseRepository;
     private final SystemLogService systemLogService;
     private final TrainingModeService trainingModeService;
+    private final com.sgv.service.SaleService saleService;
+    private final com.sgv.service.CustomerAccountService customerAccountService;
+    private final com.sgv.service.DashboardCrudService dashboardCrudService;
 
     public DashboardCrudManager(ApplicationContext applicationContext,
                                 SaleRepository saleRepository,
@@ -71,13 +76,17 @@ public class DashboardCrudManager {
                                 UserRepository userRepository,
                                 PurchaseRepository purchaseRepository,
                                 ExpenseRepository expenseRepository,
+                                SupplierPaymentService supplierPaymentService,
                                 CashSessionService cashSessionService,
                                 MetricUnitRepository metricUnitRepository,
                                 SaleDocumentService saleDocumentService,
                                 WarehouseRepository warehouseRepository,
                                 StockWarehouseRepository stockWarehouseRepository,
                                 SystemLogService systemLogService,
-                                TrainingModeService trainingModeService) {
+                                TrainingModeService trainingModeService,
+                                com.sgv.service.SaleService saleService,
+                                com.sgv.service.CustomerAccountService customerAccountService,
+                                com.sgv.service.DashboardCrudService dashboardCrudService) {
         this.applicationContext = applicationContext;
         this.saleRepository = saleRepository;
         this.productRepository = productRepository;
@@ -91,6 +100,7 @@ public class DashboardCrudManager {
         this.userRepository = userRepository;
         this.purchaseRepository = purchaseRepository;
         this.expenseRepository = expenseRepository;
+        this.supplierPaymentService = supplierPaymentService;
         this.cashSessionService = cashSessionService;
         this.metricUnitRepository = metricUnitRepository;
         this.saleDocumentService = saleDocumentService;
@@ -98,6 +108,9 @@ public class DashboardCrudManager {
         this.stockWarehouseRepository = stockWarehouseRepository;
         this.systemLogService = systemLogService;
         this.trainingModeService = trainingModeService;
+        this.saleService = saleService;
+        this.customerAccountService = customerAccountService;
+        this.dashboardCrudService = dashboardCrudService;
     }
 
     public String getDateFormatPattern() { return "dd/MM/yyyy HH:mm"; }
@@ -328,6 +341,23 @@ public class DashboardCrudManager {
             openModal(root, owner);
         } catch (Exception ex) {
             systemLogService.logError("OPEN_SUPPLIER_FORM", "Erro ao abrir formulário de fornecedor.", ex);
+            log.error("Erro inesperado", ex);
+        }
+    }
+
+    public void openSupplierPaymentForm(Supplier supplier, Window owner, Runnable onDataChanged) {
+        if (trainingModeService.isTrainingMode()) { showTrainingBlockedAlert(); return; }
+        try {
+            FXMLLoader loader = new FXMLLoader(getClass().getResource("/fxml/supplier_payment_form.fxml"));
+            loader.setControllerFactory(applicationContext::getBean);
+            Parent root = loader.load();
+            SupplierPaymentFormController controller = loader.getController();
+            if (supplier != null) controller.setSupplier(supplier);
+            controller.setSupplierPayment(new com.sgv.entity.SupplierPayment());
+            controller.setOnSave(onDataChanged);
+            openModal(root, owner);
+        } catch (Exception ex) {
+            systemLogService.logError("OPEN_SUPPLIER_PAYMENT_FORM", "Erro ao abrir formulário de pagamento a fornecedor.", ex);
             log.error("Erro inesperado", ex);
         }
     }
@@ -787,6 +817,42 @@ public class DashboardCrudManager {
             .show();
     }
 
+    public void reconcileSelectedCustomerCredits(TableView<Customer> customersTable, Window owner, User currentUser) {
+        if (trainingModeService.isTrainingMode()) { showTrainingBlockedAlert(); return; }
+        if (customersTable == null) return;
+        Customer selected = customersTable.getSelectionModel().getSelectedItem();
+        if (selected == null) {
+            showAlert(Alert.AlertType.WARNING, "Selecione um cliente para reconciliar crédito.");
+            return;
+        }
+
+        TextInputDialog dialog = new TextInputDialog();
+        dialog.initOwner(owner);
+        dialog.setTitle("Reconciliação de Crédito");
+        dialog.setHeaderText("Reconciliar crédito para: " + (selected.getName() != null ? selected.getName() : selected.getCode()));
+        dialog.setContentText("Montante a aplicar (por exemplo 150.00):");
+        Optional<String> result = dialog.showAndWait();
+        if (result.isPresent()) {
+            String txt = result.get();
+            try {
+                java.math.BigDecimal amount = new java.math.BigDecimal(txt.trim());
+                ReconciliationResult response = dashboardCrudService.reconcileCustomerCredits(selected, amount, currentUser);
+                java.math.BigDecimal remaining = response != null ? response.getRemaining() : java.math.BigDecimal.ZERO;
+                if (remaining == null) remaining = java.math.BigDecimal.ZERO;
+                if (remaining.compareTo(java.math.BigDecimal.ZERO) == 0) {
+                    showAlert(Alert.AlertType.INFORMATION, "Reconciliação concluída. Não há saldo remanescente.");
+                } else {
+                    showAlert(Alert.AlertType.INFORMATION, "Reconciliação concluída. Saldo remanescente: " + remaining.toPlainString());
+                }
+            } catch (NumberFormatException ex) {
+                showAlert(Alert.AlertType.ERROR, "Montante inválido informado.");
+            } catch (Exception ex) {
+                systemLogService.logError("RECONCILE_CUSTOMER", "Erro ao reconciliar crédito.", ex);
+                showAlert(Alert.AlertType.ERROR, "Erro ao executar reconciliação: " + ex.getMessage());
+            }
+        }
+    }
+
     public void viewSelectedProduct(TableView<Product> productsTable, Window owner) {
         if (productsTable == null) return;
         Product selected = productsTable.getSelectionModel().getSelectedItem();
@@ -847,41 +913,39 @@ public class DashboardCrudManager {
             try {
                 Sale fullSale = saleRepository.findByIdWithItems(selected.getId());
                 if (fullSale == null) fullSale = selected;
-                fullSale.setState("ANULADA");
-                fullSale.setAnnulReason(reason);
-                fullSale.setAnnulDate(LocalDateTime.now());
-                fullSale.setAnnulInProgress(true);
-                saleRepository.save(fullSale);
-                if (fullSale.getItems() != null) {
-                    for (var item : fullSale.getItems()) {
-                        if (item.getProduct() == null) continue;
-                        if (Boolean.TRUE.equals(item.getProduct().getService())) continue;
-                        BigDecimal qty = item.getQtyAmount() != null ? item.getQtyAmount() : BigDecimal.ZERO;
-                        if (qty.compareTo(BigDecimal.ZERO) <= 0) continue;
-                        stockBranchService.increaseStock(
-                                fullSale.getBranch(), item.getProduct(), qty,
-                                "ANULACAO-" + fullSale.getDocumentNumber() + "/" + fullSale.getSeries(),
-                                "ANULACAO_VENDA", currentUser);
-                    }
-                }
-                if ("CREDITO".equalsIgnoreCase(fullSale.getPaymentMethod()) && fullSale.getCustomer() != null) {
-                    try {
-                        var custOpt = customerRepository.findById(fullSale.getCustomer().getId());
-                        if (custOpt.isPresent()) {
-                            var cust = custOpt.get();
-                            BigDecimal totalAmount = fullSale.getTotalAmount() != null ? fullSale.getTotalAmount() : BigDecimal.ZERO;
-                            BigDecimal currentBalance = cust.getBalanceAmount();
-                            cust.setBalanceAmount(currentBalance.subtract(totalAmount));
-                            customerRepository.save(cust);
-                        }
-                    } catch (Exception ex) {
-                        log.error("Erro ao estornar saldo do cliente na anulação", ex);
-                    }
-                }
+                // Delegate the annulment logic to SaleService to ensure transactional consistency
+                saleService.annulSale(fullSale, reason, currentUser);
                 onDataChanged.run();
                 showAlert(Alert.AlertType.INFORMATION, "Anulação Concluída: O documento foi anulado com sucesso.");
             } catch (Exception ex) {
-                showAlert(Alert.AlertType.ERROR, "Erro na Anulação: " + ex.getMessage());
+                log.error("Erro na anulação via SaleService", ex);
+                showAlert(Alert.AlertType.ERROR, "Erro na Anulação: " + (ex.getMessage() != null ? ex.getMessage() : "Erro desconhecido"));
+            }
+        });
+    }
+
+    public void createCreditNoteFromSelectedSale(TableView<Sale> salesTable, User currentUser, Runnable onDataChanged) {
+        if (trainingModeService.isTrainingMode()) { showTrainingBlockedAlert(); return; }
+        Sale selected = salesTable.getSelectionModel().getSelectedItem();
+        if (selected == null) { showAlert(Alert.AlertType.WARNING, "Selecione uma venda para criar uma nota de crédito."); return; }
+        TextInputDialog dialog = new TextInputDialog();
+        dialog.setTitle("Emitir Nota de Crédito");
+        dialog.setHeaderText("Emitir NC para: " + selected.getDocumentType() + " #" + selected.getDocumentNumber());
+        dialog.setContentText("Por favor, introduza o motivo da devolução:");
+        dialog.showAndWait().ifPresent(reason -> {
+            if (reason.trim().isEmpty()) {
+                showAlert(Alert.AlertType.ERROR, "Erro de Validação: O motivo é obrigatório.");
+                return;
+            }
+            try {
+                Sale fullSale = saleRepository.findByIdWithItems(selected.getId());
+                if (fullSale == null) fullSale = selected;
+                Sale nc = saleService.createCreditNote(fullSale, reason, currentUser);
+                onDataChanged.run();
+                showAlert(Alert.AlertType.INFORMATION, "Nota de Crédito criada: " + (nc.getDocumentNumber() != null ? nc.getDocumentNumber() : "(sem número)"));
+            } catch (Exception ex) {
+                log.error("Erro ao criar NC via SaleService", ex);
+                showAlert(Alert.AlertType.ERROR, "Erro ao criar nota de crédito: " + (ex.getMessage() != null ? ex.getMessage() : "Erro desconhecido"));
             }
         });
     }
@@ -962,7 +1026,7 @@ public class DashboardCrudManager {
         if (categoriesTable == null) return;
         Category selected = categoriesTable.getSelectionModel().getSelectedItem();
         if (selected == null) { showAlert(Alert.AlertType.WARNING, "Por favor selecione uma categoria para eliminar."); return; }
-        safeDelete(() -> categoryRepository.delete(selected), onDataChanged, "Categoria", currentUser);
+        safeDelete(() -> dashboardCrudService.deleteCategory(selected.getId()), onDataChanged, "Categoria", currentUser);
     }
 
     public void deleteSelectedUnit(TableView<MetricUnit> unitsTable, Runnable onDataChanged, User currentUser) {
@@ -970,7 +1034,7 @@ public class DashboardCrudManager {
         if (unitsTable == null) return;
         MetricUnit selected = unitsTable.getSelectionModel().getSelectedItem();
         if (selected == null) { showAlert(Alert.AlertType.WARNING, "Por favor selecione uma unidade para eliminar."); return; }
-        safeDelete(() -> metricUnitRepository.delete(selected), onDataChanged, "Unidade de Medida", currentUser);
+        safeDelete(() -> dashboardCrudService.deleteMetricUnit(selected.getId()), onDataChanged, "Unidade de Medida", currentUser);
     }
 
     public void deleteSelectedCustomer(TableView<Customer> customersTable, Runnable onDataChanged, User currentUser) {
@@ -978,7 +1042,7 @@ public class DashboardCrudManager {
         if (customersTable == null) return;
         Customer selected = customersTable.getSelectionModel().getSelectedItem();
         if (selected == null) { showAlert(Alert.AlertType.WARNING, "Por favor selecione um cliente para eliminar."); return; }
-        safeDelete(() -> customerRepository.delete(selected), onDataChanged, "Cliente", currentUser);
+        safeDelete(() -> dashboardCrudService.deleteCustomer(selected.getId()), onDataChanged, "Cliente", currentUser);
     }
 
     public void deleteSelectedStock(TableView<StockBranch> stockTable, Runnable onDataChanged, User currentUser) {
@@ -986,7 +1050,7 @@ public class DashboardCrudManager {
         if (stockTable == null) return;
         StockBranch selected = stockTable.getSelectionModel().getSelectedItem();
         if (selected == null) { showAlert(Alert.AlertType.WARNING, "Por favor selecione um item de stock para eliminar."); return; }
-        safeDelete(() -> stockBranchService.deleteStock(selected, currentUser), onDataChanged, "Stock", currentUser);
+        safeDelete(() -> dashboardCrudService.deleteStockBranch(selected), onDataChanged, "Stock", currentUser);
     }
 
     public void saveCompanyConfig(TextField companyNameField, TextField companyNuitField) {
@@ -1091,24 +1155,23 @@ public class DashboardCrudManager {
             try { valor = Double.parseDouble(valStr); } catch (NumberFormatException nfe) { return; }
             if (valor <= 0) return;
             try {
-                Payment p = new Payment();
-                p.setAmount(valor);
-                p.setMethod(metodoCombo.getValue());
-                if (selSale != null) {
-                    p.setSale(selSale);
-                    if (valor >= (selSale.getTotal() != null ? selSale.getTotal() : 0.0)) {
-                        selSale.setState("PAGO");
-                        saleRepository.save(selSale);
+                if (selSale == null) {
+                    ReconciliationResult result = dashboardCrudService.reconcileCustomerCredits(customer, java.math.BigDecimal.valueOf(valor), currentUser);
+                    onDataChanged.run();
+                    if (result.getRemaining().compareTo(java.math.BigDecimal.ZERO) == 0) {
+                        showAlert(Alert.AlertType.INFORMATION, "Reconciliação concluída: todo o valor foi aplicado.");
+                    } else {
+                        showAlert(Alert.AlertType.INFORMATION, "Reconciliação concluída: saldo remanescente " + result.getRemaining().toPlainString() + " MT.");
                     }
+                } else {
+                    Payment p = customerAccountService.recordReceipt(customer, selSale, java.math.BigDecimal.valueOf(valor), metodoCombo.getValue(), currentUser);
+                    onDataChanged.run();
+                    showAlert(Alert.AlertType.INFORMATION, "Recebimento registado para a venda selecionada.");
                 }
-                paymentRepository.save(p);
-                double novoSaldo = (customer.getBalance() != null ? customer.getBalance() : 0.0) - valor;
-                customer.setBalance(novoSaldo);
-                customerRepository.save(customer);
-                onDataChanged.run();
                 dialog.close();
             } catch (Exception ex) {
                 log.error("Erro inesperado", ex);
+                showAlert(Alert.AlertType.ERROR, "Erro ao registar pagamento: " + ex.getMessage());
             }
         });
         payRow.getChildren().addAll(lblValor, valorField, lblMetodo, metodoCombo, spacerPay, btnConfirmar, btnCancelarPay);

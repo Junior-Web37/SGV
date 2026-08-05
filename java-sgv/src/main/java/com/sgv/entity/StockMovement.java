@@ -35,8 +35,10 @@ public class StockMovement {
     private User user;
 
     private String reference;
-    private Double unitCostPrice = 0.0;
-    private Double unitSalePrice = 0.0;
+    @Column(name = "unit_cost_price", precision = 19, scale = 4)
+    private BigDecimal unitCostPrice = BigDecimal.ZERO;
+    @Column(name = "unit_sale_price", precision = 19, scale = 4)
+    private BigDecimal unitSalePrice = BigDecimal.ZERO;
     private String notes;
     private LocalDateTime createdAt = LocalDateTime.now();
 
@@ -68,10 +70,14 @@ public class StockMovement {
     public void setUser(User user) { this.user = user; }
     public String getReference() { return reference; }
     public void setReference(String reference) { this.reference = reference; }
-    public Double getUnitCostPrice() { return unitCostPrice; }
-    public void setUnitCostPrice(Double unitCostPrice) { this.unitCostPrice = unitCostPrice; }
-    public Double getUnitSalePrice() { return unitSalePrice; }
-    public void setUnitSalePrice(Double unitSalePrice) { this.unitSalePrice = unitSalePrice; }
+    public Double getUnitCostPrice() { return unitCostPrice != null ? unitCostPrice.doubleValue() : 0.0; }
+    public void setUnitCostPrice(Double unitCostPrice) { this.unitCostPrice = unitCostPrice != null ? BigDecimal.valueOf(unitCostPrice) : BigDecimal.ZERO; }
+    public BigDecimal getUnitCostPriceAmount() { return unitCostPrice; }
+    public void setUnitCostPriceAmount(BigDecimal unitCostPrice) { this.unitCostPrice = unitCostPrice; }
+    public Double getUnitSalePrice() { return unitSalePrice != null ? unitSalePrice.doubleValue() : 0.0; }
+    public void setUnitSalePrice(Double unitSalePrice) { this.unitSalePrice = unitSalePrice != null ? BigDecimal.valueOf(unitSalePrice) : BigDecimal.ZERO; }
+    public BigDecimal getUnitSalePriceAmount() { return unitSalePrice; }
+    public void setUnitSalePriceAmount(BigDecimal unitSalePrice) { this.unitSalePrice = unitSalePrice; }
     public String getNotes() { return notes; }
     public void setNotes(String notes) { this.notes = notes; }
     public LocalDateTime getCreatedAt() { return createdAt; }

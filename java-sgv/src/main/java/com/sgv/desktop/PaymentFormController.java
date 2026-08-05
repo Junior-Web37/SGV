@@ -2,9 +2,6 @@ package com.sgv.desktop;
 
 import com.sgv.entity.Payment;
 import com.sgv.entity.Sale;
-import com.sgv.repository.PaymentRepository;
-import com.sgv.repository.SaleRepository;
-import com.sgv.service.SaleDocumentService;
 import com.sgv.service.SystemLogService;
 import javafx.fxml.FXML;
 import javafx.scene.control.*;
@@ -20,17 +17,12 @@ public class PaymentFormController extends BaseFormController {
     @FXML private DatePicker paymentDatePicker;
     @FXML private TextField referenceField;
 
-    private final PaymentRepository paymentRepository;
-    private final SaleRepository saleRepository;
-    private final SaleDocumentService saleDocumentService;
+    private final com.sgv.service.PaymentService paymentService;
     private final SystemLogService systemLogService;
     private Payment payment;
 
-    public PaymentFormController(PaymentRepository paymentRepository, SaleRepository saleRepository,
-                                  SaleDocumentService saleDocumentService, SystemLogService systemLogService) {
-        this.paymentRepository = paymentRepository;
-        this.saleRepository = saleRepository;
-        this.saleDocumentService = saleDocumentService;
+    public PaymentFormController(com.sgv.service.PaymentService paymentService, SystemLogService systemLogService) {
+        this.paymentService = paymentService;
         this.systemLogService = systemLogService;
     }
 
@@ -41,10 +33,7 @@ public class PaymentFormController extends BaseFormController {
         paymentMethodCombo.setValue("Numerário");
         if (paymentDatePicker != null) paymentDatePicker.setValue(java.time.LocalDate.now());
 
-        java.util.List<Sale> sales = saleRepository.findAll().stream()
-                .filter(s -> !"CANCELLED".equalsIgnoreCase(s.getState()))
-                .sorted((s1, s2) -> s2.getCreatedAt().compareTo(s1.getCreatedAt()))
-                .limit(50).toList();
+        java.util.List<Sale> sales = paymentService.findRecentActiveSales(50);
         saleCombo.setItems(javafx.collections.FXCollections.observableArrayList(sales));
         saleCombo.getSelectionModel().selectedItemProperty().addListener((obs, oldVal, newVal) -> {
             if (newVal != null && newVal.getTotal() != null)
@@ -108,7 +97,7 @@ public class PaymentFormController extends BaseFormController {
 
         javafx.concurrent.Task<java.io.File> saveTask = new javafx.concurrent.Task<>() {
             @Override
-            protected java.io.File call() {
+            protected java.io.File call() throws Exception {
                 payment.setSale(saleCombo.getValue());
                 java.math.BigDecimal amt = new java.math.BigDecimal(amountField.getText().replace(",", "."));
                 payment.setAmount(amt.doubleValue());
@@ -118,22 +107,7 @@ public class PaymentFormController extends BaseFormController {
                 } else if (payment.getId() == null) {
                     payment.setCreatedAt(LocalDateTime.now());
                 }
-                paymentRepository.save(payment);
-
-                if (payment.getSale() != null) {
-                    Sale s = payment.getSale();
-                    s.setState(com.sgv.model.SaleState.PAGO.name());
-                    s.setPaidAmount((s.getPaidAmount() != null ? s.getPaidAmount() : 0) + payment.getAmount());
-                    saleRepository.save(s);
-                    String origType = s.getDocumentType();
-                    try {
-                        s.setDocumentType(com.sgv.model.DocumentType.RECIBO.name());
-                        return saleDocumentService.generateDocument(s);
-                    } catch (Exception ex) {
-                        throw new RuntimeException(ex);
-                    } finally { s.setDocumentType(origType); }
-                }
-                return null;
+                return paymentService.createPayment(payment, currentUser);
             }
         };
         saveTask.setOnSucceeded(e -> {

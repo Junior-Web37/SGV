@@ -7,17 +7,22 @@ import javafx.scene.control.TextArea;
 import javafx.scene.control.TextField;
 import org.springframework.stereotype.Component;
 import java.math.BigDecimal;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 @Component
 public class CloseSessionFormController extends BaseFormController {
 
     @FXML private Label expectedValueLabel;
+    @FXML private Label differenceLabel;
     @FXML private TextField reportedValueField;
     @FXML private TextArea notesArea;
 
     private final CashSessionService cashSessionService;
     private Runnable onSuccess;
     private BigDecimal expectedValue;
+
+    private static final Logger log = LoggerFactory.getLogger(CloseSessionFormController.class);
 
     public CloseSessionFormController(CashSessionService cashSessionService) {
         this.cashSessionService = cashSessionService;
@@ -31,8 +36,34 @@ public class CloseSessionFormController extends BaseFormController {
 
         UiUtils.applyNumericFormatter(reportedValueField);
 
-        reportedValueField.textProperty().addListener((obs, o, n) -> validateRealTime());
-        javafx.application.Platform.runLater(this::validateRealTime);
+        reportedValueField.textProperty().addListener((obs, o, n) -> {
+            validateRealTime();
+            updateDifference();
+        });
+        javafx.application.Platform.runLater(() -> {
+            validateRealTime();
+            updateDifference();
+        });
+    }
+
+    private void updateDifference() {
+        if (differenceLabel == null || expectedValue == null) return;
+        String text = reportedValueField.getText();
+        if (text == null || text.trim().isEmpty()) {
+            differenceLabel.setText("0.00 MT");
+            differenceLabel.setStyle("-fx-text-fill:#475569;");
+            return;
+        }
+        try {
+            BigDecimal reported = new BigDecimal(text.trim().replace(",", "."));
+            BigDecimal diff = reported.subtract(expectedValue);
+            String prefix = diff.compareTo(BigDecimal.ZERO) >= 0 ? "+" : "";
+            differenceLabel.setText(prefix + String.format("%.2f MT", diff));
+            differenceLabel.setStyle(diff.compareTo(BigDecimal.ZERO) >= 0 ? "-fx-text-fill:#10B981;" : "-fx-text-fill:#EF4444;");
+        } catch (NumberFormatException e) {
+            differenceLabel.setText("0.00 MT");
+            differenceLabel.setStyle("-fx-text-fill:#475569;");
+        }
     }
 
     @Override
@@ -77,6 +108,7 @@ public class CloseSessionFormController extends BaseFormController {
             @Override
             protected Void call() {
                 BigDecimal reportedValue = new BigDecimal(reportedValueField.getText().trim().replace(",", "."));
+                log.info("Closing session for user={} reportedValue={}", currentUser != null ? currentUser.getUsername() : "null", reportedValue);
                 cashSessionService.closeSession(currentUser, reportedValue, notesArea.getText().trim());
                 return null;
             }

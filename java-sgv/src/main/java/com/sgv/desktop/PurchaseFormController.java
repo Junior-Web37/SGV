@@ -1,7 +1,8 @@
 package com.sgv.desktop;
 
 import com.sgv.entity.*;
-import com.sgv.repository.*;
+import com.sgv.service.ProductService;
+import com.sgv.service.SupplierService;
 import com.sgv.service.SystemLogService;
 import com.sgv.service.WarehouseService;
 import javafx.beans.property.SimpleStringProperty;
@@ -43,13 +44,12 @@ public class PurchaseFormController extends BaseFormController {
     @FXML private Label headerTotalLabel;
     @FXML private TextArea notesField;
 
-    private final PurchaseRepository purchaseRepository;
-    private final ProductRepository productRepository;
-    private final SupplierRepository supplierRepository;
-    private final WarehouseRepository warehouseRepository;
+    private final com.sgv.service.PurchaseService purchaseService;
+    private final ProductService productService;
+    private final SupplierService supplierService;
     private final WarehouseService warehouseService;
-    private final BranchRepository branchRepository;
     private final SystemLogService systemLogService;
+    private final com.sgv.repository.PurchaseRepository purchaseRepository;
 
     private Purchase editingPurchase;
     private User currentUser;
@@ -62,20 +62,18 @@ public class PurchaseFormController extends BaseFormController {
     private Product lastSelectedProduct = null;
     private Task<Boolean> duplicateCheckTask;
 
-    public PurchaseFormController(PurchaseRepository purchaseRepository,
-                                  ProductRepository productRepository,
-                                  SupplierRepository supplierRepository,
-                                  WarehouseRepository warehouseRepository,
+    public PurchaseFormController(com.sgv.repository.PurchaseRepository purchaseRepository,
+                                  ProductService productService,
+                                  SupplierService supplierService,
                                   WarehouseService warehouseService,
-                                  BranchRepository branchRepository,
-                                  SystemLogService systemLogService) {
+                                  SystemLogService systemLogService,
+                                  com.sgv.service.PurchaseService purchaseService) {
         this.purchaseRepository = purchaseRepository;
-        this.productRepository = productRepository;
-        this.supplierRepository = supplierRepository;
-        this.warehouseRepository = warehouseRepository;
+        this.productService = productService;
+        this.supplierService = supplierService;
         this.warehouseService = warehouseService;
-        this.branchRepository = branchRepository;
         this.systemLogService = systemLogService;
+        this.purchaseService = purchaseService;
     }
 
     @FXML
@@ -97,13 +95,13 @@ public class PurchaseFormController extends BaseFormController {
 
         if (invoiceDatePicker != null) invoiceDatePicker.setValue(LocalDate.now());
 
-        supplierCombo.setItems(FXCollections.observableArrayList(supplierRepository.findAll()));
+        supplierCombo.setItems(FXCollections.observableArrayList(supplierService.findAll()));
         supplierCombo.setConverter(new javafx.util.StringConverter<>() {
             public String toString(Supplier s) { return s != null ? s.getName() : ""; }
             public Supplier fromString(String s) { return null; }
         });
 
-        warehouseCombo.setItems(FXCollections.observableArrayList(warehouseRepository.findByIsActiveTrueOrderByNameAsc()));
+        warehouseCombo.setItems(FXCollections.observableArrayList(warehouseService.listActive()));
         warehouseCombo.setConverter(new javafx.util.StringConverter<>() {
             public String toString(Warehouse w) { return w != null ? w.getName() : ""; }
             public Warehouse fromString(String s) { return null; }
@@ -149,7 +147,7 @@ public class PurchaseFormController extends BaseFormController {
     }
 
     private void setupProductSearch() {
-        allProducts.setAll(productRepository.findAllActive());
+        allProducts.setAll(productService.findAllActive());
         filteredProducts = new FilteredList<>(allProducts, p -> true);
         productCombo.setItems(comboDisplayList);
 
@@ -422,22 +420,17 @@ public class PurchaseFormController extends BaseFormController {
         showSaveSpinner();
 
         final String invoiceNumber = invoiceNumberField.getText() != null ? invoiceNumberField.getText().trim() : "";
-        final Long supplierId = selectedSupplier.getId();
-        final Long excludeId = (editingPurchase != null && editingPurchase.getId() != null) ? editingPurchase.getId() : null;
+        final Supplier selectedSupplierValue = selectedSupplier;
+        final Long prevId = editingPurchase != null && editingPurchase.getId() != null ? editingPurchase.getId() : null;
 
-        List<Purchase> existing = purchaseRepository.searchByInvoice(invoiceNumber);
-        for (Purchase p : existing) {
-            boolean sameSupplier = p.getSupplier() != null && supplierId.equals(p.getSupplier().getId());
-            boolean differentId = excludeId == null || !excludeId.equals(p.getId());
-            if (sameSupplier && differentId) {
-                hideSaveSpinner();
-                showError("Já existe uma compra com este número de factura para este fornecedor.");
-                return;
-            }
+        if (selectedSupplierValue != null && purchaseService.isDuplicateInvoiceForSupplier(invoiceNumber, selectedSupplierValue.getId(), prevId)) {
+            hideSaveSpinner();
+            showError("Já existe uma compra com este número de factura para este fornecedor.");
+            return;
         }
 
         final boolean isEdit = editingPurchase != null && editingPurchase.getId() != null;
-        final Purchase previousPurchase = isEdit ? editingPurchase : null;
+        final Long previousId = isEdit ? editingPurchase.getId() : null;
 
         javafx.concurrent.Task<Void> saveTask = new javafx.concurrent.Task<>() {
             @Override
@@ -455,79 +448,17 @@ public class PurchaseFormController extends BaseFormController {
                 if (invoiceDatePicker.getValue() != null)
                     p.setPurchaseDate(invoiceDatePicker.getValue().atStartOfDay());
 
-                double sub = 0.0;
-                double tax = 0.0;
-                for (PurchaseItem item : items) {
-                    double lineSub = item.getSubtotal() != null ? item.getSubtotal() : 0.0;
-                    sub += lineSub;
-                    if (item.getProduct() != null) {
-                        double taxRate = item.getProduct().getEffectiveTaxRate();
-                        tax += lineSub * (taxRate / 100.0);
-                    }
-                }
-                p.setSubtotal(sub);
-                p.setTotalTax(tax);
-                p.setTotal(sub + tax);
-
-                List<PurchaseItem> savedItems = new ArrayList<>();
-                for (PurchaseItem item : items) {
-                    if (item.getProduct() != null && item.getProduct().getId() != null) {
-                        Product managedProduct = productRepository.findById(item.getProduct().getId()).orElse(item.getProduct());
-                        item.setProduct(managedProduct);
-                    }
-                    item.setPurchase(p);
-                    savedItems.add(item);
-                }
+                // copy items into purchase
                 p.getItems().clear();
-                p.getItems().addAll(savedItems);
+                p.getItems().addAll(new ArrayList<>(items));
 
-                Warehouse targetWarehouse = warehouseCombo.getValue();
-                if (targetWarehouse == null) {
-                    targetWarehouse = warehouseRepository.findByIsActiveTrueOrderByNameAsc().stream().findFirst()
-                            .orElseThrow(() -> new IllegalStateException("Nenhum armazém activo encontrado."));
-                    p.setTargetWarehouse(targetWarehouse);
-                } else {
-                    Warehouse managedWarehouse = warehouseRepository.findById(targetWarehouse.getId())
-                            .orElseThrow(() -> new IllegalStateException("Armazém selecionado não existe."));
-                    p.setTargetWarehouse(managedWarehouse);
-                    targetWarehouse = managedWarehouse;
+                if (warehouseCombo.getValue() != null) p.setTargetWarehouse(warehouseCombo.getValue());
+
+                if (purchaseService.isDuplicateInvoiceForSupplier(p.getInvoiceNumber(), managedSupplier.getId(), previousId)) {
+                    throw new IllegalArgumentException("Já existe uma compra com este número de factura para este fornecedor.");
                 }
 
-                // C5: Reverse old stock before re-adding (avoid double-increment on edit)
-                if (isEdit && "RECEIVED".equals(previousPurchase.getState()) && previousPurchase.getId() != null) {
-                    Purchase fullPrevious = purchaseRepository.findByIdWithItems(previousPurchase.getId());
-                    if (fullPrevious != null && fullPrevious.getItems() != null) {
-                        Warehouse prevWarehouse = fullPrevious.getTargetWarehouse() != null
-                                ? fullPrevious.getTargetWarehouse() : targetWarehouse;
-                        for (PurchaseItem oldItem : fullPrevious.getItems()) {
-                            if (oldItem.getProduct() != null && oldItem.getQuantity() != null && oldItem.getQuantity() > 0) {
-                                warehouseService.removeStock(
-                                    prevWarehouse.getId(),
-                                    oldItem.getProduct().getId(),
-                                    oldItem.getQuantity(),
-                                    "REVERSAO-EDICAO-" + (fullPrevious.getInvoiceNumber() != null ? fullPrevious.getInvoiceNumber() : ""),
-                                    currentUser);
-                            }
-                        }
-                    }
-                }
-
-                purchaseRepository.save(p);
-
-                // Add new stock for each item
-                if ("RECEIVED".equals(p.getState())) {
-                    for (PurchaseItem item : savedItems) {
-                        if (item.getProduct() != null && item.getQuantity() != null && item.getQuantity() > 0) {
-                            warehouseService.addStock(
-                                targetWarehouse.getId(),
-                                item.getProduct().getId(),
-                                item.getQuantity(),
-                                p.getInvoiceNumber() != null ? p.getInvoiceNumber() : "COMPRA",
-                                currentUser,
-                                item.getCostPrice());
-                        }
-                    }
-                }
+                purchaseService.savePurchase(p, currentUser, isEdit, previousId);
                 return null;
             }
         };
@@ -555,7 +486,7 @@ public class PurchaseFormController extends BaseFormController {
         if (selectedSupplier.getId() == null) {
             throw new IllegalStateException("Fornecedor selecionado inválido.");
         }
-        return supplierRepository.findById(selectedSupplier.getId())
+        return supplierService.findById(selectedSupplier.getId())
                 .orElseThrow(() -> new IllegalStateException("Fornecedor selecionado não existe (id=" + selectedSupplier.getId() + ")"));
     }
 
@@ -565,13 +496,13 @@ public class PurchaseFormController extends BaseFormController {
             if (titleLabel != null) titleLabel.setText("Editar Compra");
             invoiceNumberField.setText(purchase.getInvoiceNumber() != null ? purchase.getInvoiceNumber() : "");
             if (purchase.getSupplier() != null) {
-                Supplier managedSupplier = supplierRepository.findById(purchase.getSupplier().getId()).orElse(purchase.getSupplier());
+                Supplier managedSupplier = supplierService.findById(purchase.getSupplier().getId()).orElse(purchase.getSupplier());
                 supplierCombo.setValue(managedSupplier);
             }
             if (purchase.getPurchaseDate() != null && invoiceDatePicker != null)
                 invoiceDatePicker.setValue(purchase.getPurchaseDate().toLocalDate());
             if (purchase.getTargetWarehouse() != null) {
-                Warehouse managedWarehouse = warehouseRepository.findById(purchase.getTargetWarehouse().getId())
+                Warehouse managedWarehouse = warehouseService.findById(purchase.getTargetWarehouse().getId())
                         .orElse(purchase.getTargetWarehouse());
                 warehouseCombo.setValue(managedWarehouse);
             }

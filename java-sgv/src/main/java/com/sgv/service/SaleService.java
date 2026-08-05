@@ -2,6 +2,7 @@ package com.sgv.service;
 
 import com.sgv.entity.*;
 import com.sgv.repository.*;
+import com.sgv.service.*;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -28,6 +29,9 @@ public class SaleService {
     private final FiscalService fiscalService;
     private final TrainingModeService trainingModeService;
     private final AppConfigService appConfigService;
+    private final CashSessionService cashSessionService;
+    @Autowired
+    private jakarta.persistence.EntityManager entityManager;
 
     @Autowired
     public SaleService(SaleRepository saleRepository,
@@ -41,7 +45,8 @@ public class SaleService {
                        CustomerRepository customerRepository,
                        FiscalService fiscalService,
                        TrainingModeService trainingModeService,
-                       AppConfigService appConfigService) {
+                       AppConfigService appConfigService,
+                       CashSessionService cashSessionService) {
         this.saleRepository = saleRepository;
         this.saleItemRepository = saleItemRepository;
         this.stockBranchService = stockBranchService;
@@ -54,6 +59,7 @@ public class SaleService {
         this.fiscalService = fiscalService;
         this.trainingModeService = trainingModeService;
         this.appConfigService = appConfigService;
+        this.cashSessionService = cashSessionService;
     }
 
     @Transactional
@@ -65,6 +71,12 @@ public class SaleService {
         requirePermission(currentUser, "VENDAS", "CREATE");
 
         Sale persistentSale = normalizeSaleForPersistence(sale, currentUser);
+        applyDocumentState(persistentSale);
+
+        // Ensure createdAt
+        if (persistentSale.getCreatedAt() == null) {
+            persistentSale.setCreatedAt(LocalDateTime.now());
+        }
 
         // Ensure series/year/number
         if (persistentSale.getSeries() == null) {
@@ -93,6 +105,7 @@ public class SaleService {
         persistentSale.setTotalTaxAmount(totalTax);
         persistentSale.setTotalAmount(baseTotal.add(totalIce).add(totalTax));
 
+        validateSaleForPersistence(persistentSale);
         // C3: Set paidAmount / changeAmount
         if ("CREDITO".equals(persistentSale.getPaymentMethod())) {
             persistentSale.setPaidAmountValue(java.math.BigDecimal.ZERO);
@@ -153,7 +166,24 @@ public class SaleService {
             }
         }
 
-        // C4: Update customer balance for credit sales
+        // C4: Register cash movement for immediate payments only for sale/fiscal documents
+        com.sgv.model.DocumentType paymentDocumentType = com.sgv.model.DocumentType.fromString(persistentSale.getDocumentType());
+        if (paymentDocumentType == com.sgv.model.DocumentType.VENDA || paymentDocumentType == com.sgv.model.DocumentType.FACTURA || paymentDocumentType == com.sgv.model.DocumentType.RECIBO) {
+            if (!"CREDITO".equalsIgnoreCase(persistentSale.getPaymentMethod())) {
+                try {
+                    java.math.BigDecimal saleTotal = saved.getTotalAmount() != null ? saved.getTotalAmount() : java.math.BigDecimal.ZERO;
+                    String saleReference = saved.getSeries() != null && saved.getDocumentNumber() != null
+                            ? "Venda " + saved.getDocumentNumber() + "/" + saved.getSeries()
+                            : "Venda";
+                    String reason = saved.getPaymentMethod() != null ? saved.getPaymentMethod() : "VENDA";
+                    cashSessionService.registerMovement(currentUser, "IN", saleTotal, saleReference, reason, com.sgv.entity.OperationKind.SALE, false);
+                } catch (Exception ex) {
+                    throw new IllegalStateException("Falha ao registar movimento de caixa para esta venda: " + ex.getMessage(), ex);
+                }
+            }
+        }
+
+        // C5: Update customer balance for credit sales
         if ("CREDITO".equals(persistentSale.getPaymentMethod()) && persistentSale.getCustomer() != null && customerRepository != null) {
             Customer cust = customerRepository.findById(persistentSale.getCustomer().getId()).orElse(null);
             if (cust != null) {
@@ -216,6 +246,167 @@ public class SaleService {
         return saleDocumentService.generateDocument(saved);
     }
 
+    @Transactional
+    public Sale createCreditNote(Sale originalSale, String reason, User currentUser) {
+        if (originalSale == null || originalSale.getId() == null) {
+            throw new IllegalArgumentException("Venda original é obrigatória para emitir uma nota de crédito.");
+        }
+        if (reason == null || reason.isBlank()) {
+            throw new IllegalStateException("O motivo da nota de crédito é obrigatório.");
+        }
+        requirePermission(currentUser, "VENDAS", "CREATE");
+
+        Sale baseSale = saleRepository.findByIdWithItems(originalSale.getId());
+        if (baseSale == null) {
+            baseSale = originalSale;
+        }
+
+        Sale creditNote = new Sale();
+        creditNote.setBranch(baseSale.getBranch());
+        creditNote.setCustomer(baseSale.getCustomer());
+        creditNote.setCustomerName(baseSale.getCustomerName());
+        creditNote.setCustomerNuit(baseSale.getCustomerNuit());
+        creditNote.setCustomerAddress(baseSale.getCustomerAddress());
+        creditNote.setPaymentMethod(baseSale.getPaymentMethod());
+        creditNote.setOriginSale(baseSale);
+        creditNote.setDocumentType(com.sgv.model.DocumentType.NC.name());
+        creditNote.setSeries(baseSale.getSeries());
+        creditNote.setDocumentYear(LocalDateTime.now().getYear());
+        creditNote.setCreatedAt(LocalDateTime.now());
+        creditNote.setAnnulReason(reason);
+
+        List<SaleItem> creditItems = new ArrayList<>();
+        if (baseSale.getItems() != null) {
+            for (SaleItem item : baseSale.getItems()) {
+                if (item == null) continue;
+                SaleItem creditItem = new SaleItem();
+                creditItem.setSale(creditNote);
+                creditItem.setProduct(item.getProduct());
+                creditItem.setProductCode(item.getProductCode());
+                creditItem.setUnit(item.getUnit());
+                creditItem.setDescription(item.getDescription());
+
+                BigDecimal qty = item.getQtyAmount() != null ? item.getQtyAmount() : BigDecimal.ZERO;
+                BigDecimal negativeQty = qty.negate();
+                BigDecimal lineBase = item.getLineBaseAmount() != null ? item.getLineBaseAmount() : BigDecimal.ZERO;
+                BigDecimal lineTax = item.getLineTaxAmount() != null ? item.getLineTaxAmount() : BigDecimal.ZERO;
+                BigDecimal lineIce = item.getLineIceAmount() != null ? item.getLineIceAmount() : BigDecimal.ZERO;
+                BigDecimal lineDiscount = item.getLineDiscountAmount() != null ? item.getLineDiscountAmount() : BigDecimal.ZERO;
+                BigDecimal lineTotal = item.getLineTotalAmount() != null ? item.getLineTotalAmount() : BigDecimal.ZERO;
+
+                creditItem.setQtyAmount(negativeQty);
+                creditItem.setQty(negativeQty.doubleValue());
+                creditItem.setUnitPriceAmount(item.getUnitPriceAmount());
+                creditItem.setUnitPrice(item.getUnitPriceAmount() != null ? item.getUnitPriceAmount().doubleValue() : null);
+                creditItem.setLineBaseAmount(lineBase.negate());
+                creditItem.setLineTaxAmount(lineTax.negate());
+                creditItem.setLineIceAmount(lineIce.negate());
+                creditItem.setLineDiscountAmount(lineDiscount.negate());
+                creditItem.setLineTotalAmount(lineTotal.negate());
+                creditItems.add(creditItem);
+            }
+        }
+        creditNote.setItems(creditItems);
+
+        BigDecimal subtotal = creditItems.stream()
+                .map(SaleItem::getLineBaseAmount)
+                .filter(java.util.Objects::nonNull)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+        BigDecimal totalTax = creditItems.stream()
+                .map(SaleItem::getLineTaxAmount)
+                .filter(java.util.Objects::nonNull)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+        BigDecimal totalIce = creditItems.stream()
+                .map(SaleItem::getLineIceAmount)
+                .filter(java.util.Objects::nonNull)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+        creditNote.setSubtotalAmount(subtotal);
+        creditNote.setTotalTaxAmount(totalTax);
+        creditNote.setTotalIceAmount(totalIce);
+        creditNote.setTotalAmount(subtotal.add(totalIce).add(totalTax));
+        creditNote.setPaidAmountValue(BigDecimal.ZERO);
+        creditNote.setChangeAmountValue(BigDecimal.ZERO);
+
+        normalizeSaleForPersistence(creditNote, currentUser);
+        applyDocumentState(creditNote);
+        if (creditNote.getDocumentNumber() == null) {
+            Long branchId = creditNote.getBranch() != null ? creditNote.getBranch().getId() : null;
+            creditNote.setDocumentNumber(saleNumberingService.nextDocumentNumber(branchId, creditNote.getSeries(), creditNote.getDocumentType()));
+        }
+
+        Sale saved = saleRepository.save(creditNote);
+
+        if (saved.getItems() != null) {
+            for (SaleItem item : saved.getItems()) {
+                if (item.getProduct() == null) continue;
+                if (Boolean.TRUE.equals(item.getProduct().getService())) continue;
+                BigDecimal qty = item.getQtyAmount() != null ? item.getQtyAmount() : BigDecimal.ZERO;
+                if (qty.compareTo(BigDecimal.ZERO) >= 0) continue;
+                stockBranchService.increaseStock(
+                        saved.getBranch(),
+                        item.getProduct(),
+                        qty.abs(),
+                        "NC-" + saved.getDocumentNumber() + "/" + saved.getSeries(),
+                        "DEVOLUCAO",
+                        currentUser);
+            }
+        }
+
+        return saved;
+    }
+
+    @Transactional
+    public Sale annulSale(Sale sale, String reason, User currentUser) {
+        if (sale == null) throw new IllegalArgumentException("Sale is null");
+        if (reason == null || reason.isBlank()) {
+            throw new IllegalStateException("O motivo da anulação é obrigatório por lei.");
+        }
+        requirePermission(currentUser, "VENDAS", "DELETE");
+
+        Sale persistentSale = saleRepository.findByIdWithItems(sale.getId());
+        if (persistentSale == null) {
+            persistentSale = sale;
+        }
+
+        if ("ANULADA".equalsIgnoreCase(persistentSale.getState())) {
+            throw new IllegalStateException("Venda já Anulada: Este documento já se encontra anulado.");
+        }
+
+        persistentSale.setState("ANULADA");
+        persistentSale.setAnnulReason(reason);
+        persistentSale.setAnnulDate(LocalDateTime.now());
+        persistentSale.setAnnulInProgress(true);
+        Sale saved = saleRepository.save(persistentSale);
+
+        if (saved.getItems() != null) {
+            for (var item : saved.getItems()) {
+                if (item.getProduct() == null) continue;
+                if (Boolean.TRUE.equals(item.getProduct().getService())) continue;
+                BigDecimal qty = item.getQtyAmount() != null ? item.getQtyAmount() : BigDecimal.ZERO;
+                if (qty.compareTo(BigDecimal.ZERO) <= 0) continue;
+                var increased = stockBranchService.increaseStock(
+                    saved.getBranch(), item.getProduct(), qty,
+                    "ANULACAO-" + saved.getDocumentNumber() + "/" + saved.getSeries(),
+                    "ANULACAO_VENDA", currentUser);
+            }
+            if (entityManager != null) entityManager.flush();
+        }
+
+        if ("CREDITO".equalsIgnoreCase(saved.getPaymentMethod()) && saved.getCustomer() != null) {
+            Customer cust = customerRepository.findById(saved.getCustomer().getId()).orElse(null);
+            if (cust != null) {
+                BigDecimal totalAmount = saved.getTotalAmount() != null ? saved.getTotalAmount() : BigDecimal.ZERO;
+                BigDecimal currentBalance = cust.getBalanceAmount();
+                BigDecimal newBalance = currentBalance.subtract(totalAmount);
+                cust.setBalanceAmount(newBalance);
+                customerRepository.save(cust);
+                if (entityManager != null) entityManager.flush();
+            }
+        }
+
+        return saved;
+    }
+
     Sale normalizeSaleForPersistence(Sale sale, User currentUser) {
         if (sale == null) throw new IllegalArgumentException("Sale is null");
         if (branchRepository != null && sale.getBranch() != null && sale.getBranch().getId() != null) {
@@ -231,7 +422,6 @@ public class SaleService {
             return sale;
         }
 
-        // Batch-load all products at once instead of N+1 individual findById
         List<Long> productIds = sale.getItems().stream()
                 .filter(item -> item != null && item.getProduct() != null && item.getProduct().getId() != null)
                 .map(item -> item.getProduct().getId())
@@ -286,6 +476,48 @@ public class SaleService {
             sale.setCreatedAt(LocalDateTime.now());
         }
         return sale;
+    }
+
+    private void applyDocumentState(Sale sale) {
+        if (sale == null || sale.getDocumentType() == null) return;
+        com.sgv.model.DocumentType dt = com.sgv.model.DocumentType.fromString(sale.getDocumentType());
+        if (dt == null) return;
+
+        switch (dt) {
+            case COTACAO -> sale.setState(com.sgv.model.SaleState.COTACAO_ABERTA.name());
+            case ENCOMENDA -> sale.setState(com.sgv.model.SaleState.ENCOMENDA_ABERTA.name());
+            case VENDA, FACTURA -> sale.setState(com.sgv.model.SaleState.PAGO.name());
+            case RECIBO -> sale.setState(com.sgv.model.SaleState.EMITIDA.name());
+            default -> sale.setState(com.sgv.model.SaleState.EMITIDA.name());
+        }
+    }
+
+    private void validateSaleForPersistence(Sale sale) {
+        if (sale == null) throw new IllegalArgumentException("Sale is null");
+        if (sale.getBranch() == null || sale.getBranch().getId() == null) {
+            throw new IllegalStateException("Filial é obrigatória para gravar a venda.");
+        }
+        if (sale.getDocumentType() == null) {
+            throw new IllegalStateException("Tipo de documento é obrigatório.");
+        }
+        if (com.sgv.model.DocumentType.FACTURA.name().equals(sale.getDocumentType())) {
+            if (sale.getCustomer() == null || sale.getCustomer().getId() == null) {
+                throw new IllegalStateException("Factura requer um cliente válido.");
+            }
+            String nuit = sale.getCustomerNuit();
+            if (nuit == null || nuit.isBlank()) {
+                throw new IllegalStateException("Cliente para factura deve ter NUIT.");
+            }
+            if (!com.sgv.util.NuitValidator.isValid(nuit)) {
+                throw new IllegalStateException("NUIT do cliente inválido.");
+            }
+        }
+        if ("CREDITO".equals(sale.getPaymentMethod()) && (sale.getCustomer() == null || sale.getCustomer().getId() == null)) {
+            throw new IllegalStateException("Venda a crédito requer um cliente.");
+        }
+        if (sale.getItems() == null || sale.getItems().isEmpty()) {
+            throw new IllegalStateException("A venda deve conter ao menos um item.");
+        }
     }
 
     private void requirePermission(User user, String page, String action) {

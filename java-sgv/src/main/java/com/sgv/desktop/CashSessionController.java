@@ -11,6 +11,7 @@ import javafx.fxml.FXMLLoader;
 import javafx.scene.Parent;
 import javafx.scene.Scene;
 import javafx.scene.control.*;
+import javafx.scene.layout.VBox;
 import javafx.scene.paint.Color;
 import javafx.stage.Modality;
 import javafx.stage.Stage;
@@ -32,19 +33,44 @@ public class CashSessionController {
 
     @FXML private Label statusBadge;
     @FXML private Label openedAtLabel;
+    @FXML private Label operatorLabel;
+    @FXML private Label branchLabel;
     @FXML private Label initialValueLabel;
     @FXML private Label systemValueLabel;
+    @FXML private Label totalEntriesLabel;
+    @FXML private Label totalExitsLabel;
+    @FXML private Label movementCountLabel;
+    @FXML private Label lastMovementLabel;
+    @FXML private Label statusSummaryLabel;
     
     @FXML private Button openSessionButton;
     @FXML private Button addMovementButton;
     @FXML private Button closeSessionButton;
+    @FXML private Button refreshMovementsButton;
+    @FXML private Button refreshHistoryButton;
+    @FXML private Button viewSessionButton;
+    @FXML private Label movementsHintLabel;
+
+    @FXML private VBox closedStatePane;
+    @FXML private VBox openStatePane;
     
     @FXML private TableView<CashMovement> movementsTable;
     @FXML private TableColumn<CashMovement, String> timeColumn;
     @FXML private TableColumn<CashMovement, String> typeColumn;
+    @FXML private TableColumn<CashMovement, String> operationKindColumn;
+    @FXML private TableColumn<CashMovement, String> reasonColumn;
     @FXML private TableColumn<CashMovement, String> amountColumn;
     @FXML private TableColumn<CashMovement, String> descriptionColumn;
     @FXML private TableColumn<CashMovement, String> userColumn;
+
+    @FXML private TableView<CashSession> historyTable;
+    @FXML private TableColumn<CashSession, String> historyOpenedColumn;
+    @FXML private TableColumn<CashSession, String> historyClosedColumn;
+    @FXML private TableColumn<CashSession, String> historyStateColumn;
+    @FXML private TableColumn<CashSession, String> historyInitialValueColumn;
+    @FXML private TableColumn<CashSession, String> historySystemValueColumn;
+    @FXML private TableColumn<CashSession, String> historyReportedValueColumn;
+    @FXML private TableColumn<CashSession, String> historyOperatorColumn;
 
     private final CashSessionService cashSessionService;
     private final ApplicationContext applicationContext;
@@ -66,8 +92,12 @@ public class CashSessionController {
                 cell.getValue().getCreatedAt() != null ? cell.getValue().getCreatedAt().format(TIME_FORMATTER) : ""));
         typeColumn.setCellValueFactory(cell -> new SimpleStringProperty(
                 "IN".equals(cell.getValue().getType()) ? "🟢 ENTRADA" : "🔴 SAÍDA"));
+        operationKindColumn.setCellValueFactory(cell -> new SimpleStringProperty(
+            cell.getValue().getOperationKind() != null ? cell.getValue().getOperationKind().getLabel() : ""));
         amountColumn.setCellValueFactory(cell -> new SimpleStringProperty(
-                String.format("%.2f", cell.getValue().getAmount())));
+            String.format("%.2f", cell.getValue().getAmount())));
+        reasonColumn.setCellValueFactory(cell -> new SimpleStringProperty(
+            cell.getValue().getReason() != null ? cell.getValue().getReason() : ""));
         descriptionColumn.setCellValueFactory(cell -> new SimpleStringProperty(
                 cell.getValue().getDescription()));
         userColumn.setCellValueFactory(cell -> new SimpleStringProperty(
@@ -76,6 +106,12 @@ public class CashSessionController {
         UiUtils.attachSafe(openSessionButton, this::openSessionModal, null, "CASH_SESSION_OPEN");
         UiUtils.attachSafe(addMovementButton, this::addMovementModal, null, "CASH_SESSION_ADD_MOVEMENT");
         UiUtils.attachSafe(closeSessionButton, this::closeSessionModal, null, "CASH_SESSION_CLOSE");
+        UiUtils.attachSafe(refreshMovementsButton, this::refreshState, null, "CASH_SESSION_REFRESH_MOVEMENTS");
+        UiUtils.attachSafe(refreshHistoryButton, this::loadHistory, null, "CASH_SESSION_REFRESH_HISTORY");
+        UiUtils.attachSafe(viewSessionButton, this::showSelectedHistorySession, null, "CASH_SESSION_VIEW_HISTORY");
+
+        setupHistoryTable();
+        loadHistory();
     }
 
     public void setCurrentUser(User user) {
@@ -90,6 +126,12 @@ public class CashSessionController {
     public void refreshState() {
         if (currentUser == null) return;
         
+        String operatorName = currentUser.getFullName() != null ? currentUser.getFullName() : "-";
+        String branchName = currentUser.getBranch() != null && currentUser.getBranch().getName() != null
+                ? currentUser.getBranch().getName() : "-";
+        operatorLabel.setText(operatorName);
+        branchLabel.setText(branchName);
+        
         Optional<CashSession> sessionOpt = cashSessionService.getOpenSession(currentUser);
         if (sessionOpt.isPresent()) {
             activeSession = sessionOpt.get();
@@ -102,18 +144,40 @@ public class CashSessionController {
             // Re-calculate the system value
             List<CashMovement> movements = cashSessionService.getMovements(activeSession);
             BigDecimal total = activeSession.getInitialValue();
+            BigDecimal totalIn = BigDecimal.ZERO;
+            BigDecimal totalOut = BigDecimal.ZERO;
+            String lastMovementText = "-";
             for (CashMovement m : movements) {
-                if ("IN".equals(m.getType())) total = total.add(m.getAmount());
-                else total = total.subtract(m.getAmount());
+                if ("IN".equals(m.getType())) {
+                    total = total.add(m.getAmount());
+                    totalIn = totalIn.add(m.getAmount());
+                } else {
+                    total = total.subtract(m.getAmount());
+                    totalOut = totalOut.add(m.getAmount());
+                }
+                lastMovementText = m.getDescription() != null && !m.getDescription().isBlank()
+                        ? m.getDescription() : m.getType();
             }
             systemValueLabel.setText(String.format("%.2f MT", total));
+            totalEntriesLabel.setText(String.format("%.2f MT", totalIn));
+            totalExitsLabel.setText(String.format("%.2f MT", totalOut));
+            movementCountLabel.setText(String.valueOf(movements.size()));
+            lastMovementLabel.setText(lastMovementText);
+            statusSummaryLabel.setText("Turno aberto — controle completo do caixa");
             
             movementsTable.setItems(FXCollections.observableArrayList(movements));
+            movementsHintLabel.setText("Movimentos do turno aberto.");
             
             openSessionButton.setDisable(true);
             addMovementButton.setDisable(false);
             closeSessionButton.setDisable(false);
         } else {
+            movementsHintLabel.setText("Abra o caixa para registar movimentos.");
+            totalEntriesLabel.setText("0.00 MT");
+            totalExitsLabel.setText("0.00 MT");
+            movementCountLabel.setText("0");
+            lastMovementLabel.setText("-");
+            statusSummaryLabel.setText("Nenhum turno em andamento");
             activeSession = null;
             statusBadge.setText("🔴  FECHADO");
             statusBadge.setStyle("-fx-background-color: #FEE2E2; -fx-text-fill: #EF4444; -fx-padding: 6 14; -fx-background-radius: 20; -fx-font-weight: 700; -fx-font-size: 13px;");
@@ -126,10 +190,90 @@ public class CashSessionController {
             addMovementButton.setDisable(true);
             closeSessionButton.setDisable(true);
         }
+
+        if (closedStatePane != null) {
+            boolean opened = activeSession != null;
+            closedStatePane.setVisible(!opened);
+            closedStatePane.setManaged(!opened);
+        }
+        if (openStatePane != null) {
+            boolean opened = activeSession != null;
+            openStatePane.setVisible(opened);
+            openStatePane.setManaged(opened);
+        }
         
         if (onStateChange != null) {
             onStateChange.run();
         }
+        loadHistory();
+    }
+
+    private void setupHistoryTable() {
+        historyOpenedColumn.setCellValueFactory(cell -> new SimpleStringProperty(
+                cell.getValue().getOpenedAt() != null ? cell.getValue().getOpenedAt().format(DATETIME_FORMATTER) : "-"));
+        historyClosedColumn.setCellValueFactory(cell -> new SimpleStringProperty(
+                cell.getValue().getClosedAt() != null ? cell.getValue().getClosedAt().format(DATETIME_FORMATTER) : "-"));
+        historyStateColumn.setCellValueFactory(cell -> new SimpleStringProperty(
+                cell.getValue().getState() != null ? cell.getValue().getState() : "-"));
+        historyInitialValueColumn.setCellValueFactory(cell -> new SimpleStringProperty(
+                String.format("%.2f MT", cell.getValue().getInitialValue() != null ? cell.getValue().getInitialValue() : BigDecimal.ZERO)));
+        historySystemValueColumn.setCellValueFactory(cell -> new SimpleStringProperty(
+                cell.getValue().getSystemValue() != null ? String.format("%.2f MT", cell.getValue().getSystemValue()) : "-") );
+        historyReportedValueColumn.setCellValueFactory(cell -> new SimpleStringProperty(
+                cell.getValue().getReportedValue() != null ? String.format("%.2f MT", cell.getValue().getReportedValue()) : "-"));
+        historyOperatorColumn.setCellValueFactory(cell -> new SimpleStringProperty(
+                cell.getValue().getUser() != null && cell.getValue().getUser().getFullName() != null ? cell.getValue().getUser().getFullName() : "-"));
+        historyTable.setItems(FXCollections.observableArrayList());
+    }
+
+
+    private void loadHistory() {
+        if (currentUser == null) return;
+        historyTable.setItems(FXCollections.observableArrayList(cashSessionService.findSessionsWithUser(currentUser)));
+    }
+
+    private void showSelectedHistorySession() {
+        CashSession selected = historyTable.getSelectionModel().getSelectedItem();
+        if (selected == null) {
+            Alert alert = new Alert(Alert.AlertType.WARNING, "Selecione um turno para ver os detalhes.");
+            alert.setHeaderText(null);
+            alert.showAndWait();
+            return;
+        }
+        showHistoryDetails(selected);
+    }
+
+    private void showHistoryDetails(CashSession session) {
+        List<CashMovement> movements = cashSessionService.getMovements(session);
+        StringBuilder sb = new StringBuilder();
+        sb.append("Operador: ").append(session.getUser() != null ? session.getUser().getFullName() : "-").append("\n");
+        sb.append("Aberto em: ").append(session.getOpenedAt() != null ? session.getOpenedAt().format(DATETIME_FORMATTER) : "-").append("\n");
+        sb.append("Fechado em: ").append(session.getClosedAt() != null ? session.getClosedAt().format(DATETIME_FORMATTER) : "-").append("\n");
+        sb.append("Estado: ").append(session.getState() != null ? session.getState() : "-").append("\n");
+        sb.append("Fundo Inicial: ").append(session.getInitialValue() != null ? String.format("%.2f MT", session.getInitialValue()) : "0.00 MT").append("\n");
+        sb.append("Valor Sistema: ").append(session.getSystemValue() != null ? String.format("%.2f MT", session.getSystemValue()) : "-").append("\n");
+        sb.append("Valor Reportado: ").append(session.getReportedValue() != null ? String.format("%.2f MT", session.getReportedValue()) : "-").append("\n");
+        sb.append("Movimentos: ").append(movements.size()).append("\n\n");
+        for (CashMovement m : movements) {
+            sb.append(m.getCreatedAt() != null ? m.getCreatedAt().format(TIME_FORMATTER) : "-")
+                .append(" - ")
+                .append("IN".equals(m.getType()) ? "ENTRADA" : "SAÍDA")
+                .append(" - ")
+                .append(m.getAmount() != null ? String.format("%.2f MT", m.getAmount()) : "-")
+                .append(" - ")
+                .append(m.getDescription() != null ? m.getDescription() : "-")
+                .append("\n");
+        }
+        Alert alert = new Alert(Alert.AlertType.INFORMATION);
+        alert.setTitle("Detalhes do Turno");
+        alert.setHeaderText("Turno de Caixa");
+        TextArea detailsArea = new TextArea(sb.toString());
+        detailsArea.setEditable(false);
+        detailsArea.setWrapText(true);
+        detailsArea.setMaxWidth(Double.MAX_VALUE);
+        detailsArea.setMaxHeight(Double.MAX_VALUE);
+        alert.getDialogPane().setContent(detailsArea);
+        alert.showAndWait();
     }
 
     private void openSessionModal() {

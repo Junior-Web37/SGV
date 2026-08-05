@@ -36,6 +36,7 @@ public class WarehouseService {
     public List<Warehouse> listAll() { return warehouseRepository.findAllByOrderByNameAsc(); }
     public List<Warehouse> listActive() { return warehouseRepository.findByIsActiveTrueOrderByNameAsc(); }
     public Optional<Warehouse> findById(Long id) { return warehouseRepository.findById(id); }
+    public Optional<Warehouse> findByCode(String code) { return warehouseRepository.findByCode(code); }
     public Warehouse save(Warehouse w) { return warehouseRepository.save(w); }
 
     public List<StockWarehouse> stockByWarehouse(Long warehouseId) {
@@ -44,6 +45,19 @@ public class WarehouseService {
 
     public Optional<StockWarehouse> getStock(Long warehouseId, Long productId) {
         return stockWarehouseRepository.findByWarehouseIdAndProductId(warehouseId, productId);
+    }
+
+    public java.math.BigDecimal getCurrentStockAmount(Long warehouseId, Long productId) {
+        return getStock(warehouseId, productId)
+                .map(sw -> sw.getStockCurrentAmount() != null ? sw.getStockCurrentAmount() : java.math.BigDecimal.ZERO)
+                .orElse(java.math.BigDecimal.ZERO);
+    }
+
+    public java.util.List<Long> findProductIdsInStock(Long warehouseId) {
+        return stockWarehouseRepository.findByWarehouseId(warehouseId).stream()
+                .filter(sw -> sw.getStockCurrentAmount() != null && sw.getStockCurrentAmount().compareTo(java.math.BigDecimal.ZERO) > 0)
+                .map(sw -> sw.getProduct().getId())
+                .toList();
     }
 
     /**

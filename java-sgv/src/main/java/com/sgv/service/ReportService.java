@@ -221,6 +221,72 @@ public class ReportService {
         return result;
     }
 
+    public Map<String, Object> getAccountsReceivableAging(LocalDate from, LocalDate to) {
+        List<Sale> sales = saleRepository.findAll().stream()
+                .filter(s -> s.getCreatedAt() != null)
+                .filter(s -> !"ANULADA".equalsIgnoreCase(s.getState()))
+                .filter(s -> {
+                    LocalDate date = s.getCreatedAt().toLocalDate();
+                    return (from == null || !date.isBefore(from)) && (to == null || !date.isAfter(to));
+                })
+                .toList();
+
+        List<Map<String, Object>> rows = new ArrayList<>();
+        double totalDue = 0.0;
+        double overdue30 = 0.0;
+        double overdue60 = 0.0;
+        double overdue90 = 0.0;
+
+        LocalDate today = LocalDate.now();
+        for (Sale sale : sales) {
+            double total = safe(sale.getTotal());
+            double paid = safe(sale.getPaidAmount());
+            double due = Math.max(0.0, total - paid);
+            if (due <= 0.0) continue;
+            LocalDate issueDate = sale.getCreatedAt().toLocalDate();
+            long daysOpen = Math.max(0, java.time.temporal.ChronoUnit.DAYS.between(issueDate, today));
+            String bucket = "0-30 dias";
+            if (daysOpen > 90) {
+                bucket = ">90 dias";
+                overdue90 += due;
+            } else if (daysOpen > 60) {
+                bucket = "61-90 dias";
+                overdue60 += due;
+            } else if (daysOpen > 30) {
+                bucket = "31-60 dias";
+                overdue30 += due;
+            }
+            totalDue += due;
+            Map<String, Object> row = new LinkedHashMap<>();
+            row.put("document", sale.getSeries() + "/" + sale.getDocumentNumber());
+            row.put("customer", sale.getCustomerName() != null ? sale.getCustomerName() : "Consumidor Final");
+            row.put("date", issueDate.toString());
+            row.put("total", String.format("%.2f", total));
+            row.put("paid", String.format("%.2f", paid));
+            row.put("due", String.format("%.2f", due));
+            row.put("daysOpen", String.valueOf(daysOpen));
+            row.put("bucket", bucket);
+            row.put("days", daysOpen);
+            row.put("id", sale.getId());
+            rows.add(row);
+        }
+        rows.sort((a, b) -> Long.compare((Long) b.get("days"), (Long) a.get("days")));
+
+        List<Map<String, Object>> rowsCopy = rows.stream().map(r -> {
+            Map<String, Object> copy = new LinkedHashMap<>(r);
+            copy.remove("days");
+            return copy;
+        }).toList();
+
+        Map<String, Object> result = new LinkedHashMap<>();
+        result.put("rows", rowsCopy);
+        result.put("totalDue", String.format("%.2f", totalDue));
+        result.put("overdue30", String.format("%.2f", overdue30));
+        result.put("overdue60", String.format("%.2f", overdue60));
+        result.put("overdue90", String.format("%.2f", overdue90));
+        return result;
+    }
+
     private double safe(Double v) { return v != null ? v : 0.0; }
     private double round(double v) { return Math.round(v * 100.0) / 100.0; }
 

@@ -1,7 +1,7 @@
 package com.sgv.desktop;
 
 import com.sgv.entity.Supplier;
-import com.sgv.repository.SupplierRepository;
+import com.sgv.service.SupplierService;
 import com.sgv.service.SystemLogService;
 import com.sgv.util.NuitValidator;
 import javafx.fxml.FXML;
@@ -21,13 +21,13 @@ public class SupplierFormController extends BaseFormController {
     @FXML private CheckBox activeCheckbox;
     @FXML private Button deleteButton;
 
-    private final SupplierRepository supplierRepository;
+    private final SupplierService supplierService;
     private final SystemLogService systemLogService;
     private Supplier editingSupplier;
     private Task<Boolean> duplicateCheckTask;
 
-    public SupplierFormController(SupplierRepository supplierRepository, SystemLogService systemLogService) {
-        this.supplierRepository = supplierRepository;
+    public SupplierFormController(SupplierService supplierService, SystemLogService systemLogService) {
+        this.supplierService = supplierService;
         this.systemLogService = systemLogService;
     }
 
@@ -108,7 +108,7 @@ public class SupplierFormController extends BaseFormController {
             duplicateCheckTask = new Task<>() {
                 @Override
                 protected Boolean call() {
-                    return supplierRepository.findByNameIgnoreCase(trimmedName)
+                    return supplierService.findByName(trimmedName)
                             .filter(s -> editingSupplier == null || !editingSupplier.getId().equals(s.getId()))
                             .isPresent();
                 }
@@ -152,7 +152,7 @@ public class SupplierFormController extends BaseFormController {
         javafx.concurrent.Task<Void> deleteTask = new javafx.concurrent.Task<>() {
             @Override
             protected Void call() {
-                supplierRepository.deleteById(editingSupplier.getId());
+                supplierService.deleteById(editingSupplier.getId());
                 return null;
             }
         };
@@ -181,7 +181,7 @@ public class SupplierFormController extends BaseFormController {
             protected Void call() {
                 Supplier s = editingSupplier != null ? editingSupplier : new Supplier();
                 String trimmedName = nameField.getText().trim();
-                supplierRepository.findByNameIgnoreCase(trimmedName)
+                supplierService.findByName(trimmedName)
                         .filter(existing -> editingSupplier == null || !existing.getId().equals(editingSupplier.getId()))
                         .ifPresent(existing -> { throw new RuntimeException("Nome de fornecedor '" + trimmedName + "' já existe."); });
                 s.setName(trimmedName);
@@ -189,7 +189,7 @@ public class SupplierFormController extends BaseFormController {
                 s.setContact(contactField.getText() != null ? contactField.getText().trim() : null);
                 s.setAddress(addressField.getText() != null ? addressField.getText().trim() : null);
                 s.setActive(activeCheckbox.isSelected());
-                supplierRepository.save(s);
+                supplierService.saveSupplier(s);
                 return null;
             }
         };
