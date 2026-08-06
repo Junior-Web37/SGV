@@ -78,22 +78,7 @@ public class DashboardNavigationManager {
     public TableView<Supplier> getSuppliersTable() { return suppliersTable; }
 
     private String fmtMt(BigDecimal v) {
-        double d = v != null ? v.doubleValue() : 0.0;
-        return String.format("%,.2f", d).replace(",", "X").replace(".", ",").replace("X", ".") + " MT";
-    }
-
-    public static class SupplierPaymentRow {
-        private final String data, fornecedor, compra, valor, metodo, referencia;
-        public SupplierPaymentRow(String data, String fornecedor, String compra, String valor, String metodo, String referencia) {
-            this.data = data; this.fornecedor = fornecedor; this.compra = compra;
-            this.valor = valor; this.metodo = metodo; this.referencia = referencia;
-        }
-        public String getData()       { return data; }
-        public String getFornecedor() { return fornecedor; }
-        public String getCompra()     { return compra; }
-        public String getValor()      { return valor; }
-        public String getMetodo()     { return metodo; }
-        public String getReferencia() { return referencia; }
+        return Formatters.moneyMT(v);
     }
 
     public void reloadSuppliers() {
