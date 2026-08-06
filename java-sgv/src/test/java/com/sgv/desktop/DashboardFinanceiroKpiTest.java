@@ -108,6 +108,31 @@ class DashboardFinanceiroKpiTest {
     }
 
     @Test
+    void dashboardFxmlShouldLoadWithFxmlLoader() throws Exception {
+        Assumptions.assumeTrue(TOOLKIT_OK, "JavaFX toolkit unavailable");
+        DashboardController mock = org.mockito.Mockito.mock(DashboardController.class);
+        javafx.fxml.FXMLLoader loader = new javafx.fxml.FXMLLoader(
+                DashboardFinanceiroKpiTest.class.getResource("/fxml/dashboard.fxml"));
+        loader.setControllerFactory(clazz -> mock);
+        javafx.scene.Parent root = loader.load();
+        assertNotNull(root, "dashboard.fxml must load to a root node");
+        assertNotNull(fxField(mock, "pagamentosPane"), "fx:id pagamentosPane must be injected");
+        assertNotNull(fxField(mock, "despesasPane"), "fx:id despesasPane must be injected");
+        assertNotNull(fxField(mock, "paymentsTable"), "fx:id paymentsTable must be injected");
+        assertNotNull(fxField(mock, "expensesTable"), "fx:id expensesTable must be injected");
+        assertNotEquals(fxField(mock, "pagamentosPane"), fxField(mock, "despesasPane"),
+                "pagamentosPane and despesasPane must be distinct panes");
+        assertNotEquals(fxField(mock, "financeiroPane"), fxField(mock, "pagamentosPane"),
+                "financeiroPane and pagamentosPane must be distinct panes");
+    }
+
+    private static Object fxField(Object target, String name) throws Exception {
+        java.lang.reflect.Field f = DashboardController.class.getDeclaredField(name);
+        f.setAccessible(true);
+        return f.get(target);
+    }
+
+    @Test
     void paymentSaleCustomerNameShouldResolveReadably() {
         Sale s = new Sale();
         s.setCustomerName("Maria");

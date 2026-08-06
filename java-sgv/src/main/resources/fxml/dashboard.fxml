@@ -256,11 +256,9 @@
                                   style="-fx-background-color:#ffffff; -fx-padding:18 20; -fx-border-color:#E2E8F0; -fx-border-width:1; -fx-border-radius:12; -fx-background-radius:12;">
                                 <VBox spacing="4">
                                     <Label text="Financeiro" style="-fx-font-size:18px; -fx-font-weight:700; -fx-text-fill:#0F172A;"/>
-                                    <Label text="Registo de pagamentos e despesas" style="-fx-font-size:12px; -fx-text-fill:#64748B;"/>
+                                    <Label text="Visão geral financeira" style="-fx-font-size:12px; -fx-text-fill:#64748B;"/>
                                 </VBox>
                                 <Region HBox.hgrow="ALWAYS"/>
-                                <Button fx:id="createPaymentButton" text="+ Pagamento" styleClass="primary-button"/>
-                                <Button fx:id="createExpenseButton" text="+ Despesa" styleClass="secondary-button"/>
                             </HBox>
                             <GridPane id="financeiroKPI" hgap="16" vgap="16"
                                       style="-fx-background-color:#ffffff; -fx-padding:18 20 16 20; -fx-border-color:#E2E8F0; -fx-border-width:1; -fx-border-radius:12; -fx-background-radius:12;">
@@ -289,86 +287,99 @@
                                     </VBox>
                                 </children>
                             </GridPane>
-                            <TabPane tabClosingPolicy="UNAVAILABLE"
-                                     style="-fx-background-color:#ffffff; -fx-border-color:#E2E8F0; -fx-border-width:1; -fx-border-radius:12; -fx-background-radius:12; -fx-padding:0;">
-                                <tabs>
-                                    <Tab text="Pagamentos" closable="false">
-                                        <VBox spacing="10">
-                                            <padding>
-                                                <Insets top="16" right="16" bottom="16" left="16"/>
-                                            </padding>
-                                            <HBox spacing="8" alignment="CENTER_LEFT">
-                                                <Button fx:id="deletePaymentButton" text="Apagar" styleClass="danger-button"/>
-                                            </HBox>
-                                            <TableView fx:id="paymentsTable" prefHeight="520" styleClass="cash-table compact-table">
-                                                <columns>
-                                                    <TableColumn text="Data" prefWidth="150">
-                                                        <cellValueFactory>
-                                                            <PropertyValueFactory property="createdAt"/>
-                                                        </cellValueFactory>
-                                                    </TableColumn>
-                                                    <TableColumn text="Cliente" prefWidth="220">
-                                                        <cellValueFactory>
-                                                            <PropertyValueFactory property="saleCustomerName"/>
-                                                        </cellValueFactory>
-                                                    </TableColumn>
-                                                    <TableColumn text="Valor" prefWidth="140">
-                                                        <cellValueFactory>
-                                                            <PropertyValueFactory property="amount"/>
-                                                        </cellValueFactory>
-                                                    </TableColumn>
-                                                    <TableColumn text="Método" prefWidth="180">
-                                                        <cellValueFactory>
-                                                            <PropertyValueFactory property="method"/>
-                                                        </cellValueFactory>
-                                                    </TableColumn>
-                                                </columns>
-                                            </TableView>
-                                        </VBox>
-                                    </Tab>
-                                    <Tab text="Despesas" closable="false">
-                                        <VBox spacing="10">
-                                            <padding>
-                                                <Insets top="16" right="16" bottom="16" left="16"/>
-                                            </padding>
-                                            <HBox spacing="8" alignment="CENTER_LEFT">
-                                                <Button fx:id="editExpenseButton" text="Editar" styleClass="secondary-button"/>
-                                                <Button fx:id="deleteExpenseButton" text="Apagar" styleClass="danger-button"/>
-                                            </HBox>
-                                            <TableView fx:id="expensesTable" prefHeight="520" styleClass="cash-table compact-table">
-                                                <columns>
-                                                    <TableColumn text="Data" prefWidth="140">
-                                                        <cellValueFactory>
-                                                            <PropertyValueFactory property="createdAt"/>
-                                                        </cellValueFactory>
-                                                    </TableColumn>
-                                                    <TableColumn text="Descrição" prefWidth="260">
-                                                        <cellValueFactory>
-                                                            <PropertyValueFactory property="description"/>
-                                                        </cellValueFactory>
-                                                    </TableColumn>
-                                                    <TableColumn text="Categoria" prefWidth="160">
-                                                        <cellValueFactory>
-                                                            <PropertyValueFactory property="category"/>
-                                                        </cellValueFactory>
-                                                    </TableColumn>
-                                                    <TableColumn text="Valor" prefWidth="120">
-                                                        <cellValueFactory>
-                                                            <PropertyValueFactory property="amount"/>
-                                                        </cellValueFactory>
-                                                    </TableColumn>
-                                                    <TableColumn text="Estado" prefWidth="120">
-                                                        <cellValueFactory>
-                                                            <PropertyValueFactory property="state"/>
-                                                        </cellValueFactory>
-                                                    </TableColumn>
-                                                </columns>
-                                            </TableView>
-                                        </VBox>
-                                    </Tab>
-                                </tabs>
-                            </TabPane>
                         </VBox>
+
+                        <!-- PAGAMENTOS -->
+                        <VBox fx:id="pagamentosPane" spacing="16" visible="false" managed="false" maxWidth="Infinity" VBox.vgrow="ALWAYS">
+                                <HBox spacing="12" alignment="CENTER_LEFT"
+                                      style="-fx-background-color:#ffffff; -fx-padding:18 20; -fx-border-color:#E2E8F0; -fx-border-width:1; -fx-border-radius:12; -fx-background-radius:12;">
+                                    <VBox spacing="4">
+                                        <Label text="Pagamentos" style="-fx-font-size:18px; -fx-font-weight:700; -fx-text-fill:#0F172A;"/>
+                                        <Label text="Registo de pagamentos recebidos" style="-fx-font-size:12px; -fx-text-fill:#64748B;"/>
+                                    </VBox>
+                                    <Region HBox.hgrow="ALWAYS"/>
+                                    <Button fx:id="createPaymentButton" text="+ Pagamento" styleClass="primary-button"/>
+                                </HBox>
+                                <VBox spacing="10"
+                                      style="-fx-background-color:#ffffff; -fx-padding:20; -fx-border-color:#E2E8F0; -fx-border-width:1; -fx-border-radius:12; -fx-background-radius:12;">
+                                    <HBox spacing="8" alignment="CENTER_LEFT">
+                                        <Button fx:id="deletePaymentButton" text="Apagar" styleClass="danger-button"/>
+                                    </HBox>
+                                    <TableView fx:id="paymentsTable" prefHeight="520" styleClass="cash-table compact-table">
+                                        <columns>
+                                            <TableColumn text="Data" prefWidth="150">
+                                                <cellValueFactory>
+                                                    <PropertyValueFactory property="createdAt"/>
+                                                </cellValueFactory>
+                                            </TableColumn>
+                                            <TableColumn text="Cliente" prefWidth="220">
+                                                <cellValueFactory>
+                                                    <PropertyValueFactory property="saleCustomerName"/>
+                                                </cellValueFactory>
+                                            </TableColumn>
+                                            <TableColumn text="Valor" prefWidth="140">
+                                                <cellValueFactory>
+                                                    <PropertyValueFactory property="amount"/>
+                                                </cellValueFactory>
+                                            </TableColumn>
+                                            <TableColumn text="Método" prefWidth="180">
+                                                <cellValueFactory>
+                                                    <PropertyValueFactory property="method"/>
+                                                </cellValueFactory>
+                                            </TableColumn>
+                                        </columns>
+                                    </TableView>
+                            </VBox>
+                        </VBox>
+
+                        <!-- DESPESAS -->
+                        <VBox fx:id="despesasPane" spacing="16" visible="false" managed="false" maxWidth="Infinity" VBox.vgrow="ALWAYS">
+                                <HBox spacing="12" alignment="CENTER_LEFT"
+                                      style="-fx-background-color:#ffffff; -fx-padding:18 20; -fx-border-color:#E2E8F0; -fx-border-width:1; -fx-border-radius:12; -fx-background-radius:12;">
+                                    <VBox spacing="4">
+                                        <Label text="Despesas" style="-fx-font-size:18px; -fx-font-weight:700; -fx-text-fill:#0F172A;"/>
+                                        <Label text="Registo de despesas" style="-fx-font-size:12px; -fx-text-fill:#64748B;"/>
+                                    </VBox>
+                                    <Region HBox.hgrow="ALWAYS"/>
+                                    <Button fx:id="createExpenseButton" text="+ Despesa" styleClass="secondary-button"/>
+                                </HBox>
+                                <VBox spacing="10"
+                                      style="-fx-background-color:#ffffff; -fx-padding:20; -fx-border-color:#E2E8F0; -fx-border-width:1; -fx-border-radius:12; -fx-background-radius:12;">
+                                    <HBox spacing="8" alignment="CENTER_LEFT">
+                                        <Button fx:id="editExpenseButton" text="Editar" styleClass="secondary-button"/>
+                                        <Button fx:id="deleteExpenseButton" text="Apagar" styleClass="danger-button"/>
+                                    </HBox>
+                                    <TableView fx:id="expensesTable" prefHeight="520" styleClass="cash-table compact-table">
+                                        <columns>
+                                            <TableColumn text="Data" prefWidth="140">
+                                                <cellValueFactory>
+                                                    <PropertyValueFactory property="createdAt"/>
+                                                </cellValueFactory>
+                                            </TableColumn>
+                                            <TableColumn text="Descrição" prefWidth="260">
+                                                <cellValueFactory>
+                                                    <PropertyValueFactory property="description"/>
+                                                </cellValueFactory>
+                                            </TableColumn>
+                                            <TableColumn text="Categoria" prefWidth="160">
+                                                <cellValueFactory>
+                                                    <PropertyValueFactory property="category"/>
+                                                </cellValueFactory>
+                                            </TableColumn>
+                                            <TableColumn text="Valor" prefWidth="120">
+                                                <cellValueFactory>
+                                                    <PropertyValueFactory property="amount"/>
+                                                </cellValueFactory>
+                                            </TableColumn>
+                                            <TableColumn text="Estado" prefWidth="120">
+                                                <cellValueFactory>
+                                                    <PropertyValueFactory property="state"/>
+                                                </cellValueFactory>
+                                            </TableColumn>
+                                        </columns>
+                                    </TableView>
+                                </VBox>
+                            </VBox>
 
                         <!-- CATÁLOGOS: Categorias | Unidades -->
                         <VBox fx:id="catalogsPane" spacing="0" visible="false" managed="false" maxWidth="Infinity" VBox.vgrow="ALWAYS"/>

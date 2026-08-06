@@ -101,6 +101,8 @@ public class DashboardController {
     @FXML private VBox fornecedoresPane;
     @FXML private VBox stockArmazemPane;
     @FXML private VBox financeiroPane;
+    @FXML private VBox pagamentosPane;
+    @FXML private VBox despesasPane;
     @FXML private VBox reportsPane;
     @FXML private VBox sistemaPane;
     @FXML private VBox producaoPane;
@@ -357,8 +359,8 @@ public class DashboardController {
         if (navMenuProducao != null) UiUtils.attachSafe(navMenuProducao, () -> { if (ensurePermission("PRODUCAO", "VIEW", "Produção")) showProducaoPane(); }, systemLogService, "NAV_PRODUCAO");
         if (navMenuRelatorios != null) UiUtils.attachSafe(navMenuRelatorios, () -> { if (ensurePermission("RELATORIOS", "VIEW", "Relatórios")) showReportsPane(); }, systemLogService, "NAV_RELATORIOS");
         if (navMenuSistema != null) UiUtils.attachSafe(navMenuSistema, () -> { if (ensurePermission("SISTEMA", "VIEW", "Sistema")) showSistemaPane(); }, systemLogService, "NAV_SISTEMA");
-        if (navMenuDespesas != null) UiUtils.attachSafe(navMenuDespesas, this::showFinanceiroPane, systemLogService, "NAV_DESPESAS");
-        if (navMenuPagamentos != null) UiUtils.attachSafe(navMenuPagamentos, this::showFinanceiroPane, systemLogService, "NAV_PAGAMENTOS");
+        if (navMenuDespesas != null) UiUtils.attachSafe(navMenuDespesas, this::showDespesasPane, systemLogService, "NAV_DESPESAS");
+        if (navMenuPagamentos != null) UiUtils.attachSafe(navMenuPagamentos, this::showPagamentosPane, systemLogService, "NAV_PAGAMENTOS");
 
         if (navModComercial != null) UiUtils.attachSafe(navModComercial, () -> showSubNav("Comercial", navComercialItems), systemLogService, "NAV_MOD_COMERCIAL");
         if (navModOperacoes != null) UiUtils.attachSafe(navModOperacoes, () -> showSubNav("Operações", navOperacoesItems), systemLogService, "NAV_MOD_OPERACOES");
@@ -583,7 +585,7 @@ public class DashboardController {
 
     private VBox[] allPanes() {
         return new VBox[]{summaryPane, salesStatsPane, salesPane, productsPane, customersPane, stockPane,
-            turnoCaixaPane, comprasPane, fornecedoresPane, stockArmazemPane, financeiroPane, catalogsPane, reportsPane, producaoPane,
+            turnoCaixaPane, comprasPane, fornecedoresPane, stockArmazemPane, financeiroPane, pagamentosPane, despesasPane, catalogsPane, reportsPane, producaoPane,
             sistemaPane, usersPane, warehousesPane, logsPane};
     }
 
@@ -786,6 +788,24 @@ public class DashboardController {
     private void showFinanceiroPane() {
         navManager.showFinanceiroPane(pageTitleLabel, pageSubtitleLabel, financeiroPane, currentUser, allPanes(), allNavButtons(), this::updateCashBadge);
         loadFinanceiro();
+    }
+
+    private void showPagamentosPane() {
+        navManager.setActiveNav(navMenuPagamentos, allNavButtons());
+        navManager.setPaneVisibility(pagamentosPane, allPanes());
+        pageTitleLabel.setText("Pagamentos");
+        pageSubtitleLabel.setText("Registo de pagamentos recebidos");
+        loadFinanceiro();
+        updateCashBadge();
+    }
+
+    private void showDespesasPane() {
+        navManager.setActiveNav(navMenuDespesas, allNavButtons());
+        navManager.setPaneVisibility(despesasPane, allPanes());
+        pageTitleLabel.setText("Despesas");
+        pageSubtitleLabel.setText("Registo de despesas");
+        loadExpenses();
+        updateCashBadge();
     }
 
     private void showUsersPane() {
