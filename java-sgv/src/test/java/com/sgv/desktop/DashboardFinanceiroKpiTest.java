@@ -103,5 +103,24 @@ class DashboardFinanceiroKpiTest {
         assertTrue(fxml.contains("finTotalRecebidoLabel"), "FXML must define finTotalRecebidoLabel");
         assertTrue(fxml.contains("finPendenteLabel"), "FXML must define finPendenteLabel");
         assertTrue(fxml.contains("finNumPagamentosLabel"), "FXML must define finNumPagamentosLabel");
+        assertTrue(fxml.contains("property=\"saleCustomerName\""), "paymentsTable must use simple saleCustomerName property");
+        assertTrue(!fxml.contains("sale.customerName"), "FXML must not use dotted sale.customerName PropertyValueFactory");
+    }
+
+    @Test
+    void paymentSaleCustomerNameShouldResolveReadably() {
+        Sale s = new Sale();
+        s.setCustomerName("Maria");
+        Payment p = new Payment();
+        p.setSale(s);
+        assertEquals("Maria", p.getSaleCustomerName());
+
+        Payment withoutSale = new Payment();
+        assertEquals("Consumidor Final", withoutSale.getSaleCustomerName());
+
+        Sale noName = new Sale();
+        Payment withNullName = new Payment();
+        withNullName.setSale(noName);
+        assertEquals("Consumidor Final", withNullName.getSaleCustomerName());
     }
 }

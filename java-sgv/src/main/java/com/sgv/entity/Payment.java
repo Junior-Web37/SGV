@@ -32,6 +32,12 @@ public class Payment {
     public void setId(Long id) { this.id = id; }
     public Sale getSale() { return sale; }
     public void setSale(Sale sale) { this.sale = sale; }
+    public String getSaleCustomerName() {
+        if (sale != null && sale.getCustomerName() != null && !sale.getCustomerName().isBlank()) {
+            return sale.getCustomerName();
+        }
+        return "Consumidor Final";
+    }
     public Double getAmount() { return amount != null ? amount.doubleValue() : 0.0; }
     public void setAmount(Double amount) { this.amount = amount != null ? BigDecimal.valueOf(amount) : null; }
     public BigDecimal getAmountValue() { return amount; }

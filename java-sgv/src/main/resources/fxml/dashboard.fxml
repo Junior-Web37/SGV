@@ -309,7 +309,7 @@
                                                     </TableColumn>
                                                     <TableColumn text="Cliente" prefWidth="220">
                                                         <cellValueFactory>
-                                                            <PropertyValueFactory property="sale.customerName"/>
+                                                            <PropertyValueFactory property="saleCustomerName"/>
                                                         </cellValueFactory>
                                                     </TableColumn>
                                                     <TableColumn text="Valor" prefWidth="140">
