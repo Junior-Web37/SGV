@@ -157,7 +157,7 @@
                 <artifactId>maven-surefire-plugin</artifactId>
                 <version>3.1.2</version>
                 <configuration>
-                    <argLine>-Djdk.attach.allowAttachSelf=true -Dnet.bytebuddy.agent.attacher.dump=target/bytebuddy-attach.log</argLine>
+                    <argLine>-Djdk.attach.allowAttachSelf=true -Dnet.bytebuddy.agent.attacher.dump=target/bytebuddy-attach.log -Xmx1g -XX:MaxMetaspaceSize=256m</argLine>
                 </configuration>
             </plugin>
         </plugins>

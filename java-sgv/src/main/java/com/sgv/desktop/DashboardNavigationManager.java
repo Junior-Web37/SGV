@@ -1816,71 +1816,8 @@ public class DashboardNavigationManager {
                                     Runnable updateCashBadge) {
         setActiveNav(null, allNavButtons);
         pageTitleLabel.setText("Financeiro");
-        pageSubtitleLabel.setText("Controlo de pagamentos e receitas");
+        pageSubtitleLabel.setText("Visão geral financeira");
         setPaneVisibility(financeiroPane, allPanes);
-
-        if (financeiroPane.getChildren().isEmpty()) {
-            VBox main = new VBox(0);
-            main.setStyle("-fx-background-color: #F8FAFC;");
-
-            GridPane kpiGrid = buildKPIGrid(
-                new String[]{"Total Vendas", "Recebido", "Pendente", "Despesas Mês"},
-                new String[]{"Todas as vendas", "Total cobrado", "Por cobrar", "Este mês"},
-                new String[]{"blue", "green", "orange", "red"}
-            );
-            kpiGrid.setId("financeiroKPI");
-
-            TableView<Payment> paymentsTable = new TableView<>();
-            paymentsTable.setStyle("-fx-font-size: 13px; -fx-background-color: #ffffff; -fx-border-color: #E2E8F0; -fx-border-width: 0 1 1 1; -fx-padding: 0 20 20 20;");
-
-            TableColumn<Payment, String> p1 = new TableColumn<>("Data");
-            p1.setPrefWidth(150);
-            p1.setCellValueFactory(d -> new SimpleStringProperty(d.getValue().getCreatedAt() != null ? d.getValue().getCreatedAt().toString() : "—"));
-
-            TableColumn<Payment, String> p2 = new TableColumn<>("Cliente");
-            p2.setPrefWidth(200);
-            p2.setCellValueFactory(d -> new SimpleStringProperty(d.getValue().getSale() != null && d.getValue().getSale().getCustomerName() != null ? d.getValue().getSale().getCustomerName() : "—"));
-
-            TableColumn<Payment, String> p3 = new TableColumn<>("Valor");
-            p3.setPrefWidth(140);
-            p3.setCellValueFactory(d -> new SimpleStringProperty(d.getValue().getAmount() != null ? String.format("%.2f MT", d.getValue().getAmount()) : "0 MT"));
-
-            TableColumn<Payment, String> p4 = new TableColumn<>("Método");
-            p4.setPrefWidth(120);
-            p4.setCellValueFactory(d -> new SimpleStringProperty(d.getValue().getMethod() != null ? d.getValue().getMethod() : "—"));
-
-            paymentsTable.getColumns().addAll(List.of(p1, p2, p3, p4));
-            paymentsTable.setRowFactory(makeTableRowFactory());
-
-            HBox toolbar = new HBox(12);
-            toolbar.setStyle("-fx-background-color: #ffffff; -fx-padding: 12 16; -fx-border-color: #E2E8F0; -fx-border-width: 0 0 1 0;");
-            TextField searchField = new TextField();
-            searchField.setPromptText("Pesquisar pagamentos (Cliente ou Método)...");
-            searchField.setStyle("-fx-font-size: 13px; -fx-font-weight: 600; -fx-padding: 8 12; -fx-background-radius: 6; -fx-border-color: #E2E8F0; -fx-border-radius: 6; -fx-background-color: #F8FAFC; -fx-min-width: 280; -fx-pref-width: 320;");
-            HBox.setHgrow(searchField, Priority.ALWAYS);
-            toolbar.getChildren().add(searchField);
-
-            Runnable loadData = () -> {
-                String q = searchField.getText() == null ? "" : searchField.getText().trim().toLowerCase();
-                List<Payment> payments = paymentRepository.findAll();
-                if (!q.isEmpty()) {
-                    payments = payments.stream().filter(p -> 
-                        (p.getMethod() != null && p.getMethod().toLowerCase().contains(q)) ||
-                        (p.getSale() != null && p.getSale().getCustomerName() != null && p.getSale().getCustomerName().toLowerCase().contains(q))
-                    ).toList();
-                }
-                paymentsTable.setItems(FXCollections.observableArrayList(
-                    payments.stream()
-                        .sorted(Comparator.comparing(Payment::getCreatedAt, Comparator.nullsLast(Comparator.reverseOrder())))
-                        .toList()
-                ));
-            };
-            UiUtils.setupDebounce(searchField, loadData, 400);
-            loadData.run();
-
-            main.getChildren().addAll(kpiGrid, toolbar, paymentsTable);
-            financeiroPane.getChildren().add(main);
-        }
 
         GridPane kpi = (GridPane) financeiroPane.lookup("#financeiroKPI");
         kpiManager.updateFinanceiroKPIs(kpi);
