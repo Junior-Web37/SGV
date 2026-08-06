@@ -63,8 +63,9 @@
                             <Button fx:id="navMenuCompras"      text="Compras"            styleClass="nav-btn"/>
                         </HBox>
 
-                        <!-- Financeiro: Pagamentos | Despesas -->
+                        <!-- Financeiro: Financeiro | Pagamentos | Despesas -->
                         <HBox fx:id="navFinanceiroItems" spacing="4" alignment="CENTER_LEFT" visible="false" managed="false">
+                            <Button fx:id="navMenuFinanceiro" text="Financeiro"  styleClass="nav-btn"/>
                             <Button fx:id="navMenuPagamentos" text="Pagamentos" styleClass="nav-btn"/>
                             <Button fx:id="navMenuDespesas" text="Despesas"     styleClass="nav-btn"/>
                         </HBox>
