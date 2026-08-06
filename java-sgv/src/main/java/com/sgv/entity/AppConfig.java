@@ -1,6 +1,7 @@
 package com.sgv.entity;
 
 import jakarta.persistence.*;
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
 /**
@@ -30,9 +31,11 @@ public class AppConfig {
     /** Série inicial (ex: "A") */
     private String defaultSeries = "A";
     /** Taxa IVA padrão do sistema (ex: 16.0 para Moçambique) */
-    private Double defaultTaxRate = 16.0;
+    @Column(name = "default_tax_rate", precision = 9, scale = 4)
+    private BigDecimal defaultTaxRate = new BigDecimal("16.0000");
     /** Taxa ICE padrão do sistema (ex: 0.0) */
-    private Double defaultIceRate = 0.0;
+    @Column(name = "default_ice_rate", precision = 9, scale = 4)
+    private BigDecimal defaultIceRate = BigDecimal.ZERO;
     /** Número inicial da série (ex: 1) */
     private Long initialDocumentNumber = 1L;
     /** Moeda padrão */
@@ -40,9 +43,11 @@ public class AppConfig {
     /** NUIT para consumidor final */
     private String consumerFinalNuit = "999999999";
     /** Percentagem para alerta de stock mínimo (ex: 20 = alerta quando stock < 20%) */
-    private Double stockMinAlertPercent = 20.0;
+    @Column(name = "stock_min_alert_percent", precision = 9, scale = 4)
+    private BigDecimal stockMinAlertPercent = new BigDecimal("20.0000");
     /** Desconto máximo permitido (%) */
-    private Double maxDiscountPercent = 10.0;
+    @Column(name = "max_discount_percent", precision = 9, scale = 4)
+    private BigDecimal maxDiscountPercent = new BigDecimal("10.0000");
 
     // ─── Flags de funcionalidade ───────────────────────────────────────────────
     private Boolean demoMode = false;
@@ -63,7 +68,8 @@ public class AppConfig {
     private Integer thermalPrinterWidth = 80;
 
     // ─── Taxa de câmbio ─────────────────────────────────────────────────────────
-    private Double exchangeRate = 74.0;
+    @Column(name = "exchange_rate", precision = 19, scale = 4)
+    private BigDecimal exchangeRate = new BigDecimal("74.0000");
 
     // ─── Agendamento de backups ─────────────────────────────────────────────────
     private String backupFrequency = "Diario";
@@ -107,10 +113,18 @@ public class AppConfig {
     public void setLicenseNumber(String licenseNumber) { this.licenseNumber = licenseNumber; }
     public String getDefaultSeries() { return defaultSeries; }
     public void setDefaultSeries(String defaultSeries) { this.defaultSeries = defaultSeries; }
-    public Double getDefaultTaxRate() { return defaultTaxRate != null ? defaultTaxRate : 16.0; }
-    public void setDefaultTaxRate(Double defaultTaxRate) { this.defaultTaxRate = defaultTaxRate; }
-    public Double getDefaultIceRate() { return defaultIceRate != null ? defaultIceRate : 0.0; }
-    public void setDefaultIceRate(Double defaultIceRate) { this.defaultIceRate = defaultIceRate; }
+    private static BigDecimal toPercent(Double value) {
+        return value != null ? BigDecimal.valueOf(value) : BigDecimal.ZERO;
+    }
+
+    public Double getDefaultTaxRate() { return defaultTaxRate != null ? defaultTaxRate.doubleValue() : 16.0; }
+    public void setDefaultTaxRate(Double defaultTaxRate) { this.defaultTaxRate = toPercent(defaultTaxRate); }
+    public BigDecimal getDefaultTaxRateAmount() { return defaultTaxRate != null ? defaultTaxRate : new BigDecimal("16.0000"); }
+    public void setDefaultTaxRateAmount(BigDecimal defaultTaxRate) { this.defaultTaxRate = defaultTaxRate != null ? defaultTaxRate : new BigDecimal("16.0000"); }
+    public Double getDefaultIceRate() { return defaultIceRate != null ? defaultIceRate.doubleValue() : 0.0; }
+    public void setDefaultIceRate(Double defaultIceRate) { this.defaultIceRate = toPercent(defaultIceRate); }
+    public BigDecimal getDefaultIceRateAmount() { return defaultIceRate != null ? defaultIceRate : BigDecimal.ZERO; }
+    public void setDefaultIceRateAmount(BigDecimal defaultIceRate) { this.defaultIceRate = defaultIceRate != null ? defaultIceRate : BigDecimal.ZERO; }
     public Long getInitialDocumentNumber() { return initialDocumentNumber; }
     public void setInitialDocumentNumber(Long initialDocumentNumber) { this.initialDocumentNumber = initialDocumentNumber; }
     public String getDefaultCurrency() { return defaultCurrency; }
@@ -149,14 +163,20 @@ public class AppConfig {
     public void setUpdatedAt(LocalDateTime updatedAt) { this.updatedAt = updatedAt; }
     
     // ─── Operacionais: Stock e Desconto ─────────────────────────────────────
-    public Double getStockMinAlertPercent() { return stockMinAlertPercent != null ? stockMinAlertPercent : 20.0; }
-    public void setStockMinAlertPercent(Double stockMinAlertPercent) { this.stockMinAlertPercent = stockMinAlertPercent; }
+    public Double getStockMinAlertPercent() { return stockMinAlertPercent != null ? stockMinAlertPercent.doubleValue() : 20.0; }
+    public void setStockMinAlertPercent(Double stockMinAlertPercent) { this.stockMinAlertPercent = toPercent(stockMinAlertPercent); }
+    public BigDecimal getStockMinAlertPercentAmount() { return stockMinAlertPercent != null ? stockMinAlertPercent : new BigDecimal("20.0000"); }
+    public void setStockMinAlertPercentAmount(BigDecimal stockMinAlertPercent) { this.stockMinAlertPercent = stockMinAlertPercent != null ? stockMinAlertPercent : new BigDecimal("20.0000"); }
     
-    public Double getMaxDiscountPercent() { return maxDiscountPercent != null ? maxDiscountPercent : 10.0; }
-    public void setMaxDiscountPercent(Double maxDiscountPercent) { this.maxDiscountPercent = maxDiscountPercent; }
+    public Double getMaxDiscountPercent() { return maxDiscountPercent != null ? maxDiscountPercent.doubleValue() : 10.0; }
+    public void setMaxDiscountPercent(Double maxDiscountPercent) { this.maxDiscountPercent = toPercent(maxDiscountPercent); }
+    public BigDecimal getMaxDiscountPercentAmount() { return maxDiscountPercent != null ? maxDiscountPercent : new BigDecimal("10.0000"); }
+    public void setMaxDiscountPercentAmount(BigDecimal maxDiscountPercent) { this.maxDiscountPercent = maxDiscountPercent != null ? maxDiscountPercent : new BigDecimal("10.0000"); }
     
-    public Double getExchangeRate() { return exchangeRate != null ? exchangeRate : 74.0; }
-    public void setExchangeRate(Double exchangeRate) { this.exchangeRate = exchangeRate; }
+    public Double getExchangeRate() { return exchangeRate != null ? exchangeRate.doubleValue() : 74.0; }
+    public void setExchangeRate(Double exchangeRate) { this.exchangeRate = toPercent(exchangeRate); }
+    public BigDecimal getExchangeRateAmount() { return exchangeRate != null ? exchangeRate : new BigDecimal("74.0000"); }
+    public void setExchangeRateAmount(BigDecimal exchangeRate) { this.exchangeRate = exchangeRate != null ? exchangeRate : new BigDecimal("74.0000"); }
     
     public String getBackupFrequency() { return backupFrequency; }
     public void setBackupFrequency(String backupFrequency) { this.backupFrequency = backupFrequency; }

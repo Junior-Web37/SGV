@@ -1,6 +1,7 @@
 package com.sgv.entity;
 
 import jakarta.persistence.*;
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
 @Entity
@@ -18,7 +19,8 @@ public class ProductionOrder {
     @JoinColumn(name = "product_id")
     private Product product;
 
-    private Double quantity = 0.0;
+    @Column(precision = 19, scale = 4)
+    private BigDecimal quantity = BigDecimal.ZERO;
     private String unit;
 
     @Column(nullable = false, length = 20)
@@ -43,8 +45,10 @@ public class ProductionOrder {
     public void setOrderNumber(String orderNumber) { this.orderNumber = orderNumber; }
     public Product getProduct() { return product; }
     public void setProduct(Product product) { this.product = product; }
-    public Double getQuantity() { return quantity; }
-    public void setQuantity(Double quantity) { this.quantity = quantity; }
+    public Double getQuantity() { return quantity != null ? quantity.doubleValue() : 0.0; }
+    public void setQuantity(Double quantity) { this.quantity = quantity != null ? BigDecimal.valueOf(quantity) : BigDecimal.ZERO; }
+    public BigDecimal getQuantityAmount() { return quantity != null ? quantity : BigDecimal.ZERO; }
+    public void setQuantityAmount(BigDecimal quantity) { this.quantity = quantity != null ? quantity : BigDecimal.ZERO; }
     public String getUnit() { return unit; }
     public void setUnit(String unit) { this.unit = unit; }
     public String getState() { return state; }
