@@ -1197,12 +1197,15 @@ public class SaleFormController extends BaseFormController {
             final String digit = String.valueOf(i);
             if (numButtons[i] != null) {
                 numButtons[i].setOnAction(e -> appendToActiveInput(digit));
+                UiUtils.applyPressFeedback(numButtons[i]);
             }
         }
         if (numDot != null) {
             numDot.setOnAction(e -> appendToActiveInput("."));
+            UiUtils.applyPressFeedback(numDot);
         }
         if (numClear != null) {
+            UiUtils.applyPressFeedback(numClear);
             numClear.setOnAction(e -> {
                 if (receivedAmountField != null && receivedAmountField.isFocused()) {
                     receivedAmountField.setText("");
@@ -1232,6 +1235,7 @@ public class SaleFormController extends BaseFormController {
         }
 
         if (btnExactAmount != null) {
+            UiUtils.applyPressFeedback(btnExactAmount);
             btnExactAmount.setOnAction(e -> {
                 double tot = calculateCurrentTotal();
                 if (receivedAmountField != null) {
@@ -1239,17 +1243,23 @@ public class SaleFormController extends BaseFormController {
                 }
             });
         }
-        if (btnPlus50 != null) btnPlus50.setOnAction(e -> addCashToReceived(50.0));
-        if (btnPlus100 != null) btnPlus100.setOnAction(e -> addCashToReceived(100.0));
-        if (btnPlus500 != null) btnPlus500.setOnAction(e -> addCashToReceived(500.0));
-        if (btnPlus1000 != null) btnPlus1000.setOnAction(e -> addCashToReceived(1000.0));
+        if (btnPlus50 != null) { UiUtils.applyPressFeedback(btnPlus50); btnPlus50.setOnAction(e -> addCashToReceived(50.0)); }
+        if (btnPlus100 != null) { UiUtils.applyPressFeedback(btnPlus100); btnPlus100.setOnAction(e -> addCashToReceived(100.0)); }
+        if (btnPlus500 != null) { UiUtils.applyPressFeedback(btnPlus500); btnPlus500.setOnAction(e -> addCashToReceived(500.0)); }
+        if (btnPlus1000 != null) { UiUtils.applyPressFeedback(btnPlus1000); btnPlus1000.setOnAction(e -> addCashToReceived(1000.0)); }
 
         if (btnHoldCart != null) {
+            UiUtils.applyPressFeedback(btnHoldCart);
             btnHoldCart.setOnAction(e -> holdCurrentCart());
         }
         if (btnRecallCart != null) {
+            UiUtils.applyPressFeedback(btnRecallCart);
             btnRecallCart.setOnAction(e -> recallHeldCart());
         }
+        if (addItemButton != null) UiUtils.applyPressFeedback(addItemButton);
+        if (saveButton != null) UiUtils.applyPressFeedback(saveButton);
+        if (cancelButton != null) UiUtils.applyPressFeedback(cancelButton);
+
         setupNumpad();
 
         paymentMethodCombo.valueProperty().addListener((obs, o, n) -> {
