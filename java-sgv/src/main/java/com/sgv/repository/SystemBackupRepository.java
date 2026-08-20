@@ -29,6 +29,6 @@ public interface SystemBackupRepository extends JpaRepository<SystemBackup, Long
     @Query("SELECT COUNT(b) FROM SystemBackup b WHERE b.backupType = :type")
     long countByType(@Param("type") String type);
     
-    @Query("SELECT b FROM SystemBackup b ORDER BY b.createdAt DESC LIMIT 1")
-    Optional<SystemBackup> findLatest();
+    Optional<SystemBackup> findTopByOrderByCreatedAtDesc();
 }
+

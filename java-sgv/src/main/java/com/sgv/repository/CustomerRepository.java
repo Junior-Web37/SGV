@@ -17,9 +17,9 @@ public interface CustomerRepository extends JpaRepository<Customer, Long> {
     List<Customer> searchByCodeOrName(@Param("search") String search);
     
     @Query("SELECT c FROM Customer c WHERE " +
-           "LOWER(c.code) LIKE LOWER(CONCAT('%', :search, '%')) OR " +
-           "LOWER(c.name) LIKE LOWER(CONCAT('%', :search, '%')) OR " +
-           "c.type = :type")
+           "(LOWER(c.code) LIKE LOWER(CONCAT('%', :search, '%')) OR " +
+           "LOWER(c.name) LIKE LOWER(CONCAT('%', :search, '%'))) AND " +
+           "(:type IS NULL OR c.type = :type)")
     List<Customer> searchByCodeOrNameAndType(@Param("search") String search, @Param("type") String type);
     
     @Query("SELECT c FROM Customer c WHERE c.type = :type")

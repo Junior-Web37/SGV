@@ -42,7 +42,7 @@ public class PaymentFormController extends BaseFormController {
     @FXML
     public void initialize() {
         initCommonFields();
-        paymentMethodCombo.getItems().addAll("Numerário", "M-Pesa", "e-Mola", "Cartão (POS)", "Transferência Bancária", "Cheque");
+        paymentMethodCombo.getItems().addAll("Numerário", "M-Pesa", "e-Mola", "mKesh", "Cartão (POS)", "Transferência Bancária", "Cheque");
         paymentMethodCombo.setValue("Numerário");
         if (paymentDatePicker != null) paymentDatePicker.setValue(LocalDate.now());
 

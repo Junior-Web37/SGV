@@ -241,11 +241,14 @@ public class SaleFormController extends BaseFormController {
         
         paymentMethodCombo.setItems(FXCollections.observableArrayList(
             com.sgv.model.PaymentMethod.DINHEIRO.name(),
+            com.sgv.model.PaymentMethod.MPESA.name(),
+            com.sgv.model.PaymentMethod.EMOLA.name(),
+            com.sgv.model.PaymentMethod.MKESH.name(),
+            com.sgv.model.PaymentMethod.POS.name(),
             com.sgv.model.PaymentMethod.DEBITO.name(),
-            com.sgv.model.PaymentMethod.CREDITO.name(),
-            com.sgv.model.PaymentMethod.CHEQUE.name(),
             com.sgv.model.PaymentMethod.TRANSFERENCIA.name(),
-            com.sgv.model.PaymentMethod.MULTICAIXA.name()
+            com.sgv.model.PaymentMethod.CREDITO.name(),
+            com.sgv.model.PaymentMethod.CHEQUE.name()
         ));
         paymentMethodCombo.setValue(com.sgv.model.PaymentMethod.DINHEIRO.name());
         
