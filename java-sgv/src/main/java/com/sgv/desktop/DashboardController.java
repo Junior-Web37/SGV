@@ -779,7 +779,11 @@ public class DashboardController {
 
     private void showProducaoPane() {
         navManager.showProducaoPane(navMenuProducao, pageTitleLabel, pageSubtitleLabel,
-            producaoPane, currentUser, allPanes(), allNavButtons(), this::updateCashBadge);
+            producaoPane, currentUser, allPanes(), allNavButtons(), this::updateCashBadge,
+            () -> crudManager.openOrderForm(null, getOwner(), currentUser, this::loadProductionOrders),
+            () -> crudManager.viewSelectedProductionOrder(navManager.getOrdersTable(), getOwner()),
+            () -> crudManager.completeSelectedProductionOrder(navManager.getOrdersTable(), currentUser, this::loadProductionOrders),
+            () -> crudManager.deleteSelectedProductionOrder(navManager.getOrdersTable(), currentUser, this::loadProductionOrders));
     }
 
     private void showReportsPane() {

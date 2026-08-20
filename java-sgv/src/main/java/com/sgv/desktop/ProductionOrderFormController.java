@@ -2,26 +2,28 @@ package com.sgv.desktop;
 
 import com.sgv.entity.MetricUnit;
 import com.sgv.entity.Product;
+import com.sgv.entity.ProductRecipe;
 import com.sgv.entity.ProductionOrder;
 import com.sgv.entity.User;
 import com.sgv.repository.MetricUnitRepository;
+import com.sgv.repository.ProductRecipeRepository;
 import com.sgv.repository.ProductRepository;
 import com.sgv.repository.ProductionOrderRepository;
 import com.sgv.repository.UserRepository;
 import com.sgv.service.StockBranchService;
 import com.sgv.service.SystemLogService;
+import javafx.beans.property.SimpleStringProperty;
 import javafx.collections.FXCollections;
 import javafx.fxml.FXML;
-import javafx.scene.control.ComboBox;
-import javafx.scene.control.DatePicker;
-import javafx.scene.control.TextArea;
-import javafx.scene.control.TextField;
+import javafx.scene.control.*;
+import javafx.scene.control.cell.PropertyValueFactory;
 import javafx.util.StringConverter;
 import org.springframework.stereotype.Component;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.List;
 
 @Component
@@ -35,8 +37,16 @@ public class ProductionOrderFormController extends BaseFormController {
     @FXML private ComboBox<User> responsibleCombo;
     @FXML private TextArea notesArea;
 
+    @FXML private TableView<RecipeItemRow> recipeTable;
+    @FXML private TableColumn<RecipeItemRow, String> ingredientColumn;
+    @FXML private TableColumn<RecipeItemRow, String> requiredColumn;
+    @FXML private TableColumn<RecipeItemRow, String> totalConsumedColumn;
+    @FXML private TableColumn<RecipeItemRow, String> unitColumn;
+    @FXML private Label recipeStatusLabel;
+
     private final ProductionOrderRepository productionOrderRepository;
     private final ProductRepository productRepository;
+    private final ProductRecipeRepository productRecipeRepository;
     private final MetricUnitRepository metricUnitRepository;
     private final UserRepository userRepository;
     private final StockBranchService stockBranchService;
@@ -45,12 +55,14 @@ public class ProductionOrderFormController extends BaseFormController {
 
     public ProductionOrderFormController(ProductionOrderRepository productionOrderRepository,
                                          ProductRepository productRepository,
+                                         ProductRecipeRepository productRecipeRepository,
                                          MetricUnitRepository metricUnitRepository,
                                          UserRepository userRepository,
                                          StockBranchService stockBranchService,
                                          SystemLogService systemLogService) {
         this.productionOrderRepository = productionOrderRepository;
         this.productRepository = productRepository;
+        this.productRecipeRepository = productRecipeRepository;
         this.metricUnitRepository = metricUnitRepository;
         this.userRepository = userRepository;
         this.stockBranchService = stockBranchService;
@@ -109,24 +121,85 @@ public class ProductionOrderFormController extends BaseFormController {
 
         UiUtils.attachSafe(saveButton, this::doSave, systemLogService, "PRODUCTION_ORDER_SAVE");
         UiUtils.attachSafe(cancelButton, this::doCancel, systemLogService, "PRODUCTION_ORDER_CANCEL");
+        UiUtils.applyHoverElevation(saveButton);
+        UiUtils.applyPressFeedback(saveButton);
+        UiUtils.applyHoverElevation(cancelButton);
+        UiUtils.applyPressFeedback(cancelButton);
         UiUtils.applyNumericFormatter(quantityField);
 
         if (orderNumberField.getText() == null || orderNumberField.getText().isEmpty()) {
             orderNumberField.setText("ORD-" + java.util.UUID.randomUUID().toString().substring(0, 8).toUpperCase());
         }
 
+        setupRecipeTable();
+
         productCombo.valueProperty().addListener((obs, o, n) -> {
             if (n != null && n.getUnit() != null && n.getUnit().getAbbreviation() != null) {
                 unitCombo.setValue(n.getUnit().getAbbreviation());
             }
+            updateRecipePreview();
             validateRealTime();
         });
-        quantityField.textProperty().addListener((obs, o, n) -> validateRealTime());
+        quantityField.textProperty().addListener((obs, o, n) -> {
+            updateRecipePreview();
+            validateRealTime();
+        });
         if (registrationDatePicker != null) {
             registrationDatePicker.valueProperty().addListener((obs, o, n) -> validateRealTime());
         }
 
         javafx.application.Platform.runLater(this::validateRealTime);
+    }
+
+    private void setupRecipeTable() {
+        if (recipeTable == null) return;
+        ingredientColumn.setCellValueFactory(new PropertyValueFactory<>("ingredientName"));
+        requiredColumn.setCellValueFactory(new PropertyValueFactory<>("requiredPerUnit"));
+        totalConsumedColumn.setCellValueFactory(new PropertyValueFactory<>("totalToConsume"));
+        unitColumn.setCellValueFactory(new PropertyValueFactory<>("unit"));
+    }
+
+    private void updateRecipePreview() {
+        if (recipeTable == null) return;
+        Product selectedProduct = productCombo.getValue();
+        if (selectedProduct == null || selectedProduct.getId() == null) {
+            recipeTable.getItems().clear();
+            if (recipeStatusLabel != null) recipeStatusLabel.setText("Selecione um produto para carregar a receita");
+            return;
+        }
+
+        BigDecimal qty = BigDecimal.ONE;
+        try {
+            String qText = quantityField.getText();
+            if (qText != null && !qText.isBlank()) {
+                qty = new BigDecimal(qText.trim().replace(",", "."));
+            }
+        } catch (Exception ignored) {}
+
+        List<ProductRecipe> recipes = productRecipeRepository.findByParentProductId(selectedProduct.getId());
+        if (recipes == null || recipes.isEmpty()) {
+            recipeTable.getItems().clear();
+            if (recipeStatusLabel != null) {
+                recipeStatusLabel.setText("Sem receita vinculada (entrada direta de produto acabado)");
+                recipeStatusLabel.setStyle("-fx-text-fill: #94A3B8; -fx-font-size: 11px; -fx-font-style: italic;");
+            }
+            return;
+        }
+
+        List<RecipeItemRow> rows = new ArrayList<>();
+        for (ProductRecipe r : recipes) {
+            String ingName = r.getIngredientProduct() != null ? r.getIngredientProduct().getName() : "Ingrediente";
+            BigDecimal req = r.getQuantityRequired() != null ? r.getQuantityRequired() : BigDecimal.ZERO;
+            BigDecimal totalCons = req.multiply(qty);
+            String u = r.getUnit() != null ? r.getUnit() : "UN";
+            rows.add(new RecipeItemRow(ingName, String.format("%.4f", req.doubleValue()), String.format("%.4f", totalCons.doubleValue()), u));
+        }
+
+        recipeTable.setItems(FXCollections.observableArrayList(rows));
+        if (recipeStatusLabel != null) {
+            recipeStatusLabel.setText(String.format("Ficha técnica ativa: %d matéria(s)-prima(s) serão abatidas do stock", recipes.size()));
+            recipeStatusLabel.setStyle("-fx-text-fill: #15803D; -fx-font-size: 11px; -fx-font-weight: 700;");
+        }
     }
 
     @Override
@@ -189,6 +262,7 @@ public class ProductionOrderFormController extends BaseFormController {
                 responsibleCombo.setValue(currentUser);
             }
         }
+        updateRecipePreview();
         validateRealTime();
     }
 
@@ -266,6 +340,25 @@ public class ProductionOrderFormController extends BaseFormController {
             showError("Erro ao salvar: " + msg);
             hideSaveSpinner();
         });
-        new Thread(saveTask).start();
+        UiUtils.runTask(saveTask);
+    }
+
+    public static class RecipeItemRow {
+        private final String ingredientName;
+        private final String requiredPerUnit;
+        private final String totalToConsume;
+        private final String unit;
+
+        public RecipeItemRow(String ingredientName, String requiredPerUnit, String totalToConsume, String unit) {
+            this.ingredientName = ingredientName;
+            this.requiredPerUnit = requiredPerUnit;
+            this.totalToConsume = totalToConsume;
+            this.unit = unit;
+        }
+
+        public String getIngredientName() { return ingredientName; }
+        public String getRequiredPerUnit() { return requiredPerUnit; }
+        public String getTotalToConsume() { return totalToConsume; }
+        public String getUnit() { return unit; }
     }
 }

@@ -1415,7 +1415,8 @@ public class DashboardNavigationManager {
     public void showProducaoPane(Button navProducao, Label pageTitleLabel, Label pageSubtitleLabel,
                                   VBox producaoPane, User currentUser,
                                   VBox[] allPanes, Button[] allNavButtons,
-                                  Runnable updateCashBadge) {
+                                  Runnable updateCashBadge,
+                                  Runnable onNewOrder, Runnable onViewOrder, Runnable onCompleteOrder, Runnable onDeleteOrder) {
         setActiveNav(navProducao, allNavButtons);
         pageTitleLabel.setText("Fabrico & Padaria");
         pageSubtitleLabel.setText("Ordens de fabrico e abate automático de matérias-primas por receita");
@@ -1433,18 +1434,19 @@ public class DashboardNavigationManager {
             kpiGrid.setId("producaoKPI");
 
             TableView<ProductionOrder> ordersTable = new TableView<>();
-            ordersTable.setStyle("-fx-font-size: 13px; -fx-background-color: #ffffff; -fx-border-color: #E2E8F0; -fx-border-width: 0 1 1 1; -fx-padding: 0 20 20 20;");
+            this.ordersTable = ordersTable;
+            ordersTable.setStyle("-fx-font-size: 13px; -fx-background-color: #ffffff; -fx-border-color: #E2E8F0; -fx-border-width: 0 1 1 1; -fx-padding: 0;");
 
             TableColumn<ProductionOrder, String> o1 = new TableColumn<>("Nº Ordem");
-            o1.setPrefWidth(120);
+            o1.setPrefWidth(130);
             o1.setCellValueFactory(d -> new SimpleStringProperty(d.getValue().getOrderNumber() != null ? d.getValue().getOrderNumber() : "—"));
 
             TableColumn<ProductionOrder, String> o2 = new TableColumn<>("Produto");
-            o2.setPrefWidth(220);
+            o2.setPrefWidth(240);
             o2.setCellValueFactory(d -> new SimpleStringProperty(d.getValue().getProduct() != null ? d.getValue().getProduct().getName() : "—"));
 
             TableColumn<ProductionOrder, String> o3 = new TableColumn<>("Quantidade");
-            o3.setPrefWidth(100);
+            o3.setPrefWidth(120);
             o3.setCellValueFactory(d -> new SimpleStringProperty(d.getValue().getQuantity() != null ? String.valueOf(d.getValue().getQuantity()) + " " + (d.getValue().getUnit() != null ? d.getValue().getUnit() : "") : "—"));
 
             TableColumn<ProductionOrder, String> o4 = new TableColumn<>("Criada em");
@@ -1459,22 +1461,43 @@ public class DashboardNavigationManager {
             ordersTable.getColumns().addAll(List.of(o1, o2, o3, o4, o5));
             ordersTable.setRowFactory(makeTableRowFactory());
 
-            HBox toolbar = new HBox(12);
+            HBox toolbar = new HBox(10);
             toolbar.setStyle("-fx-background-color: #ffffff; -fx-padding: 12 16; -fx-border-color: #E2E8F0; -fx-border-width: 0 0 1 0;");
+
+            Button btnNova = makeActionButton("+ Nova Ordem", "#2563EB", "#ffffff");
+            Button btnDetalhes = makeActionButton("Ver Detalhes", "#0EA5E9", "#ffffff");
+            Button btnConcluir = makeActionButton("Concluir Ordem", "#10B981", "#ffffff");
+            Button btnEliminar = makeActionButton("Eliminar", "#EF4444", "#ffffff");
+            Button btnAtualizar = makeActionButton("Atualizar", "#475569", "#ffffff");
+
+            for (Button b : List.of(btnNova, btnDetalhes, btnConcluir, btnEliminar, btnAtualizar)) {
+                UiUtils.applyHoverElevation(b);
+                UiUtils.applyPressFeedback(b);
+            }
+
+            Region spacer = new Region();
+            HBox.setHgrow(spacer, Priority.ALWAYS);
+
             TextField searchField = new TextField();
             searchField.setPromptText("Pesquisar ordens (Nº ou Produto)...");
-            searchField.setStyle("-fx-font-size: 13px; -fx-font-weight: 600; -fx-padding: 8 12; -fx-background-radius: 6; -fx-border-color: #E2E8F0; -fx-border-radius: 6; -fx-background-color: #F8FAFC; -fx-min-width: 280; -fx-pref-width: 320;");
-            HBox.setHgrow(searchField, Priority.ALWAYS);
-            toolbar.getChildren().add(searchField);
+            searchField.setStyle("-fx-font-size: 13px; -fx-font-weight: 600; -fx-padding: 8 12; -fx-background-radius: 6; -fx-border-color: #CBD5E1; -fx-border-radius: 6; -fx-background-color: #F8FAFC; -fx-pref-width: 280;");
 
             Runnable loadData = () -> {
                 String q = searchField.getText() == null ? "" : searchField.getText().trim();
                 List<ProductionOrder> list = q.isEmpty() ? productionOrderRepository.findAllByOrderByCreatedAtDesc() : productionOrderRepository.searchByNumberOrProduct(q);
                 ordersTable.setItems(FXCollections.observableArrayList(list));
             };
+
+            UiUtils.attachSafe(btnNova, onNewOrder, systemLogService, "PROD_NEW");
+            UiUtils.attachSafe(btnDetalhes, onViewOrder, systemLogService, "PROD_VIEW");
+            UiUtils.attachSafe(btnConcluir, onCompleteOrder, systemLogService, "PROD_COMPLETE");
+            UiUtils.attachSafe(btnEliminar, onDeleteOrder, systemLogService, "PROD_DELETE");
+            UiUtils.attachSafe(btnAtualizar, loadData, systemLogService, "PROD_REFRESH");
+
             UiUtils.setupDebounce(searchField, loadData, 400);
             loadData.run();
 
+            toolbar.getChildren().addAll(btnNova, btnDetalhes, btnConcluir, btnEliminar, btnAtualizar, spacer, searchField);
             main.getChildren().addAll(kpiGrid, toolbar, ordersTable);
             producaoPane.getChildren().add(main);
         }

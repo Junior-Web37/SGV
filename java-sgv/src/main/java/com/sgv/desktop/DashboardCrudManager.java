@@ -48,6 +48,7 @@ public class DashboardCrudManager {
     private final CategoryRepository categoryRepository;
     private final PaymentRepository paymentRepository;
     private final ProductionOrderRepository productionOrderRepository;
+    private final ProductRecipeRepository productRecipeRepository;
     private final UserRepository userRepository;
     private final PurchaseRepository purchaseRepository;
     private final ExpenseRepository expenseRepository;
@@ -74,6 +75,7 @@ public class DashboardCrudManager {
                                 CategoryRepository categoryRepository,
                                 PaymentRepository paymentRepository,
                                 ProductionOrderRepository productionOrderRepository,
+                                ProductRecipeRepository productRecipeRepository,
                                 UserRepository userRepository,
                                 PurchaseRepository purchaseRepository,
                                 ExpenseRepository expenseRepository,
@@ -99,6 +101,7 @@ public class DashboardCrudManager {
         this.categoryRepository = categoryRepository;
         this.paymentRepository = paymentRepository;
         this.productionOrderRepository = productionOrderRepository;
+        this.productRecipeRepository = productRecipeRepository;
         this.userRepository = userRepository;
         this.purchaseRepository = purchaseRepository;
         this.expenseRepository = expenseRepository;
@@ -587,6 +590,97 @@ public class DashboardCrudManager {
         } catch (Exception ex) {
             log.error("Erro inesperado", ex);
         }
+    }
+
+    public void viewSelectedProductionOrder(TableView<ProductionOrder> ordersTable, Window owner) {
+        if (ordersTable == null) return;
+        ProductionOrder selected = ordersTable.getSelectionModel().getSelectedItem();
+        if (selected == null) { showAlert(Alert.AlertType.WARNING, "Selecione uma ordem de produção para ver detalhes."); return; }
+
+        String stateColor = "COMPLETED".equalsIgnoreCase(selected.getState()) ? "#10B981" : "#F59E0B";
+        String prodName = selected.getProduct() != null ? selected.getProduct().getName() : "—";
+        String prodCode = selected.getProduct() != null ? selected.getProduct().getCode() : "—";
+
+        var dialog = DetailDialog.create(owner)
+            .title("Ordem de Produção #" + selected.getOrderNumber())
+            .subtitle(prodCode + " - " + prodName)
+            .statusBadge(selected.getState() != null ? selected.getState() : "—", stateColor)
+            .width(680)
+            .height(540)
+            .section("Dados do Fabrico")
+            .field("Nº Ordem", selected.getOrderNumber())
+            .field("Produto", prodName)
+            .field("Quantidade Produzida", (selected.getQuantity() != null ? selected.getQuantity().toString() : "0") + " " + (selected.getUnit() != null ? selected.getUnit() : "UN"), "#2563EB")
+            .field("Data de Registo", selected.getCreatedAt() != null ? selected.getCreatedAt().format(DATE_FORMATTER) : "—")
+            .field("Responsável", selected.getCreatedBy() != null ? selected.getCreatedBy().getFullName() : "—");
+
+        if (selected.getNotes() != null && !selected.getNotes().isBlank()) {
+            dialog.section("Observações").field("Notas / Quebras", selected.getNotes());
+        }
+
+        if (selected.getProduct() != null && selected.getProduct().getId() != null) {
+            var recipes = productRecipeRepository.findByParentProductId(selected.getProduct().getId());
+            if (recipes != null && !recipes.isEmpty()) {
+                String[] cols = {"Matéria-Prima", "Qtd. Requerida", "Total Abatido", "Unidade"};
+                List<Map<String, String>> rows = new ArrayList<>();
+                BigDecimal qty = selected.getQuantityAmount() != null ? selected.getQuantityAmount() : BigDecimal.ONE;
+                for (var r : recipes) {
+                    Map<String, String> row = new LinkedHashMap<>();
+                    row.put("Matéria-Prima", r.getIngredientProduct() != null ? r.getIngredientProduct().getName() : "—");
+                    row.put("Qtd. Requerida", String.format("%.4f", r.getQuantityRequired() != null ? r.getQuantityRequired().doubleValue() : 0));
+                    row.put("Total Abatido", String.format("%.4f", (r.getQuantityRequired() != null ? r.getQuantityRequired().multiply(qty).doubleValue() : 0)));
+                    row.put("Unidade", r.getUnit() != null ? r.getUnit() : "UN");
+                    rows.add(row);
+                }
+                dialog.tableSection("Ficha Técnica (BOM) — Matérias-Primas Abatidas", cols, rows);
+            }
+        }
+
+        dialog.show();
+    }
+
+    public void completeSelectedProductionOrder(TableView<ProductionOrder> ordersTable, User currentUser, Runnable onDataChanged) {
+        if (trainingModeService.isTrainingMode()) { showTrainingBlockedAlert(); return; }
+        if (ordersTable == null) return;
+        ProductionOrder selected = ordersTable.getSelectionModel().getSelectedItem();
+        if (selected == null) { showAlert(Alert.AlertType.WARNING, "Selecione uma ordem de produção."); return; }
+        if ("COMPLETED".equalsIgnoreCase(selected.getState())) {
+            showAlert(Alert.AlertType.INFORMATION, "Esta ordem de produção já se encontra concluída.");
+            return;
+        }
+
+        Alert confirm = new Alert(Alert.AlertType.CONFIRMATION, "Deseja marcar como concluída e registar o stock da ordem " + selected.getOrderNumber() + "?", ButtonType.YES, ButtonType.NO);
+        confirm.showAndWait().ifPresent(res -> {
+            if (res == ButtonType.YES) {
+                try {
+                    selected.setState("COMPLETED");
+                    selected.setCompletedAt(LocalDateTime.now());
+                    productionOrderRepository.save(selected);
+
+                    // Entrada em stock e consumo de ingredientes
+                    if (selected.getProduct() != null && currentUser != null && currentUser.getBranch() != null) {
+                        BigDecimal qty = selected.getQuantityAmount() != null ? selected.getQuantityAmount() : BigDecimal.ONE;
+                        stockBranchService.increaseStock(currentUser.getBranch(), selected.getProduct(), qty, "PROD-" + selected.getOrderNumber(), "PRODUCAO", currentUser);
+                        stockBranchService.consumeIngredientsForProduction(currentUser.getBranch(), selected.getProduct(), qty, "PROD-" + selected.getOrderNumber(), currentUser);
+                    }
+
+                    systemLogService.logUserAction(currentUser != null ? currentUser.getUsername() : "Sistema", "COMPLETE_PRODUCTION_ORDER", "Ordem de produção concluída: " + selected.getOrderNumber());
+                    onDataChanged.run();
+                    showAlert(Alert.AlertType.INFORMATION, "Ordem de produção concluída com sucesso!");
+                } catch (Exception ex) {
+                    systemLogService.logError("COMPLETE_ORDER_FAILED", "Erro ao concluir ordem de produção", ex);
+                    showAlert(Alert.AlertType.ERROR, "Erro ao concluir: " + ex.getMessage());
+                }
+            }
+        });
+    }
+
+    public void deleteSelectedProductionOrder(TableView<ProductionOrder> ordersTable, User currentUser, Runnable onDataChanged) {
+        if (trainingModeService.isTrainingMode()) { showTrainingBlockedAlert(); return; }
+        if (ordersTable == null) return;
+        ProductionOrder selected = ordersTable.getSelectionModel().getSelectedItem();
+        if (selected == null) { showAlert(Alert.AlertType.WARNING, "Selecione uma ordem de produção para eliminar."); return; }
+        safeDelete(() -> dashboardCrudService.deleteProductionOrder(selected.getId()), onDataChanged, "Ordem de Produção", currentUser);
     }
 
     public void openOrderForm(ProductionOrder order, Window owner, User currentUser, Runnable onDataChanged) {
