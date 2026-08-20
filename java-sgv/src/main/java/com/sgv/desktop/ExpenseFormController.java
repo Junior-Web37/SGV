@@ -121,7 +121,7 @@ public class ExpenseFormController extends BaseFormController {
                 return null;
             }
         };
-        saveTask.setOnSucceeded(e -> { if (onSave != null) onSave.run(); doCancel(); });
+        saveTask.setOnSucceeded(e -> { systemLogService.logUserAction(currentUser != null ? currentUser.getUsername() : "Sistema", "DESPESA_GRAVADA", "Despesa gravada: " + descriptionField.getText() + " (" + amountField.getText() + " MT)"); if (onSave != null) onSave.run(); doCancel(); });
         saveTask.setOnFailed(e -> {
             Throwable ex = saveTask.getException();
             String msg = ex != null && ex.getMessage() != null ? ex.getMessage() : "Erro desconhecido";

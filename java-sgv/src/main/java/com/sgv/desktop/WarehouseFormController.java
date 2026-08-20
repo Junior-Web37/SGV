@@ -137,7 +137,7 @@ public class WarehouseFormController extends BaseFormController {
             }
         };
 
-        saveTask.setOnSucceeded(e -> {
+        saveTask.setOnSucceeded(e -> { systemLogService.logUserAction(currentUser != null ? currentUser.getUsername() : "Sistema", "ARMAZEM_GRAVADO", "Armazém gravado com sucesso: " + nameField.getText());
             if (onSaved != null) onSaved.run();
             doCancel();
         });

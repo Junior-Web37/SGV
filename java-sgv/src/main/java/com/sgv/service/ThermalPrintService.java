@@ -162,6 +162,98 @@ public class ThermalPrintService {
         return outputFile;
     }
 
+    public File printCashSessionReport(com.sgv.entity.CashSession session, java.util.List<com.sgv.entity.CashMovement> movements, com.sgv.entity.AppConfig config) throws IOException {
+        File outputDir = new File(System.getProperty("user.home"), "Documents/SGV/caixa");
+        outputDir.mkdirs();
+        String fileName = "FITA_Z_TURNO_" + (session != null && session.getId() != null ? session.getId() : "SESSAO") + ".pdf";
+        File outputFile = new File(outputDir, fileName);
+
+        float customHeight = 700 + (movements != null ? movements.size() * 14 : 0);
+        try (PDDocument doc = new PDDocument()) {
+            PDPage page = new PDPage(new PDRectangle(PAGE_WIDTH, customHeight));
+            doc.addPage(page);
+
+            PDType1Font fontBold = new PDType1Font(Standard14Fonts.FontName.COURIER_BOLD);
+            PDType1Font fontReg = new PDType1Font(Standard14Fonts.FontName.COURIER);
+
+            try (PDPageContentStream cs = new PDPageContentStream(doc, page)) {
+                float y = customHeight - MARGIN;
+
+                String compName = config != null && config.getCompanyName() != null ? config.getCompanyName() : "SGV";
+                String branchName = session.getBranch() != null ? session.getBranch().getName() : compName;
+                String nuit = session.getBranch() != null && session.getBranch().getNuit() != null ? session.getBranch().getNuit()
+                        : (config != null && config.getCompanyNuit() != null ? config.getCompanyNuit() : "");
+
+                y = centeredText(cs, fontBold, 12, branchName, y);
+                if (!nuit.isBlank()) y = centeredText(cs, fontReg, 8, "NUIT: " + nuit, y);
+                y = drawLine(cs, y);
+
+                y = centeredText(cs, fontBold, 10, "*** FECHO DE CAIXA (FITA Z) ***", y);
+                y = leftText(cs, fontReg, 8, "Turno: #" + session.getId(), MARGIN, y);
+                String opName = session.getUser() != null ? session.getUser().getFullName() : "Operador";
+                y = leftText(cs, fontReg, 8, "Operador: " + opName, MARGIN, y);
+                if (session.getOpenedAt() != null) {
+                    y = leftText(cs, fontReg, 8, "Abertura: " + session.getOpenedAt().format(java.time.format.DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm")), MARGIN, y);
+                }
+                if (session.getClosedAt() != null) {
+                    y = leftText(cs, fontReg, 8, "Fecho:    " + session.getClosedAt().format(java.time.format.DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm")), MARGIN, y);
+                }
+                y = drawLine(cs, y);
+
+                // VALORES
+                java.math.BigDecimal initial = session.getInitialValueAmount() != null ? session.getInitialValueAmount() : java.math.BigDecimal.ZERO;
+                java.math.BigDecimal system = session.getSystemValueAmount() != null ? session.getSystemValueAmount() : java.math.BigDecimal.ZERO;
+                java.math.BigDecimal reported = session.getReportedValueAmount() != null ? session.getReportedValueAmount() : java.math.BigDecimal.ZERO;
+                java.math.BigDecimal diff = reported.subtract(system);
+
+                y = twoColumnText(cs, fontReg, 8, "Fundo Inicial:", String.format("%.2f MT", initial), y);
+                y = twoColumnText(cs, fontReg, 8, "Total do Sistema:", String.format("%.2f MT", system), y);
+                y = twoColumnText(cs, fontBold, 8, "Total Contado:", String.format("%.2f MT", reported), y);
+                y = drawLine(cs, y);
+
+                String diffLabel = diff.compareTo(java.math.BigDecimal.ZERO) == 0 ? "Diferença (Exato):"
+                        : (diff.compareTo(java.math.BigDecimal.ZERO) > 0 ? "Sobra de Caixa:" : "Quebra de Caixa:");
+                y = twoColumnText(cs, fontBold, 9, diffLabel, String.format("%+.2f MT", diff), y);
+                y = drawLine(cs, y);
+
+                // MOVIMENTOS
+                if (movements != null && !movements.isEmpty()) {
+                    y = leftText(cs, fontBold, 8, "MOVIMENTOS REGISTADOS:", MARGIN, y);
+                    for (com.sgv.entity.CashMovement m : movements) {
+                        String timeStr = m.getCreatedAt() != null ? m.getCreatedAt().format(java.time.format.DateTimeFormatter.ofPattern("HH:mm")) : "--:--";
+                        String type = m.getType() != null ? m.getType() : "";
+                        String desc = truncate(m.getDescription() != null ? m.getDescription() : "", 16);
+                        String val = String.format("%.2f", m.getAmountValue());
+                        y = leftText(cs, fontReg, 7, timeStr + " " + pad(type, 4) + " " + pad(desc, 16) + val, MARGIN, y);
+                    }
+                    y = drawLine(cs, y);
+                }
+
+                if (session.getNotes() != null && !session.getNotes().isBlank()) {
+                    y = leftText(cs, fontReg, 7, "Obs: " + truncate(session.getNotes(), 40), MARGIN, y);
+                    y = drawLine(cs, y);
+                }
+
+                y -= 15;
+                y = centeredText(cs, fontReg, 7, "_____________________________", y);
+                y = centeredText(cs, fontReg, 7, "Assinatura do Operador", y);
+                y -= 15;
+                y = centeredText(cs, fontReg, 7, "_____________________________", y);
+                y = centeredText(cs, fontReg, 7, "Assinatura do Gerente", y);
+                y = drawLine(cs, y);
+                y = centeredText(cs, fontReg, 6, "SGV - Sistema de Gestao de Vendas", y);
+            }
+            doc.save(outputFile);
+        }
+        return outputFile;
+    }
+
+    private float twoColumnText(PDPageContentStream cs, PDType1Font font, float size, String left, String right, float y) throws IOException {
+        leftText(cs, font, size, left, MARGIN, y);
+        float w = font.getStringWidth(right) / 1000 * size;
+        return leftText(cs, font, size, right, PAGE_WIDTH - MARGIN - w, y);
+    }
+
     private float drawLine(PDPageContentStream cs, float y) throws IOException {
         cs.setLineWidth(0.3f);
         cs.moveTo(MARGIN, y);

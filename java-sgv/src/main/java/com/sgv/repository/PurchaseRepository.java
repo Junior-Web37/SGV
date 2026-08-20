@@ -11,6 +11,9 @@ public interface PurchaseRepository extends JpaRepository<Purchase, Long> {
     List<Purchase> findByBranchIdOrderByCreatedAtDesc(Long branchId);
     List<Purchase> findBySupplierIdOrderByCreatedAtDesc(Long supplierId);
 
+    @Query("SELECT p FROM Purchase p WHERE p.supplier.id = :supplierId AND p.state <> 'CANCELLED' AND (COALESCE(p.total, 0) - COALESCE(p.paidAmount, 0)) > 0.01 ORDER BY p.createdAt DESC")
+    List<Purchase> findPendingBySupplierId(@Param("supplierId") Long supplierId);
+
     Optional<Purchase> findByInvoiceNumberIgnoreCase(String invoiceNumber);
 
     @Query("SELECT p FROM Purchase p WHERE " +

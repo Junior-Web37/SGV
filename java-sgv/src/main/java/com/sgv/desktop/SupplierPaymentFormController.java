@@ -13,6 +13,7 @@ import javafx.scene.control.*;
 import javafx.util.StringConverter;
 import org.springframework.stereotype.Component;
 
+import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
@@ -32,6 +33,7 @@ public class SupplierPaymentFormController extends BaseFormController {
     private final SupplierPaymentService supplierPaymentService;
     private final SystemLogService systemLogService;
     private SupplierPayment payment;
+    private BigDecimal currentPendingBalance = BigDecimal.ZERO;
 
     public SupplierPaymentFormController(SupplierService supplierService,
                                          PurchaseRepository purchaseRepository,
@@ -48,22 +50,36 @@ public class SupplierPaymentFormController extends BaseFormController {
         initCommonFields();
 
         amountField.textProperty().addListener((obs, oldVal, newVal) -> validateRealTime());
-        supplierCombo.valueProperty().addListener((obs, oldVal, newVal) -> { if (newVal != null) refreshPurchaseCombo(newVal); validateRealTime(); });
-        purchaseCombo.valueProperty().addListener((obs, oldVal, newVal) -> validateRealTime());
+        supplierCombo.valueProperty().addListener((obs, oldVal, newVal) -> {
+            if (newVal != null) refreshPurchaseCombo(newVal);
+            validateRealTime();
+        });
+        purchaseCombo.valueProperty().addListener((obs, oldVal, newVal) -> {
+            updatePurchaseSummary(newVal);
+            validateRealTime();
+        });
         methodCombo.valueProperty().addListener((obs, oldVal, newVal) -> validateRealTime());
 
         supplierCombo.setItems(FXCollections.observableArrayList(supplierService.findAll()));
         supplierCombo.setConverter(new StringConverter<>() {
-            @Override public String toString(Supplier s) { return s != null ? s.getName() : ""; }
-            @Override public Supplier fromString(String string) { return supplierCombo.getItems().stream().filter(s -> s.getName() != null && s.getName().equals(string)).findFirst().orElse(null); }
+            @Override public String toString(Supplier s) { return s != null ? s.getName() + " (NUIT: " + (s.getNuit() != null ? s.getNuit() : "—") + ")" : ""; }
+            @Override public Supplier fromString(String string) { return null; }
         });
         purchaseCombo.setConverter(new StringConverter<>() {
-            @Override public String toString(Purchase p) { return p != null ? (p.getInvoiceNumber() != null ? p.getInvoiceNumber() : "Compra #" + p.getId()) : ""; }
-            @Override public Purchase fromString(String s) { return purchaseCombo.getItems().stream().filter(p -> toString(p).equals(s)).findFirst().orElse(null); }
+            @Override
+            public String toString(Purchase p) {
+                if (p == null) return "";
+                String num = p.getInvoiceNumber() != null ? p.getInvoiceNumber() : "Compra #" + p.getId();
+                BigDecimal tot = p.getTotalAmount() != null ? p.getTotalAmount() : BigDecimal.ZERO;
+                BigDecimal paid = p.getPaidAmountValue() != null ? p.getPaidAmountValue() : BigDecimal.ZERO;
+                BigDecimal pend = tot.subtract(paid);
+                return String.format("%s | Total: %.2f MT (Pendente: %.2f MT)", num, tot, pend);
+            }
+            @Override public Purchase fromString(String s) { return null; }
         });
 
-        methodCombo.getItems().addAll("Dinheiro", "Transferência Bancária", "Cheque", "POS", "Outro");
-        methodCombo.setValue("Dinheiro");
+        methodCombo.getItems().addAll("Transferência Bancária", "Dinheiro / Caixa", "Cheque", "POS", "M-Pesa");
+        methodCombo.setValue("Transferência Bancária");
         paymentDatePicker.setValue(LocalDate.now());
         amountField.setText("0.00");
 
@@ -74,12 +90,24 @@ public class SupplierPaymentFormController extends BaseFormController {
         javafx.application.Platform.runLater(this::validateRealTime);
     }
 
+    private void updatePurchaseSummary(Purchase p) {
+        if (p == null) {
+            currentPendingBalance = BigDecimal.ZERO;
+            amountField.setText("0.00");
+            return;
+        }
+        BigDecimal tot = p.getTotalAmount() != null ? p.getTotalAmount() : BigDecimal.ZERO;
+        BigDecimal paid = p.getPaidAmountValue() != null ? p.getPaidAmountValue() : BigDecimal.ZERO;
+        currentPendingBalance = tot.subtract(paid);
+        amountField.setText(String.format(java.util.Locale.US, "%.2f", currentPendingBalance));
+    }
+
     private void refreshPurchaseCombo(Supplier supplier) {
-        if (supplier == null) {
+        if (supplier == null || supplier.getId() == null) {
             purchaseCombo.setItems(FXCollections.observableArrayList());
             return;
         }
-        List<Purchase> purchases = purchaseRepository.findBySupplierIdOrderByCreatedAtDesc(supplier.getId());
+        List<Purchase> purchases = supplierPaymentService.findPendingPurchasesBySupplier(supplier.getId());
         purchaseCombo.setItems(FXCollections.observableArrayList(purchases));
     }
 
@@ -99,9 +127,12 @@ public class SupplierPaymentFormController extends BaseFormController {
             valid = false;
         } else {
             try {
-                double value = Double.parseDouble(amountText.replace(",", "."));
-                if (value <= 0) {
+                BigDecimal value = new BigDecimal(amountText.trim().replace(",", "."));
+                if (value.compareTo(BigDecimal.ZERO) <= 0) {
                     errors.append("Valor deve ser maior que zero. ");
+                    valid = false;
+                } else if (currentPendingBalance.compareTo(BigDecimal.ZERO) > 0 && value.compareTo(currentPendingBalance) > 0) {
+                    errors.append(String.format("Valor (%.2f MT) excede o saldo pendente da compra (%.2f MT). ", value, currentPendingBalance));
                     valid = false;
                 }
             } catch (NumberFormatException e) {
@@ -148,7 +179,7 @@ public class SupplierPaymentFormController extends BaseFormController {
         SupplierPayment p = payment != null ? payment : new SupplierPayment();
         p.setSupplier(supplierCombo.getValue());
         p.setPurchase(purchaseCombo.getValue());
-        p.setAmount(Double.parseDouble(amountField.getText().replace(",", ".")));
+        p.setAmountValue(new BigDecimal(amountField.getText().trim().replace(",", ".")));
         p.setMethod(methodCombo.getValue());
         p.setReference(referenceField.getText() != null ? referenceField.getText().trim() : null);
         if (paymentDatePicker.getValue() != null) {
@@ -163,7 +194,7 @@ public class SupplierPaymentFormController extends BaseFormController {
                 return null;
             }
         };
-        task.setOnSucceeded(e -> {
+        task.setOnSucceeded(e -> { systemLogService.logUserAction(currentUser != null ? currentUser.getUsername() : "Sistema", "PAGAMENTO_FORNECEDOR_GRAVADO", "Pagamento a fornecedor gravado: " + amountField.getText() + " MT");
             if (onSave != null) onSave.run();
             doCancel();
         });

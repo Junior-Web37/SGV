@@ -26,10 +26,12 @@ public class StockNewFormController extends BaseFormController {
     private final StockBranchService stockBranchService;
     private final ProductRepository productRepository;
     private final BranchRepository branchRepository;
+    private final com.sgv.service.SystemLogService systemLogService;
 
     public StockNewFormController(StockBranchService stockBranchService,
                                   ProductRepository productRepository,
-                                  BranchRepository branchRepository) {
+                                  BranchRepository branchRepository, com.sgv.service.SystemLogService systemLogService) {
+        this.systemLogService = systemLogService;
         this.stockBranchService = stockBranchService;
         this.productRepository = productRepository;
         this.branchRepository = branchRepository;
@@ -155,8 +157,8 @@ public class StockNewFormController extends BaseFormController {
                 return null;
             }
         };
-        saveTask.setOnSucceeded(e -> { if (onSave != null) onSave.run(); doCancel(); });
-        saveTask.setOnFailed(e -> {
+        saveTask.setOnSucceeded(e -> { systemLogService.logUserAction(currentUser != null ? currentUser.getUsername() : "Sistema", "STOCK_INICIAL_GRAVADO", "Stock inicial registado para o artigo"); if (onSave != null) onSave.run(); doCancel(); });
+        saveTask.setOnFailed(e -> { Throwable ex = saveTask.getException(); systemLogService.logError("STOCK_INIT_FAILED", "Erro ao inicializar stock: " + (ex != null ? ex.getMessage() : ""), ex);
             Throwable ex = saveTask.getException();
             String msg = ex != null && ex.getMessage() != null ? ex.getMessage() : "Erro desconhecido";
             showError("Erro ao salvar: " + msg);

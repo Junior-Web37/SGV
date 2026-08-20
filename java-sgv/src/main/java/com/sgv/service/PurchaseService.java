@@ -117,6 +117,19 @@ public class PurchaseService {
                             saved.getInvoiceNumber() != null ? saved.getInvoiceNumber() : "COMPRA",
                             currentUser,
                             item.getCostPrice());
+
+                    // Atualização automática de custo do produto
+                    if (item.getCostPrice() != null && item.getCostPrice() > 0) {
+                        Product p = item.getProduct();
+                        double oldCost = p.getPriceCost() != null ? p.getPriceCost() : 0.0;
+                        double newCost = item.getCostPrice();
+                        if (oldCost <= 0.0) {
+                            p.setPriceCost(newCost);
+                        } else {
+                            p.setPriceCost((oldCost + newCost) / 2.0);
+                        }
+                        productRepository.save(p);
+                    }
                 }
             }
         }

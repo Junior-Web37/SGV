@@ -14,8 +14,26 @@ import java.util.Objects;
 public final class UiUtils {
 
     private static final Logger log = LoggerFactory.getLogger(UiUtils.class);
+    private static final java.util.concurrent.ExecutorService bgPool = java.util.concurrent.Executors.newFixedThreadPool(8, r -> {
+        Thread t = new Thread(r);
+        t.setName("sgv-ui-bg-pool-" + t.getId());
+        t.setDaemon(true);
+        return t;
+    });
 
     private UiUtils() {}
+
+    public static void runAsync(Runnable task) {
+        if (task != null) {
+            bgPool.submit(task);
+        }
+    }
+
+    public static void runTask(javafx.concurrent.Task<?> task) {
+        if (task != null) {
+            bgPool.submit(task);
+        }
+    }
 
     public static EventHandler<ActionEvent> safeOnAction(Runnable r, SystemLogService logService, String action) {
         Objects.requireNonNull(r);

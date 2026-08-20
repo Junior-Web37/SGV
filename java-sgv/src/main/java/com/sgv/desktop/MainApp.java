@@ -110,7 +110,10 @@ public class MainApp extends Application {
                 fade.setToValue(0.0);
                 fade.setOnFinished(e -> {
                     splashStage.close();
-                    primaryStage.setTitle("SGV Desktop");
+                    primaryStage.setTitle("SGV - Sistema de Gestão de Vendas & Facturação");
+                    try {
+                        primaryStage.getIcons().add(new javafx.scene.image.Image(getClass().getResourceAsStream("/icons/app-icon.png")));
+                    } catch (Exception ignored) {}
                     primaryStage.setScene(scene);
                     primaryStage.setWidth(420);
                     primaryStage.setHeight(640);

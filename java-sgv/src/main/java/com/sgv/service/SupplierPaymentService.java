@@ -34,10 +34,16 @@ public class SupplierPaymentService {
                 .toList();
     }
 
+    public List<Purchase> findPendingPurchasesBySupplier(Long supplierId) {
+        if (supplierId == null) return List.of();
+        return purchaseRepository.findPendingBySupplierId(supplierId);
+    }
+
     @Transactional
     public SupplierPayment savePayment(SupplierPayment payment) {
         if (payment == null) throw new IllegalArgumentException("Pagamento é obrigatório.");
-        if (payment.getAmountValue() == null || payment.getAmountValue().compareTo(BigDecimal.ZERO) <= 0) {
+        BigDecimal amount = payment.getAmountValue();
+        if (amount == null || amount.compareTo(BigDecimal.ZERO) <= 0) {
             throw new IllegalArgumentException("Valor do pagamento deve ser maior que zero.");
         }
         if (payment.getSupplier() == null || payment.getSupplier().getId() == null) {
@@ -51,29 +57,35 @@ public class SupplierPaymentService {
         Purchase purchase = payment.getPurchase();
         if (purchase != null && purchase.getId() != null) {
             purchase = purchaseRepository.findById(purchase.getId())
-                    .orElseThrow(() -> new IllegalArgumentException("Compra associada não encontrada."));
+                    .orElseThrow(() -> new IllegalArgumentException("Factura de compra associada não encontrada."));
             payment.setPurchase(purchase);
-            if (payment.getSupplier() == null) {
-                payment.setSupplier(purchase.getSupplier());
+
+            BigDecimal purchaseTotal = purchase.getTotalAmount() != null ? purchase.getTotalAmount() : BigDecimal.ZERO;
+            BigDecimal previousPaid = purchase.getPaidAmountValue() != null ? purchase.getPaidAmountValue() : BigDecimal.ZERO;
+            BigDecimal pendingBalance = purchaseTotal.subtract(previousPaid);
+
+            if (pendingBalance.compareTo(BigDecimal.ZERO) <= 0) {
+                throw new IllegalStateException("Esta factura de compra já se encontra 100% quitada.");
             }
+
+            if (amount.compareTo(pendingBalance) > 0) {
+                throw new IllegalArgumentException(String.format("Valor a pagar (%.2f MT) excede o saldo pendente da factura (%.2f MT).", amount, pendingBalance));
+            }
+
+            BigDecimal nextPaid = previousPaid.add(amount);
+            purchase.setPaidAmountValue(nextPaid);
+            if (nextPaid.compareTo(purchaseTotal) >= 0) {
+                purchase.setState("PAID");
+            } else {
+                purchase.setState("PAGO_PARCIAL");
+            }
+            purchaseRepository.save(purchase);
         }
 
         if (payment.getCreatedAt() == null) {
             payment.setCreatedAt(LocalDateTime.now());
         }
 
-        SupplierPayment saved = supplierPaymentRepository.save(payment);
-
-        if (purchase != null) {
-            BigDecimal previousPaid = purchase.getPaidAmountValue() != null ? purchase.getPaidAmountValue() : BigDecimal.ZERO;
-            BigDecimal nextPaid = previousPaid.add(payment.getAmountValue());
-            purchase.setPaidAmountValue(nextPaid);
-            if (purchase.getTotalAmount() != null && nextPaid.compareTo(purchase.getTotalAmount()) >= 0) {
-                purchase.setState("PAID");
-            }
-            purchaseRepository.save(purchase);
-        }
-
-        return saved;
+        return supplierPaymentRepository.save(payment);
     }
 }

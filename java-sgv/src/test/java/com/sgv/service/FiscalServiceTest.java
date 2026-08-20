@@ -2,24 +2,29 @@ package com.sgv.service;
 
 import com.sgv.entity.Branch;
 import com.sgv.entity.Sale;
+import com.sgv.repository.SaleRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.Mock;
+import org.mockito.junit.jupiter.MockitoExtension;
 
 import static org.junit.jupiter.api.Assertions.*;
 
-/**
- * Unit tests for FiscalService — verifies hash generation
- * uses SHA-256 and produces deterministic, unique results.
- */
+@ExtendWith(MockitoExtension.class)
 class FiscalServiceTest {
 
     private FiscalService fiscalService;
+
+    @Mock
     private SaleNumberingService saleNumberingService;
+
+    @Mock
+    private SaleRepository saleRepository;
 
     @BeforeEach
     void setUp() {
-        saleNumberingService = null; // Not needed for hash generation tests
-        fiscalService = new FiscalService(saleNumberingService);
+        fiscalService = new FiscalService(saleNumberingService, saleRepository);
     }
 
     @Test
@@ -76,7 +81,6 @@ class FiscalServiceTest {
     @Test
     void generateHashHash_shouldHandleNullFields() {
         Sale sale = new Sale();
-        // All fields null
         String hash = fiscalService.generateHashHash(sale);
         assertNotNull(hash);
         assertEquals(64, hash.length());
@@ -96,7 +100,6 @@ class FiscalServiceTest {
 
     @Test
     void generateHashHash_shouldFormatTotalToTwoDecimals() {
-        // Total 100.0 and 100.00 should produce same hash
         Sale sale1 = createSale(1L, "A", 1L, 100.0);
         Sale sale2 = createSale(1L, "A", 1L, 100.00);
 

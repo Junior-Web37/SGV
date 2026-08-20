@@ -1,25 +1,34 @@
 package com.sgv.desktop;
 
-import com.sgv.entity.*;
-import com.sgv.repository.*;
+import com.sgv.entity.Branch;
+import com.sgv.entity.Product;
+import com.sgv.entity.StockWarehouse;
+import com.sgv.entity.Warehouse;
+import com.sgv.entity.WarehouseTransfer;
+import com.sgv.entity.WarehouseTransferItem;
+import com.sgv.repository.BranchRepository;
+import com.sgv.repository.ProductRepository;
+import com.sgv.repository.StockWarehouseRepository;
+import com.sgv.repository.WarehouseRepository;
 import com.sgv.service.WarehouseService;
 import com.sgv.service.WarehouseTransferService;
+import javafx.application.Platform;
 import javafx.beans.property.SimpleDoubleProperty;
+import javafx.beans.property.SimpleStringProperty;
 import javafx.collections.FXCollections;
 import javafx.collections.ObservableList;
 import javafx.collections.transformation.FilteredList;
-import javafx.scene.input.KeyCode;
-import javafx.application.Platform;
 import javafx.fxml.FXML;
 import javafx.scene.control.*;
 import javafx.scene.control.cell.PropertyValueFactory;
+import javafx.scene.input.KeyCode;
 import javafx.util.StringConverter;
-import org.springframework.stereotype.Component;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.stereotype.Component;
 
-import java.util.Comparator;
-import java.util.List;
+import java.math.BigDecimal;
+import java.util.*;
 import java.util.stream.Collectors;
 
 @Component
@@ -43,41 +52,50 @@ public class WarehouseTransferFormController extends BaseFormController {
     private final WarehouseRepository warehouseRepository;
     private final BranchRepository branchRepository;
     private final ProductRepository productRepository;
+    private final StockWarehouseRepository stockWarehouseRepository;
     private final WarehouseService warehouseService;
     private final WarehouseTransferService transferService;
+    private final com.sgv.service.SystemLogService systemLogService;
 
     private final ObservableList<ItemRow> items = FXCollections.observableArrayList();
-
-    private ObservableList<Product> allProducts = FXCollections.observableArrayList();
-    private FilteredList<Product> filteredProducts;
+    private final ObservableList<Product> allProducts = FXCollections.observableArrayList();
     private final ObservableList<Product> comboDisplayList = FXCollections.observableArrayList();
-    private boolean isRefreshingProducts = false;
-    private Product lastSelectedProduct = null;
+    private final Map<Long, BigDecimal> warehouseStockMap = new HashMap<>();
+    private boolean isRefreshing = false;
 
     public WarehouseTransferFormController(WarehouseRepository warehouseRepository,
-                                          BranchRepository branchRepository,
-                                          ProductRepository productRepository,
-                                          WarehouseService warehouseService,
-                                          WarehouseTransferService transferService) {
+                                           BranchRepository branchRepository,
+                                           ProductRepository productRepository,
+                                           StockWarehouseRepository stockWarehouseRepository,
+                                           WarehouseService warehouseService,
+                                           WarehouseTransferService transferService, com.sgv.service.SystemLogService systemLogService) {
+        this.systemLogService = systemLogService;
         this.warehouseRepository = warehouseRepository;
         this.branchRepository = branchRepository;
         this.productRepository = productRepository;
+        this.stockWarehouseRepository = stockWarehouseRepository;
         this.warehouseService = warehouseService;
         this.transferService = transferService;
     }
 
     @FXML
     public void initialize() {
-        items.clear();
-        lastSelectedProduct = null;
-        isRefreshingProducts = false;
-        currentUser = null;
-        onSave = null;
         initCommonFields();
+
+        // 1. Carregar armazéns e filiais
         warehouseCombo.setItems(FXCollections.observableArrayList(warehouseRepository.findByIsActiveTrueOrderByNameAsc()));
-        if (!warehouseCombo.getItems().isEmpty()) warehouseCombo.getSelectionModel().selectFirst();
+        warehouseCombo.setConverter(new StringConverter<>() {
+            @Override public String toString(Warehouse w) { return w != null ? w.getName() + " (" + w.getCode() + ")" : ""; }
+            @Override public Warehouse fromString(String s) { return null; }
+        });
 
         branchCombo.setItems(FXCollections.observableArrayList(branchRepository.findAll()));
+        branchCombo.setConverter(new StringConverter<>() {
+            @Override public String toString(Branch b) { return b != null ? b.getName() : ""; }
+            @Override public Branch fromString(String s) { return null; }
+        });
+
+        if (!warehouseCombo.getItems().isEmpty()) warehouseCombo.getSelectionModel().selectFirst();
         if (!branchCombo.getItems().isEmpty()) branchCombo.getSelectionModel().selectFirst();
 
         setupProductSearch();
@@ -90,74 +108,23 @@ public class WarehouseTransferFormController extends BaseFormController {
 
         UiUtils.applyNumericFormatter(quantityField);
 
-        productCombo.valueProperty().addListener((obs, o, n) -> validateRealTime());
-        warehouseCombo.valueProperty().addListener((obs, ov, nv) -> { refreshSummary(); validateRealTime(); });
+        warehouseCombo.valueProperty().addListener((obs, ov, nv) -> {
+            loadWarehouseStockCache(nv);
+            refreshProductList();
+            validateRealTime();
+        });
+
         branchCombo.valueProperty().addListener((obs, ov, nv) -> validateRealTime());
-        items.addListener((javafx.collections.ListChangeListener.Change<? extends ItemRow> c) -> validateRealTime());
+        productCombo.valueProperty().addListener((obs, ov, nv) -> {
+            updateSelectedProductStock(nv);
+            validateRealTime();
+        });
 
         itemsTable.setItems(items);
-    }
+        items.addListener((javafx.collections.ListChangeListener.Change<? extends ItemRow> c) -> validateRealTime());
 
-    private void setupProductSearch() {
-        allProducts.setAll(productRepository.findAllActive());
-        filteredProducts = new FilteredList<>(allProducts, p -> true);
-        productCombo.setItems(comboDisplayList);
-
-        productCombo.valueProperty().addListener((obs, oldVal, newVal) -> {
-            if (newVal instanceof Product p) {
-                lastSelectedProduct = p;
-            }
-        });
-
-        productCombo.setConverter(new StringConverter<>() {
-            @Override public String toString(Product p) { return p == null ? "" : productDisplayText(p); }
-            @Override public Product fromString(String string) { return findBestMatch(string); }
-        });
-
-        productCombo.setCellFactory(listView -> new ListCell<>() {
-            @Override protected void updateItem(Product p, boolean empty) {
-                super.updateItem(p, empty);
-                if (empty || p == null) { setText(null); setStyle(""); return; }
-                setText(productDisplayText(p));
-                double stock = getWarehouseStock(p);
-                if (stock <= 0) {
-                    setStyle("-fx-text-fill: #9ca3af; -fx-font-style: italic;");
-                } else {
-                    setStyle("");
-                }
-            }
-        });
-        productCombo.setButtonCell(new ListCell<>() {
-            @Override protected void updateItem(Product p, boolean empty) {
-                super.updateItem(p, empty);
-                setText(empty || p == null ? "" : productDisplayText(p));
-            }
-        });
-
-        productCombo.getEditor().textProperty().addListener((obs, oldVal, newVal) -> {
-            if (isRefreshingProducts) return;
-            if (productCombo.isShowing()) return;
-            String currentText = newVal != null ? newVal.trim() : "";
-            Product selected = productCombo.getSelectionModel().getSelectedItem();
-            if (selected != null && productDisplayText(selected).equals(currentText)) {
-                return;
-            }
-            if (selected != null && !productDisplayText(selected).equals(currentText)) {
-                if (currentText.length() < 60) {
-                    productCombo.getSelectionModel().clearSelection();
-                } else {
-                    return;
-                }
-            }
-            refreshProductSearchResults();
-            if (!productCombo.isShowing() && productCombo.isFocused()) productCombo.show();
-        });
-
-        productCombo.getEditor().setOnKeyPressed(e -> {
-            if (e.getCode() == KeyCode.ENTER) {
-                handleAddItem();
-            }
-        });
+        loadWarehouseStockCache(warehouseCombo.getValue());
+        refreshProductList();
 
         quantityField.setOnKeyPressed(e -> {
             if (e.getCode() == KeyCode.ENTER) {
@@ -165,110 +132,107 @@ public class WarehouseTransferFormController extends BaseFormController {
                 handleAddItem();
             }
         });
+
+        Platform.runLater(this::validateRealTime);
     }
 
-    private String productDisplayText(Product p) {
-        if (p == null) return "";
-        double stock = getWarehouseStock(p);
-        String stockInfo = " (Stock: " + String.format("%.2f", stock) + ")";
-        if (stock <= 0) stockInfo = " (Sem stock)";
-        return p.getCode() + " - " + p.getName() + stockInfo;
-    }
-
-    private double getWarehouseStock(Product p) {
-        Warehouse wh = warehouseCombo != null ? warehouseCombo.getValue() : null;
-        if (wh == null || p == null) return 0;
-        return warehouseService.getCurrentStockAmount(wh.getId(), p.getId()).doubleValue();
-    }
-
-    private String extractCodeFromDisplayText(String text) {
-        if (text == null) return null;
-        int dashIdx = text.indexOf(" - ");
-        if (dashIdx > 0) return text.substring(0, dashIdx).trim();
-        return null;
-    }
-
-    private Product findBestMatch(String text) {
-        if (text == null || text.isBlank()) return null;
-        String lower = text.toLowerCase();
-
-        Product match = allProducts.stream()
-                .filter(p -> p != null)
-                .filter(p -> {
-                    if (p.getCode() != null && p.getCode().equalsIgnoreCase(text)) return true;
-                    if (p.getName() != null && p.getName().equalsIgnoreCase(text)) return true;
-                    if (p.getCode() != null && p.getCode().toLowerCase().startsWith(lower)) return true;
-                    if (p.getName() != null && p.getName().toLowerCase().startsWith(lower)) return true;
-                    if (p.getName() != null && p.getName().toLowerCase().contains(lower)) return true;
-                    if (p.getCode() != null && p.getCode().toLowerCase().contains(lower)) return true;
-                    return false;
-                })
-                .min(Comparator.comparingInt((Product p) -> {
-                    if (p.getCode() != null && p.getCode().equalsIgnoreCase(text)) return 1;
-                    if (p.getName() != null && p.getName().equalsIgnoreCase(text)) return 2;
-                    if (p.getCode() != null && p.getCode().toLowerCase().startsWith(lower)) return 3;
-                    if (p.getName() != null && p.getName().toLowerCase().startsWith(lower)) return 4;
-                    if (p.getName() != null && p.getName().toLowerCase().contains(lower)) return 5;
-                    return 6;
-                }).thenComparing(Product::getName, Comparator.nullsLast(String.CASE_INSENSITIVE_ORDER)))
-                .orElse(null);
-        if (match != null) return match;
-
-        String extractedCode = extractCodeFromDisplayText(text);
-        if (extractedCode != null) {
-            return allProducts.stream()
-                    .filter(p -> p != null && p.getCode() != null)
-                    .filter(p -> p.getCode().equalsIgnoreCase(extractedCode))
-                    .findFirst()
-                    .orElse(null);
+    private void loadWarehouseStockCache(Warehouse wh) {
+        warehouseStockMap.clear();
+        if (wh == null || wh.getId() == null) return;
+        List<StockWarehouse> stocks = stockWarehouseRepository.findByWarehouseId(wh.getId());
+        for (StockWarehouse sw : stocks) {
+            if (sw.getProduct() != null && sw.getProduct().getId() != null) {
+                BigDecimal qty = sw.getStockCurrentAmount() != null ? sw.getStockCurrentAmount() : BigDecimal.ZERO;
+                warehouseStockMap.put(sw.getProduct().getId(), qty);
+            }
         }
-        return null;
     }
 
-    private void refreshProductSearchResults() {
-        if (isRefreshingProducts) return;
-        isRefreshingProducts = true;
-        try {
-            String search = productCombo.getEditor() != null ? productCombo.getEditor().getText() : null;
-            boolean emptySearch = search == null || search.isBlank();
-            Warehouse wh = warehouseCombo != null ? warehouseCombo.getValue() : null;
+    private BigDecimal getAvailableStock(Product p) {
+        if (p == null || p.getId() == null) return BigDecimal.ZERO;
+        return warehouseStockMap.getOrDefault(p.getId(), BigDecimal.ZERO);
+    }
 
-            List<Long> inStockIds = wh != null
-                    ? warehouseService.findProductIdsInStock(wh.getId())
-                    : allProducts.stream().map(Product::getId).collect(Collectors.toList());
+    private void setupProductSearch() {
+        allProducts.setAll(productRepository.findAllActive().stream().filter(p -> !Boolean.TRUE.equals(p.getService())).toList());
+        productCombo.setItems(comboDisplayList);
 
-            filteredProducts.setPredicate(p -> {
-                if (wh != null && !inStockIds.contains(p.getId())) return false;
-                if (emptySearch) return true;
-                String lower = search.toLowerCase();
-                return (p.getCode() != null && p.getCode().toLowerCase().contains(lower)) ||
-                       (p.getName() != null && p.getName().toLowerCase().contains(lower));
-            });
+        productCombo.setConverter(new StringConverter<>() {
+            @Override
+            public String toString(Product p) {
+                if (p == null) return "";
+                BigDecimal stock = getAvailableStock(p);
+                return String.format("%s - %s (Stock Armazém: %,.1f)", p.getCode(), p.getName(), stock);
+            }
+            @Override public Product fromString(String string) { return null; }
+        });
 
-            List<Product> snapshot = filteredProducts.stream()
-                    .sorted(Comparator.comparingDouble((Product p) -> getWarehouseStock(p)).reversed()
-                            .thenComparing(Product::getName, Comparator.nullsLast(String.CASE_INSENSITIVE_ORDER)))
-                    .toList();
-
-            boolean hadPrevValue = productCombo.getValue() != null;
-            if (productCombo.isShowing()) productCombo.hide();
-            if (snapshot.isEmpty()) {
-                comboDisplayList.setAll(snapshot);
-                productCombo.setDisable(true);
-                productCombo.setPromptText("Sem stock disponível no armazém");
-            } else {
-                productCombo.setDisable(false);
-                productCombo.setPromptText("Pesquisar produto...");
-                comboDisplayList.setAll(snapshot);
-                if (hadPrevValue && snapshot.stream().anyMatch(p -> p.getId().equals(productCombo.getValue().getId()))) {
-                    productCombo.getSelectionModel().select(productCombo.getValue());
+        productCombo.setCellFactory(lv -> new ListCell<>() {
+            @Override
+            protected void updateItem(Product p, boolean empty) {
+                super.updateItem(p, empty);
+                if (empty || p == null) {
+                    setText(null);
+                    setStyle("");
+                } else {
+                    BigDecimal stock = getAvailableStock(p);
+                    setText(String.format("%s - %s | Stock: %,.1f %s", p.getCode(), p.getName(), stock, p.getUnit() != null ? p.getUnit().getAbbreviation() : "UN"));
+                    if (stock.compareTo(BigDecimal.ZERO) <= 0) {
+                        setStyle("-fx-text-fill: #94A3B8; -fx-font-style: italic;");
+                    } else {
+                        setStyle("-fx-text-fill: #0F172A; -fx-font-weight: 600;");
+                    }
                 }
             }
-            if (!emptySearch && !productCombo.isShowing() && productCombo.isFocused() && !snapshot.isEmpty()) {
-                productCombo.show();
-            }
+        });
+
+        // Pesquisa em memória ultra-rápida (sem bloquear a UI)
+        productCombo.getEditor().textProperty().addListener((obs, oldV, newV) -> {
+            if (isRefreshing) return;
+            filterProductsInMemory(newV);
+        });
+    }
+
+    private void filterProductsInMemory(String text) {
+        if (isRefreshing) return;
+        String query = text != null ? text.trim().toLowerCase() : "";
+        List<Product> matches = allProducts.stream()
+                .filter(p -> {
+                    if (query.isEmpty()) return true;
+                    boolean codeMatch = p.getCode() != null && p.getCode().toLowerCase().contains(query);
+                    boolean nameMatch = p.getName() != null && p.getName().toLowerCase().contains(query);
+                    return codeMatch || nameMatch;
+                })
+                .sorted(Comparator.comparing((Product p) -> getAvailableStock(p)).reversed()
+                        .thenComparing(Product::getName, Comparator.nullsLast(String.CASE_INSENSITIVE_ORDER)))
+                .toList();
+
+        isRefreshing = true;
+        try {
+            comboDisplayList.setAll(matches);
         } finally {
-            isRefreshingProducts = false;
+            isRefreshing = false;
+        }
+    }
+
+    private void refreshProductList() {
+        filterProductsInMemory(productCombo.getEditor() != null ? productCombo.getEditor().getText() : "");
+    }
+
+    private void updateSelectedProductStock(Product p) {
+        if (stockSummaryLabel == null) return;
+        if (p == null) {
+            stockSummaryLabel.setText("");
+            return;
+        }
+        BigDecimal stock = getAvailableStock(p);
+        String unit = p.getUnit() != null ? p.getUnit().getAbbreviation() : "UN";
+        if (stock.compareTo(BigDecimal.ZERO) > 0) {
+            stockSummaryLabel.setText(String.format("Disponível no armazém: %,.1f %s", stock, unit));
+            stockSummaryLabel.setStyle("-fx-text-fill: #10B981; -fx-font-weight: 700;");
+        } else {
+            stockSummaryLabel.setText("Sem existências disponíveis neste armazém");
+            stockSummaryLabel.setStyle("-fx-text-fill: #EF4444; -fx-font-weight: 700;");
         }
     }
 
@@ -280,51 +244,59 @@ public class WarehouseTransferFormController extends BaseFormController {
     }
 
     private void setupActionColumn() {
-        actionColumn.setCellFactory(param -> new TableCell<>() {
-            private final Button btn = new Button("X");
+        actionColumn.setCellFactory(col -> new TableCell<>() {
+            private final Button btn = new Button("✕");
             {
-                btn.setStyle("-fx-background-color:transparent; -fx-text-fill:#EF4444; -fx-font-weight:900; -fx-cursor:hand;");
-                btn.setOnAction(UiUtils.safeOnAction(() -> {
+                btn.setStyle("-fx-background-color: #FEE2E2; -fx-text-fill: #EF4444; -fx-font-weight: 800; -fx-padding: 3 8; -fx-background-radius: 4; -fx-cursor: hand;");
+                btn.setOnAction(e -> {
                     ItemRow row = getTableView().getItems().get(getIndex());
                     items.remove(row);
                     validateRealTime();
-                }, null, "WAREHOUSE_TRANSFER_REMOVE_ITEM"));
+                });
             }
             @Override
             protected void updateItem(Void item, boolean empty) {
                 super.updateItem(item, empty);
-                setGraphic(empty ? null : btn);
+                if (empty || getIndex() >= getTableView().getItems().size()) {
+                    setGraphic(null);
+                } else {
+                    setGraphic(btn);
+                }
             }
         });
     }
 
-    private void refreshSummary() {
-        productCombo.setValue(null);
-        productCombo.getEditor().clear();
-        refreshProductSearchResults();
-        stockSummaryLabel.setText("");
-    }
-
     private void handleAddItem() {
-        errorLabel.setVisible(false);
+        hideError();
         Warehouse wh = warehouseCombo.getValue();
+        Branch br = branchCombo.getValue();
         Product p = resolveSelectedProduct();
-        if (wh == null) { showError("Seleccione o armazém de origem"); return; }
-        if (p == null) { showError("Produto não encontrado"); return; }
+
+        if (wh == null) { showError("Seleccione o armazém de origem."); return; }
+        if (br == null) { showError("Seleccione a filial de destino."); return; }
+        if (p == null) { showError("Seleccione o produto a transferir."); return; }
+
         double qty;
-        try { qty = Double.parseDouble(quantityField.getText().trim()); }
-        catch (NumberFormatException e) { showError("Quantidade inválida"); return; }
-        if (qty <= 0) { showError("Quantidade deve ser > 0"); return; }
+        try {
+            qty = Double.parseDouble(quantityField.getText().trim().replace(",", "."));
+        } catch (Exception e) {
+            showError("Quantidade inválida.");
+            return;
+        }
+        if (qty <= 0) { showError("Quantidade deve ser maior que zero."); return; }
 
-        java.math.BigDecimal stock = warehouseService.getStock(wh.getId(), p.getId())
-                .map(sw -> sw.getStockCurrentAmount() != null ? sw.getStockCurrentAmount() : java.math.BigDecimal.ZERO)
-                .orElse(java.math.BigDecimal.ZERO);
-        if (stock.compareTo(java.math.BigDecimal.valueOf(qty)) < 0) { showError("Stock insuficiente. Disponível: " + stock); return; }
+        BigDecimal availableStock = getAvailableStock(p);
+        if (availableStock.compareTo(BigDecimal.valueOf(qty)) < 0) {
+            showError(String.format("Stock insuficiente no armazém. Disponível: %,.1f %s", availableStock, p.getUnit() != null ? p.getUnit().getAbbreviation() : "UN"));
+            return;
+        }
 
+        // Se já existe na tabela, somar quantidade
         for (ItemRow row : items) {
             if (row.product.getId().equals(p.getId())) {
-                if (java.math.BigDecimal.valueOf(row.getQuantityAsDouble()).add(java.math.BigDecimal.valueOf(qty)).compareTo(stock) > 0) {
-                    showError("Stock insuficiente para o total (linha + novo)");
+                double newTotalQty = row.getQuantityAsDouble() + qty;
+                if (BigDecimal.valueOf(newTotalQty).compareTo(availableStock) > 0) {
+                    showError(String.format("Quantidade total (%,.1f) excede o stock disponível (%,.1f).", newTotalQty, availableStock));
                     return;
                 }
                 row.addQuantity(qty);
@@ -334,37 +306,40 @@ public class WarehouseTransferFormController extends BaseFormController {
                 return;
             }
         }
-        items.add(new ItemRow(p, stock.doubleValue(), qty));
+
+        items.add(new ItemRow(p, availableStock.doubleValue(), qty));
         clearProductSelection();
         validateRealTime();
     }
 
     private Product resolveSelectedProduct() {
-        Product val = productCombo.getValue();
-        if (val != null) return val;
-
-        Product selected = productCombo.getSelectionModel().getSelectedItem();
-        if (selected != null) return selected;
-
-        if (lastSelectedProduct != null) {
-            String editorText = productCombo.getEditor() != null ? productCombo.getEditor().getText().trim() : "";
-            if (!editorText.isBlank() && productDisplayText(lastSelectedProduct).equals(editorText)) {
-                return lastSelectedProduct;
-            }
-        }
-
+        Product p = productCombo.getValue();
+        if (p != null) return p;
         String text = productCombo.getEditor() != null ? productCombo.getEditor().getText().trim() : "";
-        if (!text.isBlank()) {
-            return findBestMatch(text);
+        if (!text.isEmpty()) {
+            for (Product prod : allProducts) {
+                if (prod.getCode() != null && prod.getCode().equalsIgnoreCase(text)) return prod;
+                if (prod.getName() != null && prod.getName().equalsIgnoreCase(text)) return prod;
+            }
+            // Primeiro resultado que começa por
+            for (Product prod : allProducts) {
+                if (prod.getName() != null && prod.getName().toLowerCase().startsWith(text.toLowerCase())) return prod;
+            }
         }
         return null;
     }
 
     private void clearProductSelection() {
-        productCombo.setValue(null);
-        productCombo.getEditor().clear();
+        isRefreshing = true;
+        try {
+            productCombo.setValue(null);
+            if (productCombo.getEditor() != null) productCombo.getEditor().clear();
+        } finally {
+            isRefreshing = false;
+        }
         quantityField.setText("1");
-        refreshProductSearchResults();
+        if (stockSummaryLabel != null) stockSummaryLabel.setText("");
+        refreshProductList();
         Platform.runLater(productCombo::requestFocus);
     }
 
@@ -374,8 +349,8 @@ public class WarehouseTransferFormController extends BaseFormController {
         StringBuilder errors = new StringBuilder();
 
         if (warehouseCombo.getValue() == null) { errors.append("Seleccione o armazém de origem. "); valid = false; }
-        if (branchCombo.getValue() == null) { errors.append("Seleccione a loja de destino. "); valid = false; }
-        if (items.isEmpty()) { errors.append("Adicione pelo menos um produto. "); valid = false; }
+        if (branchCombo.getValue() == null) { errors.append("Seleccione a filial de destino. "); valid = false; }
+        if (items.isEmpty()) { errors.append("Adicione pelo menos um produto ao lote. "); valid = false; }
 
         formValidProperty.set(valid);
         if (!valid) showError(errors.toString().trim());
@@ -386,43 +361,61 @@ public class WarehouseTransferFormController extends BaseFormController {
     protected void doSave() {
         if (checkTrainingBlock()) return;
         if (!formValidProperty.get()) return;
-        errorLabel.setVisible(false);
+        hideError();
 
         Warehouse wh = warehouseCombo.getValue();
         Branch br = branchCombo.getValue();
 
-        try {
-            WarehouseTransfer t = new WarehouseTransfer();
-            Warehouse managedWarehouse = warehouseRepository.findById(wh.getId()).orElse(wh);
-            Branch managedBranch = branchRepository.findById(br.getId()).orElse(br);
-            t.setWarehouse(managedWarehouse);
-            t.setBranch(managedBranch);
-            t.setNotes("");
-            for (ItemRow row : items) {
-                WarehouseTransferItem item = new WarehouseTransferItem();
-                Product managedProduct = productRepository.findById(row.product.getId()).orElse(row.product);
-                item.setProduct(managedProduct);
-                item.setQuantity(row.getQuantityAsDouble());
-                item.setQuantityReceived(0.0);
-                t.getItems().add(item);
-            }
+        showSaveSpinner();
 
-            if (currentUser == null) {
-                showError("Utilizador não autenticado");
-                return;
-            }
+        javafx.concurrent.Task<WarehouseTransfer> task = new javafx.concurrent.Task<>() {
+            @Override
+            protected WarehouseTransfer call() throws Exception {
+                WarehouseTransfer t = new WarehouseTransfer();
+                Warehouse managedWarehouse = warehouseRepository.findById(wh.getId()).orElse(wh);
+                Branch managedBranch = branchRepository.findById(br.getId()).orElse(br);
+                t.setWarehouse(managedWarehouse);
+                t.setBranch(managedBranch);
+                t.setNotes("Transferência emitida via SGV Desktop");
 
-            WarehouseTransfer done = transferService.createAndComplete(t, currentUser);
+                for (ItemRow row : items) {
+                    WarehouseTransferItem item = new WarehouseTransferItem();
+                    Product managedProduct = productRepository.findById(row.product.getId()).orElse(row.product);
+                    item.setProduct(managedProduct);
+                    item.setQuantity(row.getQuantityAsDouble());
+                    item.setQuantityReceived(0.0);
+                    t.getItems().add(item);
+                }
+
+                if (currentUser == null) {
+                    throw new IllegalStateException("Utilizador não autenticado.");
+                }
+
+                return transferService.createAndComplete(t, currentUser);
+            }
+        };
+
+        task.setOnSucceeded(e -> { systemLogService.logUserAction(currentUser != null ? currentUser.getUsername() : "Sistema", "TRANSFERENCIA_EMITIDA", "Guia de transferência emitida com sucesso");
+            WarehouseTransfer done = task.getValue();
             Alert ok = new Alert(Alert.AlertType.INFORMATION);
-            ok.setTitle("OK");
-            ok.setHeaderText("Transferência concluída com sucesso!");
-            ok.setContentText(done.getSeries() + "/" + done.getDocumentNumber() + " - Stock actualizado.");
+            ok.setTitle("Transferência Concluída");
+            ok.setHeaderText("Guia de Transferência Emitida com Sucesso!");
+            ok.setContentText(String.format("Guia %s/%d concluída. Stock do armazém debitado e filial creditada.",
+                    done.getSeries(), done.getDocumentNumber()));
             ok.showAndWait();
+            if (onSave != null) onSave.run();
             doCancel();
-        } catch (Exception ex) {
-            log.error("Erro ao criar transferência", ex);
-            showError("Erro: " + ex.getMessage());
-        }
+        });
+
+        task.setOnFailed(e -> { Throwable ex = task.getException(); systemLogService.logError("TRANSFER_SAVE_FAILED", "Erro ao salvar transferência: " + (ex != null ? ex.getMessage() : ""), ex);
+            Throwable ex = task.getException();
+            String msg = ex != null && ex.getMessage() != null ? ex.getMessage() : "Erro desconhecido";
+            log.error("Erro ao gravar transferência", ex);
+            showError("Erro ao transferir: " + msg);
+            hideSaveSpinner();
+        });
+
+        new Thread(task).start();
     }
 
     public static class ItemRow {
@@ -437,8 +430,8 @@ public class WarehouseTransferFormController extends BaseFormController {
         }
         public String getCode() { return product.getCode(); }
         public String getProductName() { return product.getName(); }
-        public String getStock() { return String.format("%.2f", stock); }
-        public String getQuantity() { return String.format("%.2f", quantity.get()); }
+        public String getStock() { return String.format(Locale.US, "%.1f", stock); }
+        public String getQuantity() { return String.format(Locale.US, "%.1f", quantity.get()); }
         public double getQuantityAsDouble() { return quantity.get(); }
         public void addQuantity(double q) { quantity.set(quantity.get() + q); }
     }

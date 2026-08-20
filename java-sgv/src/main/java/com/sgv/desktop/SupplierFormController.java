@@ -156,7 +156,7 @@ public class SupplierFormController extends BaseFormController {
                 return null;
             }
         };
-        deleteTask.setOnSucceeded(e -> {
+        deleteTask.setOnSucceeded(e -> { systemLogService.logUserAction(currentUser != null ? currentUser.getUsername() : "Sistema", "FORNECEDOR_ELIMINADO", "Fornecedor eliminado: " + (supplier != null ? supplier.getName() : ""));
             if (onSave != null) onSave.run();
             doCancel();
         });
@@ -193,7 +193,7 @@ public class SupplierFormController extends BaseFormController {
                 return null;
             }
         };
-        saveTask.setOnSucceeded(e -> { if (onSave != null) onSave.run(); doCancel(); });
+        saveTask.setOnSucceeded(e -> { systemLogService.logUserAction(currentUser != null ? currentUser.getUsername() : "Sistema", "FORNECEDOR_GRAVADO", "Fornecedor gravado: " + nameField.getText()); if (onSave != null) onSave.run(); doCancel(); });
         saveTask.setOnFailed(e -> {
             Throwable ex = saveTask.getException();
             String msg = ex.getMessage() != null ? ex.getMessage() : "Erro desconhecido";

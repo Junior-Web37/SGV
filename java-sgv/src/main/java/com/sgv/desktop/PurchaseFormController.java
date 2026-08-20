@@ -23,7 +23,7 @@ import javafx.concurrent.Task;
 @Component
 public class PurchaseFormController extends BaseFormController {
 
-    @FXML private Label titleLabel;
+
     @FXML private TextField invoiceNumberField;
     @FXML private DatePicker invoiceDatePicker;
     @FXML private ComboBox<Supplier> supplierCombo;
@@ -463,7 +463,7 @@ public class PurchaseFormController extends BaseFormController {
             }
         };
 
-        saveTask.setOnSucceeded(e -> {
+        saveTask.setOnSucceeded(e -> { systemLogService.logUserAction(currentUser != null ? currentUser.getUsername() : "Sistema", "COMPRA_GRAVADA", "Compra gravada - Factura nº " + invoiceNumberField.getText());
             if (onSave != null) onSave.run();
             doCancel();
         });
@@ -493,7 +493,7 @@ public class PurchaseFormController extends BaseFormController {
     public void setPurchase(Purchase purchase) {
         this.editingPurchase = purchase;
         if (purchase != null) {
-            if (titleLabel != null) titleLabel.setText("Editar Compra");
+
             invoiceNumberField.setText(purchase.getInvoiceNumber() != null ? purchase.getInvoiceNumber() : "");
             if (purchase.getSupplier() != null) {
                 Supplier managedSupplier = supplierService.findById(purchase.getSupplier().getId()).orElse(purchase.getSupplier());

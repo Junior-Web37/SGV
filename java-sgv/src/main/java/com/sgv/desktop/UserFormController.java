@@ -10,15 +10,7 @@ import javafx.fxml.FXML;
 import javafx.scene.control.*;
 import javafx.stage.Stage;
 import org.springframework.stereotype.Component;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.crypto.password.PasswordEncoder;
-
-import java.net.URI;
-import java.net.http.HttpClient;
-import java.net.http.HttpRequest;
-import java.net.http.HttpResponse;
-import com.fasterxml.jackson.databind.ObjectMapper;
-
 import java.util.HashSet;
 import java.util.Set;
 import javafx.concurrent.Task;
@@ -45,11 +37,6 @@ public class UserFormController extends BaseFormController {
     private final PasswordEncoder passwordEncoder;
     private User user;
     private Task<Boolean> duplicateCheckTask;
-    @Value("${desktop.useRest:false}")
-    private boolean useRest;
-
-    private final HttpClient httpClient = HttpClient.newHttpClient();
-    private final ObjectMapper objectMapper = new ObjectMapper();
 
     public UserFormController(UserRepository userRepository,
                               BranchRepository branchRepository,
@@ -265,43 +252,12 @@ public class UserFormController extends BaseFormController {
                 Set<Role> roles = new HashSet<>();
                 roles.add(roleCombo.getValue());
                 user.setRoles(roles);
-                if (useRest) {
-                    try {
-                        String url = "http://localhost:8080/api/users" + (isNew ? "" : "/" + user.getId());
-                        var payload = new java.util.HashMap<String,Object>();
-                        payload.put("username", user.getUsername());
-                        payload.put("fullName", user.getFullName());
-                        payload.put("email", user.getEmail());
-                        payload.put("branchId", user.getBranch() != null ? user.getBranch().getId() : null);
-                        payload.put("active", user.isActive());
-                        payload.put("forceChangePassword", user.isForceChangePassword());
-                        payload.put("canViewStats", user.isCanViewStats());
-                        payload.put("commissionPercent", user.getCommissionPercent());
-                        payload.put("password", (isNew ? user.getPasswordHash() : null));
-                        if (user.getRoles() != null && !user.getRoles().isEmpty()) {
-                            payload.put("roles", user.getRoles().stream().map(r -> r.getName()).toArray());
-                        }
-                        String body = objectMapper.writeValueAsString(payload);
-                        HttpRequest req = HttpRequest.newBuilder()
-                            .uri(URI.create(url))
-                            .header("Content-Type", "application/json")
-                            .POST(HttpRequest.BodyPublishers.ofString(body))
-                            .build();
-                        HttpResponse<String> resp = httpClient.send(req, HttpResponse.BodyHandlers.ofString());
-                        if (resp.statusCode() >= 400) {
-                            throw new Exception("API error: " + resp.statusCode() + " " + resp.body());
-                        }
-                    } catch (Exception ex) {
-                        throw new Exception("Failed REST user save: " + ex.getMessage(), ex);
-                    }
-                } else {
-                    userRepository.save(user);
-                }
+                userRepository.save(user);
                 return null;
             }
         };
 
-        saveTask.setOnSucceeded(e -> {
+        saveTask.setOnSucceeded(e -> { systemLogService.logUserAction(currentUser != null ? currentUser.getUsername() : "Sistema", "UTILIZADOR_GRAVADO", "Utilizador gravado com sucesso: " + usernameField.getText());
             if (onSave != null) onSave.run();
             Stage stage = (Stage) saveButton.getScene().getWindow();
             stage.close();

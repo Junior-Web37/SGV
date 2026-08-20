@@ -63,6 +63,7 @@ public class DashboardController {
     @FXML private Button navModOperacoes;
     @FXML private Button navModAdministracao;
     @FXML private Button navModArmazens;
+    @FXML private Button navModRelatorios;
     @FXML private Button navModLogs;
 
     @FXML private HBox navComercialItems;
@@ -70,6 +71,10 @@ public class DashboardController {
     @FXML private HBox navOperacoesItems;
     @FXML private HBox navAdminItems;
     @FXML private HBox navArmazensItems;
+    @FXML private HBox navRelatoriosItems;
+
+    @FXML private Button navMenuLogs;
+    @FXML private Button navMenuUsers;
 
     @FXML private Button navMenuNovaVenda;
     @FXML private Button navMenuVendas;
@@ -100,6 +105,7 @@ public class DashboardController {
     @FXML private VBox comprasPane;
     @FXML private VBox fornecedoresPane;
     @FXML private VBox stockArmazemPane;
+    @FXML private VBox transfersPane;
     @FXML private VBox financeiroPane;
     @FXML private VBox pagamentosPane;
     @FXML private VBox despesasPane;
@@ -348,7 +354,7 @@ public class DashboardController {
         if (navModArmazens != null) UiUtils.attachSafe(navModArmazens, () -> showSubNav("Armazém", navArmazensItems), systemLogService, "NAV_MOD_ARMAZENS");
         if (navMenuArmazens != null) UiUtils.attachSafe(navMenuArmazens, () -> { if (ensurePermission("ARMAZENS", "VIEW", "Armazéns")) showWarehousesPane(); }, systemLogService, "NAV_ARMAZENS");
         if (navMenuStockArmazem != null) UiUtils.attachSafe(navMenuStockArmazem, () -> { if (ensurePermission("ARMAZENS", "VIEW", "Stock por Armazém")) showStockWarehousePane(); }, systemLogService, "NAV_STOCK_ARMAZEM");
-        if (navMenuTransferir != null) UiUtils.attachSafe(navMenuTransferir, () -> { if (ensurePermission("TRANSFERENCIAS", "VIEW", "Transferências")) openWarehouseTransferForm(); }, systemLogService, "NAV_TRANSFERIR");
+        if (navMenuTransferir != null) UiUtils.attachSafe(navMenuTransferir, () -> { if (ensurePermission("TRANSFERENCIAS", "VIEW", "Transferências")) showTransfersPane(); }, systemLogService, "NAV_TRANSFERIR");
         if (navMenuCatalogos != null) UiUtils.attachSafe(navMenuCatalogos, () -> { if (ensurePermission("CATALOGOS", "VIEW", "Catálogos")) showCatalogsPane(); }, systemLogService, "NAV_CATALOGOS");
 
         if (navMenuCaixa != null) UiUtils.attachSafe(navMenuCaixa, () -> { if (ensurePermission("CAIXA", "VIEW", "Caixa")) showTurnoCaixaPane(); }, systemLogService, "NAV_CAIXA");
@@ -362,11 +368,14 @@ public class DashboardController {
         if (navMenuDespesas != null) UiUtils.attachSafe(navMenuDespesas, this::showDespesasPane, systemLogService, "NAV_DESPESAS");
         if (navMenuPagamentos != null) UiUtils.attachSafe(navMenuPagamentos, this::showPagamentosPane, systemLogService, "NAV_PAGAMENTOS");
 
-        if (navModComercial != null) UiUtils.attachSafe(navModComercial, () -> showSubNav("Comercial", navComercialItems), systemLogService, "NAV_MOD_COMERCIAL");
-        if (navModOperacoes != null) UiUtils.attachSafe(navModOperacoes, () -> showSubNav("Operações", navOperacoesItems), systemLogService, "NAV_MOD_OPERACOES");
-        if (navModFinanceiro != null) UiUtils.attachSafe(navModFinanceiro, () -> showSubNav("Financeiro", navFinanceiroItems), systemLogService, "NAV_MOD_FINANCEIRO");
-        if (navModAdministracao != null) UiUtils.attachSafe(navModAdministracao, () -> showSubNav("Admin", navAdminItems), systemLogService, "NAV_MOD_ADMIN");
-        if (navModLogs != null) UiUtils.attachSafe(navModLogs, () -> showLogsPane(), systemLogService, "NAV_MOD_LOGS");
+        if (navModComercial != null) UiUtils.attachSafe(navModComercial, () -> showSubNav("Vendas & Facturação", navComercialItems), systemLogService, "NAV_MOD_COMERCIAL");
+        if (navModOperacoes != null) UiUtils.attachSafe(navModOperacoes, () -> showSubNav("Stock & Artigos", navOperacoesItems), systemLogService, "NAV_MOD_OPERACOES");
+        if (navModFinanceiro != null) UiUtils.attachSafe(navModFinanceiro, () -> showSubNav("Caixa & Tesouraria", navFinanceiroItems), systemLogService, "NAV_MOD_FINANCEIRO");
+        if (navModArmazens != null) UiUtils.attachSafe(navModArmazens, () -> showSubNav("Armazém & Compras", navArmazensItems), systemLogService, "NAV_MOD_ARMAZENS");
+        if (navModRelatorios != null) UiUtils.attachSafe(navModRelatorios, () -> showSubNav("Mapas & Relatórios", navRelatoriosItems), systemLogService, "NAV_MOD_RELATORIOS");
+        if (navModAdministracao != null) UiUtils.attachSafe(navModAdministracao, () -> showSubNav("Configurações", navAdminItems), systemLogService, "NAV_MOD_ADMIN");
+        if (navMenuLogs != null) UiUtils.attachSafe(navMenuLogs, this::showLogsPane, systemLogService, "NAV_LOGS");
+        if (navMenuUsers != null) UiUtils.attachSafe(navMenuUsers, this::showUsersPane, systemLogService, "NAV_USERS");
         if (navBackButton != null) UiUtils.attachSafe(navBackButton, () -> navManager.drillBack(navRootPane, navSubPane), systemLogService, "NAV_BACK");
 
         setupCrudButtons();
@@ -586,7 +595,7 @@ public class DashboardController {
     private VBox[] allPanes() {
         return new VBox[]{summaryPane, salesStatsPane, salesPane, productsPane, customersPane, stockPane,
             turnoCaixaPane, comprasPane, fornecedoresPane, stockArmazemPane, financeiroPane, pagamentosPane, despesasPane, catalogsPane, reportsPane, producaoPane,
-            sistemaPane, usersPane, warehousesPane, logsPane};
+            sistemaPane, usersPane, warehousesPane, transfersPane, logsPane};
     }
 
     private Button[] allNavButtons() {
@@ -598,14 +607,14 @@ public class DashboardController {
 
     private void showSubNav(String moduleLabel, HBox targetItems) {
         navManager.showSubNav(moduleLabel, targetItems, navRootPane, navSubPane, navSubModuleLabel,
-            navComercialItems, navOperacoesItems, navFinanceiroItems, navAdminItems, navArmazensItems);
+            navComercialItems, navOperacoesItems, navFinanceiroItems, navAdminItems, navArmazensItems, navRelatoriosItems);
     }
 
     private void showSummaryPane() {
         navManager.setActiveNav(navResumo, allNavButtons());
         navManager.setPaneVisibility(summaryPane, allPanes());
-        pageTitleLabel.setText("Dashboard");
-        pageSubtitleLabel.setText("Visão geral do sistema");
+        pageTitleLabel.setText("Painel Geral");
+        pageSubtitleLabel.setText("Visão geral das operações, vendas e tesouraria");
         kpiManager.loadStats(salesLabel, productsLabel, customersLabel, branchesLabel, salesLineChart, salesPieChart,
             () -> kpiManager.checkAlerts(notificationBadge), this::animateEntrance);
         updateCashBadge();
@@ -695,6 +704,10 @@ public class DashboardController {
                     });
                 } else { Alert a = new Alert(Alert.AlertType.WARNING, "Selecione um armazém (clique nele)."); a.setHeaderText(null); a.showAndWait(); }
             });
+    }
+
+        private void showTransfersPane() {
+        navManager.showTransfersPane(navMenuTransferir, pageTitleLabel, pageSubtitleLabel, transfersPane, currentUser, allPanes(), allNavButtons(), this::updateCashBadge, this::openWarehouseTransferForm);
     }
 
     private void showStockWarehousePane() {

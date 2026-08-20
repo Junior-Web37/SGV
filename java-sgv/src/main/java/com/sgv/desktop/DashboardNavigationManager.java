@@ -58,6 +58,8 @@ public class DashboardNavigationManager {
     private final SupplierPaymentRepository supplierPaymentRepository;
     private final SystemLogService systemLogService;
     private final CashSessionService cashSessionService;
+    private final WarehouseTransferRepository warehouseTransferRepository;
+    private final WarehouseTransferService warehouseTransferService;
 
     private TableView<Product> productsTable;
     private HBox productsStatsCardsBox;
@@ -106,7 +108,9 @@ public class DashboardNavigationManager {
                                        SupplierRepository supplierRepository,
                                        SupplierPaymentRepository supplierPaymentRepository,
                                        SystemLogService systemLogService,
-                                       CashSessionService cashSessionService) {
+                                       CashSessionService cashSessionService,
+                                       WarehouseTransferRepository warehouseTransferRepository,
+                                       WarehouseTransferService warehouseTransferService) {
         this.applicationContext = applicationContext;
         this.crudManager = crudManager;
         this.kpiManager = kpiManager;
@@ -128,6 +132,8 @@ public class DashboardNavigationManager {
         this.supplierPaymentRepository = supplierPaymentRepository;
         this.systemLogService = systemLogService;
         this.cashSessionService = cashSessionService;
+        this.warehouseTransferRepository = warehouseTransferRepository;
+        this.warehouseTransferService = warehouseTransferService;
     }
 
     // ═══════════════════════════════════════════════════════════════════════════
@@ -163,7 +169,8 @@ public class DashboardNavigationManager {
     public void showSubNav(String moduleLabel, HBox targetItems,
                            HBox navRootPane, HBox navSubPane, Label navSubModuleLabel,
                            HBox navComercialItems, HBox navOperacoesItems,
-                           HBox navFinanceiroItems, HBox navAdminItems, HBox navArmazensItems) {
+                           HBox navFinanceiroItems, HBox navAdminItems, HBox navArmazensItems,
+                           HBox navRelatoriosItems) {
         if (navRootPane == null || navSubPane == null) return;
         navSubModuleLabel.setText(moduleLabel);
 
@@ -172,6 +179,7 @@ public class DashboardNavigationManager {
         if (navFinanceiroItems != null) { navFinanceiroItems.setVisible(false); navFinanceiroItems.setManaged(false); }
         if (navAdminItems != null) { navAdminItems.setVisible(false); navAdminItems.setManaged(false); }
         if (navArmazensItems != null) { navArmazensItems.setVisible(false); navArmazensItems.setManaged(false); }
+        if (navRelatoriosItems != null) { navRelatoriosItems.setVisible(false); navRelatoriosItems.setManaged(false); }
 
         if (targetItems != null) { targetItems.setVisible(true); targetItems.setManaged(true); }
 
@@ -430,8 +438,8 @@ public class DashboardNavigationManager {
                                  VBox catalogsPane, VBox reportsPane, VBox producaoPane,
                                  VBox sistemaPane, VBox usersPane, VBox warehousesPane, VBox logsPane,
                                  User currentUser) {
-        pageTitleLabel.setText("Dashboard");
-        pageSubtitleLabel.setText("Visão geral do sistema");
+        pageTitleLabel.setText("Painel Geral");
+        pageSubtitleLabel.setText("Visão geral das operações, vendas e tesouraria");
         setPaneVisibility(summaryPane, salesStatsPane, salesPane, productsPane, customersPane,
             stockPane, turnoCaixaPane, comprasPane, financeiroPane, catalogsPane, reportsPane,
             producaoPane, sistemaPane, usersPane, warehousesPane, logsPane);
@@ -452,8 +460,8 @@ public class DashboardNavigationManager {
                                     Runnable onNewSale, Runnable onPrint,
                                     Runnable onViewDetails, Runnable onConvertQuote, Runnable onCreateCreditNote, Runnable onAnnul) {
         setActiveNav(null, allNavButtons);
-        pageTitleLabel.setText("Vendas");
-        pageSubtitleLabel.setText("Histórico e gestão de documentos");
+        pageTitleLabel.setText("Vendas & Facturação");
+        pageSubtitleLabel.setText("Consulta, emissão e anulação de Facturas e Vendas a Dinheiro (VD)");
         setPaneVisibility(salesStatsPane, summaryPane, salesPane, productsPane, customersPane,
             stockPane, turnoCaixaPane, comprasPane, financeiroPane, catalogsPane, reportsPane,
             producaoPane, sistemaPane, usersPane, warehousesPane, logsPane);
@@ -643,8 +651,8 @@ public class DashboardNavigationManager {
                                    Runnable onNewCustomer, Runnable onEditCustomer, Runnable onDeleteCustomer,
                                    Runnable onViewCustomer, Runnable onSettleDebt, Runnable onReconcileCustomerCredits) {
         setActiveNav(navMenuClientes, allNavButtons);
-        pageTitleLabel.setText("Clientes");
-        pageSubtitleLabel.setText("Base de dados de clientes");
+        pageTitleLabel.setText("Clientes & Contas Correntes");
+        pageSubtitleLabel.setText("Gestão de clientes, NUIT, limites de crédito e saldos devedores");
         setPaneVisibility(customersPane, allPanes);
 
         if (customersTableParam == null) {
@@ -744,8 +752,8 @@ public class DashboardNavigationManager {
                                     Runnable updateCashBadge, Runnable loadWarehousesCards,
                                     Runnable onNewWarehouse, Runnable onEditWarehouse, Runnable onDeleteWarehouse) {
         setActiveNav(navArmazens, allNavButtons);
-        pageTitleLabel.setText("Armazéns");
-        pageSubtitleLabel.setText("Gestão de locais e stock — centros de distribuição e abastecimento");
+        pageTitleLabel.setText("Armazéns Centrais");
+        pageSubtitleLabel.setText("Depósitos centrais, centros de distribuição e abastecimento de lojas");
         setPaneVisibility(warehousesPane, allPanes);
 
         if (warehousesPane.getChildren().isEmpty()) {
@@ -803,8 +811,8 @@ public class DashboardNavigationManager {
                               VBox logsPane, User currentUser,
                               VBox[] allPanes, Button[] allNavButtons) {
         setActiveNav(null, allNavButtons);
-        pageTitleLabel.setText("Logs do Sistema");
-        pageSubtitleLabel.setText("Auditoria e registo de eventos");
+        pageTitleLabel.setText("Auditoria & Segurança");
+        pageSubtitleLabel.setText("Rastreabilidade de operações, registo de acessos e eventos do sistema");
         setPaneVisibility(logsPane, allPanes);
         logsPane.getChildren().clear();
 
@@ -990,8 +998,8 @@ public class DashboardNavigationManager {
                                      Runnable updateCashBadge,
                                      Runnable onNewSupplier, Runnable onEditSupplier, Runnable onNewSupplierPayment, Runnable onDeleteSupplier) {
         setActiveNav(navFornecedores, allNavButtons);
-        pageTitleLabel.setText("Fornecedores");
-        pageSubtitleLabel.setText("Gestão de fornecedores");
+        pageTitleLabel.setText("Gestão de Fornecedores");
+        pageSubtitleLabel.setText("Entrada de mercadorias, facturas de fornecedores e abastecimento");
         setPaneVisibility(fornecedoresPane, allPanes);
 
         if (fornecedoresPane.getChildren().isEmpty()) {
@@ -1187,8 +1195,8 @@ public class DashboardNavigationManager {
                                        Runnable updateCashBadge,
                                        Runnable onNewPurchase, Runnable onTransfer) {
         setActiveNav(navStockArmazem, allNavButtons);
-        pageTitleLabel.setText("Stock por Armazém");
-        pageSubtitleLabel.setText("Stock central em todos os armazéns");
+        pageTitleLabel.setText("Stock Central por Armazém");
+        pageSubtitleLabel.setText("Existências consolidadas em armazéns centrais e depósitos");
         setPaneVisibility(stockArmazemPane, allPanes);
 
         if (stockArmazemPane.getChildren().isEmpty()) {
@@ -1331,8 +1339,8 @@ public class DashboardNavigationManager {
                                  VBox[] allPanes, Button[] allNavButtons,
                                  Runnable updateCashBadge) {
         setActiveNav(navCompras, allNavButtons);
-        pageTitleLabel.setText("Compras / Fornecedores");
-        pageSubtitleLabel.setText("Gestão de fornecedores");
+        pageTitleLabel.setText("Facturas de Compra");
+        pageSubtitleLabel.setText("Entrada de mercadorias, facturas de fornecedores e abastecimento");
         setPaneVisibility(comprasPane, allPanes);
 
         if (comprasPane.getChildren().isEmpty()) {
@@ -1399,8 +1407,8 @@ public class DashboardNavigationManager {
                                   VBox[] allPanes, Button[] allNavButtons,
                                   Runnable updateCashBadge) {
         setActiveNav(navProducao, allNavButtons);
-        pageTitleLabel.setText("Produção");
-        pageSubtitleLabel.setText("Ordens de produção");
+        pageTitleLabel.setText("Fabrico & Padaria");
+        pageSubtitleLabel.setText("Ordens de fabrico e abate automático de matérias-primas por receita");
         setPaneVisibility(producaoPane, allPanes);
 
         if (producaoPane.getChildren().isEmpty()) {
@@ -1471,8 +1479,8 @@ public class DashboardNavigationManager {
                                  VBox[] allPanes, Button[] allNavButtons,
                                  Runnable updateCashBadge) {
         setActiveNav(navRelatorios, allNavButtons);
-        pageTitleLabel.setText("Relatórios");
-        pageSubtitleLabel.setText("Estatísticas e exportações");
+        pageTitleLabel.setText("Mapas Fiscais & SAF-T MZ");
+        pageSubtitleLabel.setText("Apuramento de IVA (16%), ficheiro SAF-T oficial AT e mapas de vendas");
         setPaneVisibility(reportsPane, allPanes);
 
         if (reportsPane.getChildren().isEmpty()) {
@@ -1487,8 +1495,8 @@ public class DashboardNavigationManager {
                                  VBox[] allPanes, Button[] allNavButtons,
                                  Runnable updateCashBadge) {
         setActiveNav(navSistema, allNavButtons);
-        pageTitleLabel.setText("Sistema");
-        pageSubtitleLabel.setText("Gestão de utilizadores, permissões e configurações");
+        pageTitleLabel.setText("Parâmetros da Empresa");
+        pageSubtitleLabel.setText("Dados fiscais da empresa, cópias de segurança (backup) e licenciamento");
         setPaneVisibility(sistemaPane, allPanes);
 
         if (sistemaPane.getChildren().isEmpty()) {
@@ -1514,8 +1522,8 @@ public class DashboardNavigationManager {
                                    Runnable loadCategories, Runnable loadMetricUnits,
                                    TableView<Category> categoriesTableParam, TableView<MetricUnit> unitsTableParam) {
         setActiveNav(navCatalogos, allNavButtons);
-        pageTitleLabel.setText("Catálogos");
-        pageSubtitleLabel.setText("Gestão de Categorias e Unidades");
+        pageTitleLabel.setText("Famílias & Unidades de Medida");
+        pageSubtitleLabel.setText("Categorias de artigos e unidades comerciais (UN, KG, L, CX)");
         setPaneVisibility(catalogsPane, allPanes);
 
         if (categoriesTableParam == null) categoriesTableParam = new TableView<>();
@@ -1663,8 +1671,8 @@ public class DashboardNavigationManager {
                                VBox[] allPanes, Button[] allNavButtons,
                                Runnable updateCashBadge) {
         setActiveNav(null, allNavButtons);
-        pageTitleLabel.setText("Stock");
-        pageSubtitleLabel.setText("Gestão de Inventário");
+        pageTitleLabel.setText("Inventário & Stock em Loja");
+        pageSubtitleLabel.setText("Controlo de existências na filial, ajustes manuais e quebras");
         setPaneVisibility(stockPane, allPanes);
 
         stockPane.getChildren().clear();
@@ -1815,8 +1823,8 @@ public class DashboardNavigationManager {
                                     VBox[] allPanes, Button[] allNavButtons,
                                     Runnable updateCashBadge) {
         setActiveNav(null, allNavButtons);
-        pageTitleLabel.setText("Financeiro");
-        pageSubtitleLabel.setText("Visão geral financeira");
+        pageTitleLabel.setText("Tesouraria & Finanças");
+        pageSubtitleLabel.setText("Balanço de tesouraria, despesas operacionais e recebimentos");
         setPaneVisibility(financeiroPane, allPanes);
 
         GridPane kpi = (GridPane) financeiroPane.lookup("#financeiroKPI");
@@ -1829,8 +1837,8 @@ public class DashboardNavigationManager {
                                VBox[] allPanes, Button[] allNavButtons,
                                Runnable updateCashBadge) {
         setActiveNav(null, allNavButtons);
-        pageTitleLabel.setText("Utilizadores");
-        pageSubtitleLabel.setText("Gestão de utilizadores e permissões");
+        pageTitleLabel.setText("Utilizadores & Acessos");
+        pageSubtitleLabel.setText("Operadores de caixa, fiscais, gerentes e perfis de segurança");
         setPaneVisibility(usersPane, allPanes);
 
         if (usersPane.getChildren().isEmpty()) {
@@ -1898,8 +1906,8 @@ public void showTurnoCaixaPane(Label pageTitleLabel, Label pageSubtitleLabel,
                                 VBox turnoCaixaPane, User currentUser,
                                 VBox[] allPanes, Button[] allNavButtons,
                                 Runnable updateCashBadge) {
-    pageTitleLabel.setText("Turno de Caixa");
-    pageSubtitleLabel.setText("Gestão de aberturas, fechos e movimentos");
+    pageTitleLabel.setText("Sessão & Fecho de Caixa");
+    pageSubtitleLabel.setText("Abertura com Fundo de Maneio, Fecho cego com Fita Z, Sangrias e Reforços");
     setActiveNav(null, allNavButtons);
     setPaneVisibility(turnoCaixaPane, allPanes);
     updateCashBadge.run();
@@ -1930,8 +1938,8 @@ public void showTurnoCaixaPane(Label pageTitleLabel, Label pageSubtitleLabel,
                                   Consumer<Product> onViewProduct,
                                   Consumer<String> onSearch) {
         setActiveNav(null, allNavButtons);
-        pageTitleLabel.setText("Produtos");
-        pageSubtitleLabel.setText("Gestão de catálogo e stock");
+        pageTitleLabel.setText("Artigos & Serviços");
+        pageSubtitleLabel.setText("Catálogo de artigos, preços de venda, margem de lucro e códigos de barras");
         setPaneVisibility(productsPane, allPanes);
         updateCashBadge.run();
 
@@ -2271,4 +2279,237 @@ public void showTurnoCaixaPane(Label pageTitleLabel, Label pageSubtitleLabel,
             .field("Stock Máximo", stockMax)
             .show();
     }
+
+    public void showTransfersPane(Button navTransferir, Label pageTitleLabel, Label pageSubtitleLabel,
+                                  VBox transfersPane, User currentUser,
+                                  VBox[] allPanes, Button[] allNavButtons,
+                                  Runnable updateCashBadge, Runnable onNewTransfer) {
+        setActiveNav(navTransferir, allNavButtons);
+        pageTitleLabel.setText("Guias de Transferência de Stock");
+        pageSubtitleLabel.setText("Movimentações entre Armazém Central e Lojas com Guia de Transporte");
+        setPaneVisibility(transfersPane, allPanes);
+
+        if (transfersPane.getChildren().isEmpty()) {
+            VBox main = new VBox(0);
+            main.setStyle("-fx-background-color: #F8FAFC;");
+
+            // 1. KPI Row
+            FlowPane kpiRow = new FlowPane(12, 0);
+            kpiRow.setStyle("-fx-padding: 16 20 8 20;");
+
+            Label kpiTotal = new Label("0");
+            Label kpiCompleted = new Label("0");
+            Label kpiInTransit = new Label("0");
+
+            kpiRow.getChildren().addAll(
+                makeKpiCard("TOTAL DE GUIAS", kpiTotal, "#2563EB"),
+                makeKpiCard("RECEBIDAS NA LOJA", kpiCompleted, "#10B981"),
+                makeKpiCard("EM TRÂNSITO / PENDENTES", kpiInTransit, "#F59E0B")
+            );
+
+            // 2. Toolbar de Filtros Avançados
+            HBox toolbar = new HBox(10);
+            toolbar.setStyle("-fx-background-color: #ffffff; -fx-padding: 12 16; -fx-border-color: #E2E8F0; -fx-border-width: 0 0 1 0;");
+
+            Button btnNova = makeActionButton("+ Nova Guia de Transferência", "#2563EB", "#ffffff");
+            Button btnAtualizar = makeActionButton("🔄 Actualizar", "#475569", "#ffffff");
+
+            ComboBox<Warehouse> whFilter = new ComboBox<>();
+            whFilter.setPromptText("Origem: Todos");
+            whFilter.setPrefWidth(180);
+            whFilter.setStyle("-fx-font-size: 12px; -fx-font-weight: 600;");
+
+            ComboBox<Branch> brFilter = new ComboBox<>();
+            brFilter.setPromptText("Destino: Todas");
+            brFilter.setPrefWidth(180);
+            brFilter.setStyle("-fx-font-size: 12px; -fx-font-weight: 600;");
+
+            ComboBox<String> statusFilter = new ComboBox<>();
+            statusFilter.getItems().addAll("Todos os Estados", "PENDING", "IN_TRANSIT", "COMPLETED", "CANCELLED");
+            statusFilter.setValue("Todos os Estados");
+            statusFilter.setPrefWidth(160);
+            statusFilter.setStyle("-fx-font-size: 12px; -fx-font-weight: 600;");
+
+            Region spacer = new Region();
+            HBox.setHgrow(spacer, Priority.ALWAYS);
+
+            TextField searchField = new TextField();
+            searchField.setPromptText("Pesquisar guia, artigo ou operador...");
+            searchField.setPrefWidth(240);
+            searchField.setStyle("-fx-font-size: 12px; -fx-font-weight: 600; -fx-padding: 6 10; -fx-background-radius: 4; -fx-border-color: #E2E8F0; -fx-border-radius: 4;");
+
+            UiUtils.attachSafe(btnNova, onNewTransfer, systemLogService, "TRANSFERS_NEW");
+
+            toolbar.getChildren().addAll(btnNova, btnAtualizar, whFilter, brFilter, statusFilter, spacer, searchField);
+
+            // 3. Tabela de Transferências
+            TableView<WarehouseTransfer> table = new TableView<>();
+            table.setStyle("-fx-font-size: 12px; -fx-background-color: #ffffff; -fx-border-color: #E2E8F0; -fx-border-width: 0 1 1 1;");
+            table.setPlaceholder(new Label("Nenhuma guia de transferência encontrada"));
+            table.setRowFactory(makeTableRowFactory());
+
+            TableColumn<WarehouseTransfer, String> c1 = new TableColumn<>("Nº Documento");
+            c1.setPrefWidth(130);
+            c1.setCellValueFactory(d -> {
+                WarehouseTransfer t = d.getValue();
+                return new SimpleStringProperty((t.getSeries() != null ? t.getSeries() : "TWA") + " " + t.getDocumentYear() + "/" + t.getDocumentNumber());
+            });
+
+            TableColumn<WarehouseTransfer, String> c2 = new TableColumn<>("Data / Hora");
+            c2.setPrefWidth(130);
+            c2.setCellValueFactory(d -> new SimpleStringProperty(d.getValue().getCreatedAt() != null ? d.getValue().getCreatedAt().format(DATE_FORMATTER) : "—"));
+
+            TableColumn<WarehouseTransfer, String> c3 = new TableColumn<>("Origem (Armazém)");
+            c3.setPrefWidth(160);
+            c3.setCellValueFactory(d -> new SimpleStringProperty(d.getValue().getWarehouse() != null ? d.getValue().getWarehouse().getName() : "—"));
+
+            TableColumn<WarehouseTransfer, String> c4 = new TableColumn<>("Destino (Filial)");
+            c4.setPrefWidth(160);
+            c4.setCellValueFactory(d -> new SimpleStringProperty(d.getValue().getBranch() != null ? d.getValue().getBranch().getName() : "—"));
+
+            TableColumn<WarehouseTransfer, String> c5 = new TableColumn<>("Itens / Volume");
+            c5.setPrefWidth(110);
+            c5.setCellValueFactory(d -> {
+                int count = d.getValue().getItems() != null ? d.getValue().getItems().size() : 0;
+                return new SimpleStringProperty(count + " artigos");
+            });
+
+            TableColumn<WarehouseTransfer, String> c6 = new TableColumn<>("Estado");
+            c6.setPrefWidth(120);
+            c6.setCellValueFactory(d -> {
+                String st = d.getValue().getStatus() != null ? d.getValue().getStatus() : "PENDING";
+                String desc = switch (st) {
+                    case "COMPLETED" -> "🟢 Recebido";
+                    case "IN_TRANSIT" -> "🚚 Em Trânsito";
+                    case "CANCELLED" -> "🔴 Cancelado";
+                    default -> "🟡 Pendente";
+                };
+                return new SimpleStringProperty(desc);
+            });
+
+            TableColumn<WarehouseTransfer, String> c7 = new TableColumn<>("Responsável");
+            c7.setPrefWidth(140);
+            c7.setCellValueFactory(d -> new SimpleStringProperty(d.getValue().getRequestedBy() != null ? d.getValue().getRequestedBy().getFullName() : "—"));
+
+            TableColumn<WarehouseTransfer, Void> c8 = new TableColumn<>("Acções");
+            c8.setPrefWidth(180);
+            c8.setCellFactory(col -> new TableCell<>() {
+                private final Button btnVer = new Button("👁️ Ver");
+                private final Button btnReceber = new Button("✅ Confirmar");
+                private final HBox box = new HBox(6, btnVer, btnReceber);
+
+                {
+                    btnVer.setStyle("-fx-font-size: 11px; -fx-padding: 3 8; -fx-background-color: #F1F5F9; -fx-text-fill: #0F172A; -fx-background-radius: 3; -fx-cursor: hand;");
+                    btnReceber.setStyle("-fx-font-size: 11px; -fx-padding: 3 8; -fx-background-color: #10B981; -fx-text-fill: white; -fx-font-weight: 700; -fx-background-radius: 3; -fx-cursor: hand;");
+
+                    btnVer.setOnAction(e -> {
+                        WarehouseTransfer t = getTableView().getItems().get(getIndex());
+                        if (t != null) {
+                            StringBuilder details = new StringBuilder();
+                            details.append("Origem: ").append(t.getWarehouse() != null ? t.getWarehouse().getName() : "—").append("
+");
+                            details.append("Destino: ").append(t.getBranch() != null ? t.getBranch().getName() : "—").append("
+");
+                            details.append("Estado: ").append(t.getStatus()).append("
+
+");
+                            details.append("ARTIGOS TRANSFERIDOS:
+");
+                            if (t.getItems() != null) {
+                                for (WarehouseTransferItem it : t.getItems()) {
+                                    details.append("• ").append(it.getProduct() != null ? it.getProduct().getName() : "Artigo")
+                                           .append(" — Qtd: ").append(it.getQuantity()).append("
+");
+                                }
+                            }
+                            DetailDialog.show("Guia de Transferência " + t.getDocumentNumber(), details.toString());
+                        }
+                    });
+
+                    btnReceber.setOnAction(e -> {
+                        WarehouseTransfer t = getTableView().getItems().get(getIndex());
+                        if (t != null && !"COMPLETED".equals(t.getStatus()) && !"CANCELLED".equals(t.getStatus())) {
+                            Alert alert = new Alert(Alert.AlertType.CONFIRMATION, "Confirmar receção de mercadoria na filial? O stock será actualizado.", ButtonType.YES, ButtonType.NO);
+                            alert.setHeaderText(null);
+                            alert.showAndWait().ifPresent(response -> {
+                                if (response == ButtonType.YES) {
+                                    try {
+                                        warehouseTransferService.complete(t.getId(), currentUser);
+                                        btnAtualizar.fire();
+                                    } catch (Exception ex) {
+                                        systemLogService.logError("TRANSFER_COMPLETE_FAILED", "Erro ao receber transferência", ex);
+                                    }
+                                }
+                            });
+                        }
+                    });
+                }
+
+                @Override
+                protected void updateItem(Void item, boolean empty) {
+                    super.updateItem(item, empty);
+                    if (empty || getIndex() >= getTableView().getItems().size()) {
+                        setGraphic(null);
+                    } else {
+                        WarehouseTransfer t = getTableView().getItems().get(getIndex());
+                        boolean isDone = t != null && ("COMPLETED".equals(t.getStatus()) || "CANCELLED".equals(t.getStatus()));
+                        btnReceber.setVisible(!isDone);
+                        btnReceber.setManaged(!isDone);
+                        setGraphic(box);
+                    }
+                }
+            });
+
+            table.getColumns().addAll(List.of(c1, c2, c3, c4, c5, c6, c7, c8));
+
+            Runnable loadTransfers = () -> {
+                List<WarehouseTransfer> all = warehouseTransferRepository.findAllByOrderByCreatedAtDesc();
+                long total = all.size();
+                long completed = all.stream().filter(t -> "COMPLETED".equals(t.getStatus())).count();
+                long inTransit = all.stream().filter(t -> "IN_TRANSIT".equals(t.getStatus()) || "PENDING".equals(t.getStatus())).count();
+
+                kpiTotal.setText(String.valueOf(total));
+                kpiCompleted.setText(String.valueOf(completed));
+                kpiInTransit.setText(String.valueOf(inTransit));
+
+                Warehouse selWh = whFilter.getValue();
+                Branch selBr = brFilter.getValue();
+                String selSt = statusFilter.getValue();
+                String q = searchField.getText() == null ? "" : searchField.getText().trim().toLowerCase();
+
+                List<WarehouseTransfer> filtered = all.stream()
+                        .filter(t -> selWh == null || (t.getWarehouse() != null && t.getWarehouse().getId().equals(selWh.getId())))
+                        .filter(t -> selBr == null || (t.getBranch() != null && t.getBranch().getId().equals(selBr.getId())))
+                        .filter(t -> selSt == null || "Todos os Estados".equals(selSt) || selSt.equalsIgnoreCase(t.getStatus()))
+                        .filter(t -> q.isEmpty() || (t.getDocumentNumber() != null && String.valueOf(t.getDocumentNumber()).contains(q))
+                                || (t.getWarehouse() != null && t.getWarehouse().getName().toLowerCase().contains(q))
+                                || (t.getBranch() != null && t.getBranch().getName().toLowerCase().contains(q)))
+                        .toList();
+
+                table.setItems(FXCollections.observableArrayList(filtered));
+            };
+
+            whFilter.setItems(FXCollections.observableArrayList(warehouseRepository.findAll()));
+            brFilter.setItems(FXCollections.observableArrayList(branchRepository.findAll()));
+
+            whFilter.valueProperty().addListener((o, ov, nv) -> loadTransfers.run());
+            brFilter.valueProperty().addListener((o, ov, nv) -> loadTransfers.run());
+            statusFilter.valueProperty().addListener((o, ov, nv) -> loadTransfers.run());
+            searchField.textProperty().addListener((o, ov, nv) -> loadTransfers.run());
+            btnAtualizar.setOnAction(e -> loadTransfers.run());
+
+            main.getChildren().addAll(kpiRow, toolbar, table);
+            VBox.setVgrow(table, Priority.ALWAYS);
+            transfersPane.getChildren().add(main);
+            loadTransfers.run();
+        } else {
+            // Recarregar dados se já inicializado
+            Node main = transfersPane.getChildren().get(0);
+            if (main instanceof VBox) {
+                // Find table and refresh
+            }
+        }
+        updateCashBadge.run();
+    }
+
 }

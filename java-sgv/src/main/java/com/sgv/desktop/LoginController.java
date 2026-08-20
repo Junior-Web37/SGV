@@ -86,6 +86,10 @@ public class LoginController {
             Scene scene = new Scene(root);
             scene.getStylesheets().add(getClass().getResource("/styles/styles.css").toExternalForm());
             scene.getStylesheets().add(getClass().getResource("/css/dashboard.css").toExternalForm());
+            stage.setTitle("SGV - Sistema de Gestão de Vendas & Facturação");
+            try {
+                stage.getIcons().add(new javafx.scene.image.Image(getClass().getResourceAsStream("/icons/app-icon.png")));
+            } catch (Exception ignored) {}
             stage.setScene(scene);
             stage.setWidth(1280);
             stage.setHeight(800);

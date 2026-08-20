@@ -11,4 +11,5 @@ import java.util.List;
 public interface CashMovementRepository extends JpaRepository<CashMovement, Long> {
 
     List<CashMovement> findBySessionOrderByCreatedAtAsc(CashSession session);
+    List<CashMovement> findBySessionOrderByCreatedAtDesc(CashSession session);
 }

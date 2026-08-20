@@ -63,7 +63,7 @@ public class SaleService {
     }
 
     @Transactional
-    public File processAndSave(Sale sale, User currentUser) throws Exception {
+    public Sale persistSaleTransaction(Sale sale, User currentUser) throws Exception {
         if (sale == null) throw new IllegalArgumentException("Sale is null");
         if (trainingModeService != null && trainingModeService.isTrainingMode()) {
             throw new IllegalStateException("Operação bloqueada: modo treino está activo.");
@@ -237,9 +237,19 @@ public class SaleService {
                 }
             }
         }
+        return saved;
+    }
 
-        // Generate PDF or thermal
-        String fmt = com.sgv.desktop.SaleFormController.atDefaultFormat(persistentSale.getDocumentType());
+    /**
+     * Orquestrador de venda de alta disponibilidade:
+     * A transação do banco é executada e finalizada rapidamente via persistSaleTransaction;
+     * A geração de ficheiro PDF/I/O é realizada fora do lock transacional.
+     */
+    public File processAndSave(Sale sale, User currentUser) throws Exception {
+        Sale saved = persistSaleTransaction(sale, currentUser);
+
+        // Geração de documento/impressão fora da transação do banco
+        String fmt = com.sgv.desktop.SaleFormController.atDefaultFormat(saved.getDocumentType());
         if ("thermal-80mm".equals(fmt)) {
             return thermalPrintService.printReceipt(saved);
         }

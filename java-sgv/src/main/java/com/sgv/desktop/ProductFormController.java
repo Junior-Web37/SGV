@@ -264,7 +264,7 @@ public class ProductFormController extends BaseFormController {
                         return null;
                     }
                 };
-                saveTask.setOnSucceeded(e -> {
+                saveTask.setOnSucceeded(e -> { systemLogService.logUserAction(currentUser != null ? currentUser.getUsername() : "Sistema", "PRODUTO_GRAVADO", "Artigo gravado com sucesso: " + nameField.getText());
                     loadBarcodes();
                     barcodeField.clear();
                     hideError();
@@ -762,7 +762,7 @@ public class ProductFormController extends BaseFormController {
             }
         };
 
-        saveTask.setOnSucceeded(e -> {
+        saveTask.setOnSucceeded(e -> { systemLogService.logUserAction(currentUser != null ? currentUser.getUsername() : "Sistema", "PRODUTO_GRAVADO", "Artigo gravado com sucesso: " + nameField.getText());
             if (onSave != null) onSave.run();
             Stage stage = (Stage) saveButton.getScene().getWindow();
             stage.close();

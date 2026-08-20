@@ -150,7 +150,7 @@ public class ReportsController {
     // ── TAB 1: VENDAS CONSOLIDADAS ─────────────────────
 
     private Tab buildVendasTab() {
-        Tab tab = new Tab("📊  Vendas Consolidadas");
+        Tab tab = new Tab("📊  Mapa Geral de Vendas");
 
         ScrollPane sp = new ScrollPane();
         sp.setFitToWidth(true);
@@ -305,7 +305,7 @@ public class ReportsController {
     // ── TAB 2: PRODUTOS EM FALTA ─────────────────────
 
     private Tab buildProdutosEmFaltaTab() {
-        Tab tab = new Tab("⚠  Produtos em Falta");
+        Tab tab = new Tab("⚠️  Artigos para Reposição");
 
         ScrollPane sp = new ScrollPane();
         sp.setFitToWidth(true);
@@ -384,7 +384,7 @@ public class ReportsController {
     // ── TAB 3: MAIS VENDIDOS ────────────────────────────
 
     private Tab buildMaisVendidosTab() {
-        Tab tab = new Tab("🏆  Mais Vendidos");
+        Tab tab = new Tab("🔥  Artigos Mais Vendidos");
 
         ScrollPane sp = new ScrollPane();
         sp.setFitToWidth(true);
@@ -493,7 +493,7 @@ public class ReportsController {
     // ── TAB 4: RELATÓRIO IVA ──────────────────────────
 
     private Tab buildIvaTab() {
-        Tab tab = new Tab("🧾  Relatório de IVA");
+        Tab tab = new Tab("🏛️  Apuramento de IVA (16%)");
 
         ScrollPane sp = new ScrollPane();
         sp.setFitToWidth(true);
@@ -596,7 +596,7 @@ public class ReportsController {
     // ── TAB 5: CONTAS A RECEBER ─────────────────────
 
     private Tab buildAccountsReceivableTab() {
-        Tab tab = new Tab("📑  Contas a Receber");
+        Tab tab = new Tab("👥  Contas Correntes / Devedores");
 
         ScrollPane sp = new ScrollPane();
         sp.setFitToWidth(true);
@@ -726,7 +726,7 @@ public class ReportsController {
     // ── TAB 6: MOVIMENTOS DE ESTOQUE ─────────────────
 
     private Tab buildStockMovimentosTab() {
-        Tab tab = new Tab("📦  Movimentos de Estoque");
+        Tab tab = new Tab("📦  Extrato de Movimentos (Kardex)");
 
         ScrollPane sp = new ScrollPane();
         sp.setFitToWidth(true);
@@ -810,7 +810,7 @@ public class ReportsController {
     // ── TAB 6: MATRIZ DE STOCK ──────────────────────
 
     private Tab buildStockMatrixTab() {
-        Tab tab = new Tab("🗃  Matriz de Stock");
+        Tab tab = new Tab("🏢  Stock Central por Armazém");
 
         ScrollPane sp = new ScrollPane();
         sp.setFitToWidth(true);
@@ -949,7 +949,7 @@ public class ReportsController {
     // ── TAB 7: TRANSFERÊNCIAS ────────────────────────
 
     private Tab buildTransferenciasTab() {
-        Tab tab = new Tab("🔄  Transferências");
+        Tab tab = new Tab("🔁  Guias de Transferência");
 
         ScrollPane sp = new ScrollPane();
         sp.setFitToWidth(true);
@@ -1051,7 +1051,7 @@ public class ReportsController {
     // ── TAB 8: PAGAMENTOS A FORNECEDORES ──────────────
 
     private Tab buildPagamentosFornecedoresTab() {
-        Tab tab = new Tab("💰  Pagamentos a Fornecedores");
+        Tab tab = new Tab("📑  Pagamentos a Fornecedores");
 
         ScrollPane sp = new ScrollPane();
         sp.setFitToWidth(true);

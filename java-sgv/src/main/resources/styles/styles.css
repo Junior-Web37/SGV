@@ -1,113 +1,134 @@
 /* ============================================================
-   SGV — 60-30-10 Professional Light Theme (Slate + Blue)
-   Design System v3.0
-   60% = #F8FAFC  |  30% = #E2E8F0  |  10% = #2563EB
+   SGV — Sistema de Gestão de Vendas & Facturação (Moçambique)
+   Design System 2026 — Modern Enterprise Slate & Cobalt
+   60% = #F8FAFC (Superfície limpa) | 30% = #FFFFFF / #E2E8F0 | 10% = #2563EB / #10B981
    ============================================================ */
 
-/* ── Global Font & Background ─────────────────────────────── */
+/* ── Tipografia Global & Fundo ────────────────────────────── */
 .root {
-    -fx-font-family: "Segoe UI", "Helvetica Neue", Arial, sans-serif;
+    -fx-font-family: "Segoe UI", -apple-system, BlinkMacSystemFont, "Helvetica Neue", Arial, sans-serif;
     -fx-background-color: #F8FAFC;
+    -fx-text-fill: #0F172A;
 }
 
 .label {
     -fx-text-fill: #0F172A;
 }
 
-/* ── Cards & Panels ───────────────────────────────────────── */
+/* ── Cartões & Painéis com Elevação Moderna ────────────────── */
 .login-box, .card-box, .card-pane {
     -fx-background-color: #ffffff;
-    -fx-background-radius: 8;
+    -fx-background-radius: 10;
     -fx-border-color: #E2E8F0;
     -fx-border-width: 1;
-    -fx-border-radius: 8;
+    -fx-border-radius: 10;
     -fx-padding: 20;
-    -fx-effect: dropshadow(gaussian, rgba(0,0,0,0.04), 6, 0, 0, 4);
+    -fx-effect: dropshadow(gaussian, rgba(15, 23, 42, 0.05), 10, 0, 0, 4);
 }
 
 .filter-card {
-    -fx-background-color: #F8FAFC;
+    -fx-background-color: #FFFFFF;
     -fx-background-radius: 8;
     -fx-border-color: #E2E8F0;
     -fx-border-width: 1;
     -fx-border-radius: 8;
-    -fx-padding: 16;
+    -fx-padding: 14 16;
+    -fx-effect: dropshadow(gaussian, rgba(15, 23, 42, 0.03), 6, 0, 0, 2);
 }
 
-/* ── Inputs ───────────────────────────────────────────────── */
-.text-field, .text-area, .combo-box, .date-picker, .form-input {
-    -fx-padding: 10 12 10 12;
-    -fx-background-color: #F8FAFC;
+/* ── Inputs & Campos de Formulário ─────────────────────────── */
+.text-field, .password-field, .text-area, .combo-box, .date-picker, .form-input {
+    -fx-padding: 8 12;
+    -fx-background-color: #FFFFFF;
     -fx-text-fill: #0F172A;
-    -fx-prompt-text-fill: #2563EB;
+    -fx-prompt-text-fill: #94A3B8;
     -fx-border-radius: 6;
     -fx-background-radius: 6;
-    -fx-border-color: #E2E8F0;
+    -fx-border-color: #CBD5E1;
     -fx-border-width: 1;
+    -fx-font-size: 13px;
 }
 
-.text-field:focused, .combo-box:focused, .date-picker:focused {
+.text-field:focused, .password-field:focused, .combo-box:focused, .date-picker:focused, .text-area:focused {
     -fx-border-color: #2563EB;
-    -fx-border-width: 2;
-    -fx-background-color: #ffffff;
-    -fx-effect: dropshadow(gaussian, rgba(37,99,235,0.15), 4, 0, 0, 0);
+    -fx-border-width: 1.5;
+    -fx-background-color: #FFFFFF;
+    -fx-effect: dropshadow(gaussian, rgba(37, 99, 235, 0.2), 6, 0, 0, 1);
 }
 
-/* ── Buttons ──────────────────────────────────────────────── */
+/* ── Botões Modernos ───────────────────────────────────────── */
 .button {
     -fx-font-family: "Segoe UI", sans-serif;
-    -fx-font-weight: bold;
+    -fx-font-weight: 700;
     -fx-background-radius: 6;
     -fx-cursor: hand;
+    -fx-font-size: 13px;
+    -fx-padding: 8 16;
 }
 
-.login-button, .primary-button {
+.primary-button, .login-button, .btn-primary-ux {
     -fx-background-color: #2563EB;
     -fx-text-fill: #ffffff;
-    -fx-font-weight: 700;
-    -fx-padding: 10 20 10 20;
+    -fx-font-weight: 800;
+    -fx-padding: 10 20;
     -fx-background-radius: 6;
-    -fx-effect: dropshadow(gaussian, rgba(37,99,235,0.25), 6, 0, 0, 2);
+    -fx-effect: dropshadow(gaussian, rgba(37, 99, 235, 0.3), 8, 0, 0, 2);
 }
-.login-button:hover, .primary-button:hover {
+.primary-button:hover, .login-button:hover, .btn-primary-ux:hover {
     -fx-background-color: #1D4ED8;
+    -fx-scale-x: 1.01;
+    -fx-scale-y: 1.01;
 }
 
-.secondary-button {
-    -fx-background-color: #F8FAFC;
-    -fx-text-fill: #0F172A;
-    -fx-font-weight: 600;
-    -fx-padding: 9 18 9 18;
+.primary-button-success, .btn-success-ux {
+    -fx-background-color: #10B981;
+    -fx-text-fill: #ffffff;
+    -fx-font-weight: 800;
+    -fx-padding: 10 20;
     -fx-background-radius: 6;
-    -fx-border-color: #E2E8F0;
+    -fx-effect: dropshadow(gaussian, rgba(16, 185, 129, 0.3), 8, 0, 0, 2);
+}
+.primary-button-success:hover, .btn-success-ux:hover {
+    -fx-background-color: #059669;
+}
+
+.secondary-button, .btn-secondary-ux {
+    -fx-background-color: #FFFFFF;
+    -fx-text-fill: #0F172A;
+    -fx-font-weight: 700;
+    -fx-padding: 9 18;
+    -fx-background-radius: 6;
+    -fx-border-color: #CBD5E1;
     -fx-border-width: 1;
     -fx-border-radius: 6;
 }
-.secondary-button:hover {
+.secondary-button:hover, .btn-secondary-ux:hover {
+    -fx-background-color: #F1F5F9;
     -fx-border-color: #94A3B8;
 }
 
-.danger-button {
+.danger-button, .btn-danger-ux {
     -fx-background-color: #FEE2E2;
-    -fx-text-fill: #EF4444;
-    -fx-font-weight: 600;
-    -fx-padding: 9 18 9 18;
+    -fx-text-fill: #DC2626;
+    -fx-font-weight: 700;
+    -fx-padding: 9 18;
     -fx-background-radius: 6;
     -fx-border-color: #FCA5A5;
     -fx-border-width: 1;
     -fx-border-radius: 6;
 }
-.danger-button:hover {
-    -fx-background-color: #FEE2E2;
-    -fx-border-color: #FCA5A5;
+.danger-button:hover, .btn-danger-ux:hover {
+    -fx-background-color: #FCA5A5;
+    -fx-text-fill: #991B1B;
 }
 
-/* ── Status Badges ────────────────────────────────────────── */
+/* ── Badges de Estado com Alto Contraste ───────────────────── */
 .badge {
-    -fx-background-radius: 20;
-    -fx-padding: 3 10 3 10;
+    -fx-background-radius: 12;
+    -fx-padding: 4 10;
     -fx-font-size: 11px;
-    -fx-font-weight: 700;
+    -fx-font-weight: 800;
+    -fx-alignment: center;
 }
 .badge-success {
     -fx-background-color: #D1FAE5;
@@ -126,55 +147,61 @@
     -fx-text-fill: #1E40AF;
 }
 
-/* ── Error Messages ───────────────────────────────────────── */
-.error-message {
-    -fx-text-fill: #EF4444;
-    -fx-padding: 4 0 4 0;
+/* ── Tabela de Dados (TableView) ──────────────────────────── */
+.table-view {
+    -fx-background-color: #FFFFFF;
+    -fx-border-color: #E2E8F0;
+    -fx-border-radius: 8;
+    -fx-background-radius: 8;
+    -fx-padding: 0;
 }
-
-/* ── Top Navigation Bar ───────────────────────────────────── */
-.sidebar {
-    -fx-background-color: #0F172A;
+.table-view .column-header-background {
+    -fx-background-color: #F8FAFC;
+    -fx-background-radius: 8 8 0 0;
+    -fx-border-color: transparent transparent #E2E8F0 transparent;
+    -fx-border-width: 0 0 1 0;
 }
-
-.nav-item {
-    -fx-background-color: transparent;
-    -fx-text-fill: #94A3B8;
+.table-view .column-header, .table-view .filler {
+    -fx-size: 42;
+    -fx-border-width: 0 1 0 0;
+    -fx-border-color: #F1F5F9;
+    -fx-background-color: #F8FAFC;
+}
+.table-view .column-header .label {
+    -fx-text-fill: #475569;
+    -fx-font-weight: 800;
+    -fx-font-size: 11px;
+}
+.table-row-cell {
+    -fx-background-color: #FFFFFF;
+    -fx-border-color: transparent transparent #F1F5F9 transparent;
+    -fx-border-width: 1;
+    -fx-text-fill: #0F172A;
+    -fx-cell-size: 42px;
+}
+.table-row-cell:odd {
+    -fx-background-color: #FBFDFF;
+}
+.table-row-cell:selected {
+    -fx-background-color: #EFF6FF;
+    -fx-text-fill: #1D4ED8;
+}
+.table-row-cell:hover {
+    -fx-background-color: #F1F5F9;
+}
+.table-cell {
+    -fx-border-color: transparent;
+    -fx-padding: 0 12;
     -fx-font-size: 13px;
-    -fx-alignment: CENTER_LEFT;
-    -fx-padding: 8 16 8 16;
-    -fx-background-radius: 6;
-    -fx-font-weight: 600;
-}
-.nav-item:hover {
-    -fx-background-color: #1E293B;
-    -fx-text-fill: #F8FAFC;
-}
-.nav-active {
-    -fx-background-color: #1E293B;
-    -fx-text-fill: #F8FAFC;
-    -fx-border-color: transparent transparent transparent #2563EB;
-    -fx-border-width: 0 0 0 4;
-    -fx-font-weight: 700;
 }
 
-/* ── Section Header Labels (Dividers inside forms) ────────── */
-.section-header {
-    -fx-background-color: #DBEAFE;
-    -fx-text-fill: #2563EB;
-    -fx-font-weight: 700;
-    -fx-font-size: 12px;
-    -fx-padding: 8 14 8 14;
-    -fx-background-radius: 6;
-}
-
-/* ── KPI Icon container ───────────────────────────────────── */
+/* ── Cartões de Indicador (KPIs) ──────────────────────────── */
 .kpi-icon {
-    -fx-font-size: 22px;
+    -fx-font-size: 24px;
     -fx-min-width: 48px;
     -fx-min-height: 48px;
     -fx-alignment: CENTER;
-    -fx-background-radius: 10;
+    -fx-background-radius: 12;
     -fx-padding: 8;
 }
 .kpi-icon-blue   { -fx-background-color: #DBEAFE; }
@@ -182,19 +209,7 @@
 .kpi-icon-purple { -fx-background-color: #EDE9FE; }
 .kpi-icon-orange { -fx-background-color: #FEF3C7; }
 
-/* ── KPI delta ────────────────────────────────────────────── */
-.delta-positive {
-    -fx-text-fill: #10B981;
-    -fx-font-size: 11px;
-    -fx-font-weight: 700;
-}
-.delta-negative {
-    -fx-text-fill: #EF4444;
-    -fx-font-size: 11px;
-    -fx-font-weight: 700;
-}
-
-/* ── ScrollPane ───────────────────────────────────────────── */
+/* ── Barra de Rolagem Suave ───────────────────────────────── */
 .scroll-pane {
     -fx-background-color: transparent;
 }
@@ -205,307 +220,9 @@
     -fx-background-color: transparent;
 }
 .scroll-bar:vertical .thumb, .scroll-bar:horizontal .thumb {
-    -fx-background-color: #94A3B8;
-    -fx-background-radius: 10;
-}
-
-.form-title {
-    -fx-font-size: 15px;
-    -fx-font-weight: 700;
-    -fx-text-fill: #0F172A;
-}
-
-.form-field-strong {
-    -fx-font-weight: 700;
-    -fx-font-size: 14px;
-    -fx-text-fill: #0F172A;
-}
-
-.amount-input {
-    -fx-font-size: 20px;
-    -fx-font-weight: 700;
-    -fx-text-fill: #2563EB;
-}
-
-.difference-label {
-    -fx-font-weight: 700;
-    -fx-font-size: 16px;
-    -fx-text-fill: #475569;
-}
-
-.status-box-title {
-    -fx-font-size: 16px;
-    -fx-font-weight: 700;
-    -fx-text-fill: #0F172A;
-}
-
-.status-box-text {
-    -fx-font-size: 13px;
-    -fx-text-fill: #475569;
-}
-
-/* ── TableView ────────────────────────────────────────────── */
-.table-view {
-    -fx-background-color: #ffffff;
-    -fx-border-color: #E2E8F0;
-    -fx-border-radius: 8;
+    -fx-background-color: #CBD5E1;
     -fx-background-radius: 8;
 }
-.table-view .column-header-background {
-    -fx-background-color: #F8FAFC;
-    -fx-background-radius: 8 8 0 0;
-    -fx-border-color: transparent transparent #E2E8F0 transparent;
+.scroll-bar:vertical .thumb:hover, .scroll-bar:horizontal .thumb:hover {
+    -fx-background-color: #94A3B8;
 }
-.table-view .column-header, .table-view .filler {
-    -fx-size: 42;
-    -fx-border-width: 0 1 0 0;
-    -fx-border-color: #E2E8F0;
-    -fx-background-color: #F8FAFC;
-}
-.table-view .column-header .label {
-    -fx-text-fill: #475569;
-    -fx-font-weight: 700;
-    -fx-font-size: 12px;
-}
-.table-row-cell {
-    -fx-background-color: #ffffff;
-    -fx-border-color: transparent transparent #F1F5F9 transparent;
-    -fx-border-width: 1;
-    -fx-text-fill: #0F172A;
-    -fx-cell-size: 44px;
-}
-.table-row-cell:odd {
-    -fx-background-color: #F8FAFC;
-}
-.table-row-cell:selected {
-    -fx-background-color: #DBEAFE;
-    -fx-text-fill: #1E40AF;
-}
-.table-row-cell:hover {
-    -fx-background-color: #DBEAFE;
-}
-.table-cell {
-    -fx-border-color: transparent #F1F5F9 transparent transparent;
-    -fx-padding: 0 12 0 12;
-}
-.table-row-cell .text, .table-cell .text {
-    -fx-fill: #0F172A;
-}
-.table-row-cell:selected .text {
-    -fx-fill: #1E40AF;
-}
-
-/* ── Responsive / Overflow Prevention ────────────────────── */
-.card-pane {
-    -fx-max-width: Infinity;
-}
-.scroll-pane {
-    -fx-hbar-policy: NEVER;
-    -fx-vbar-policy: AS_NEEDED;
-}
-.table-view {
-    -fx-max-width: Infinity;
-}
-.label {
-    -fx-wrap-text: false;
-    -fx-text-overrun: ELLIPSIS;
-}
-.tab-pane {
-    -fx-max-width: Infinity;
-}
-.tab-pane .tab-content-area {
-    -fx-max-width: Infinity;
-}
-.filter-card {
-    -fx-max-width: Infinity;
-}
-
-.separator-light {
-    -fx-opacity: 0.2;
-}
-
-.cash-page {
-    -fx-background-color: transparent;
-}
-
-.status-card-success {
-    -fx-text-fill: #10B981;
-}
-
-.status-card-danger {
-    -fx-text-fill: #EF4444;
-}
-
-.status-card-neutral {
-    -fx-text-fill: #0F172A;
-}
-
-.progress-indicator-white {
-    -fx-progress-color: white;
-    -fx-max-width: 20;
-    -fx-max-height: 20;
-}
-
-/* ============================================================
-   Cash Session specific styles (semantic, theme-driven)
-   Use these classes to control visual language of the caixa module
-   Adjust these values to change the page palette centrally.
-   ============================================================ */
-
-/* Theme tokens (referenced by classes below) */
-.theme-bg-dark     { -fx-background-color: #0F172A; }
-.theme-accent      { -fx-background-color: #2563EB; }
-.theme-success     { -fx-background-color: #10B981; }
-.theme-muted       { -fx-text-fill: #94A3B8; }
-.theme-surface     { -fx-background-color: #0B1220; }
-
-.muted-label { -fx-text-fill: #94A3B8; -fx-font-size: 12px; }
-.muted-italic { -fx-text-fill: #94A3B8; -fx-font-style: italic; }
-
-.cash-header {
-    -fx-background-color: transparent; /* container handled by parent */
-    -fx-padding: 20 24;
-    -fx-background-radius: 6;
-}
-
-.cash-actions { -fx-padding: 12 0; }
-
-.section-title { -fx-font-weight: 700; -fx-font-size: 11px; -fx-text-fill: #94A3B8; }
-
-.cash-movements {
-    -fx-background-color: transparent;
-    -fx-padding: 20 24;
-    -fx-background-radius: 6;
-}
-
-.cash-table {
-    -fx-background-color: transparent;
-    -fx-border-color: transparent;
-}
-
-.card-header {
-    -fx-background-color: #0F172A;
-    -fx-padding: 16 24;
-    -fx-border-color: #E2E8F0;
-    -fx-border-width: 0 0 1 0;
-    -fx-background-radius: 3 3 0 0;
-}
-
-.card-title {
-    -fx-font-size: 17px;
-    -fx-font-weight: 600;
-    -fx-text-fill: #ffffff;
-}
-
-.card-subtitle {
-    -fx-font-size: 12px;
-    -fx-text-fill: #94A3B8;
-}
-
-.card-body {
-    -fx-padding: 24;
-    -fx-background-color: #ffffff;
-    -fx-background-radius: 0 0 3 3;
-}
-
-.form-row {
-    -fx-padding: 4 0 12 0;
-}
-
-.form-label {
-    -fx-font-weight: 600;
-    -fx-text-fill: #0F172A;
-    -fx-font-size: 12px;
-}
-
-.form-strong {
-    -fx-font-weight: 700;
-    -fx-font-size: 14px;
-    -fx-text-fill: #0F172A;
-}
-
-.form-alert {
-    -fx-text-fill: #EF4444;
-    -fx-font-size: 13px;
-    -fx-font-weight: 600;
-    -fx-background-color: #FEE2E2;
-    -fx-background-radius: 3;
-    -fx-padding: 8 12;
-}
-
-.form-input-wide {
-    -fx-pref-width: 1000;
-}
-
-.vertical-separator {
-    -fx-padding: 10 0;
-    -fx-background-color: #334155;
-}
-
-.info-panel {
-    -fx-background-color: #F8FAFC;
-    -fx-padding: 14;
-    -fx-background-radius: 3;
-    -fx-border-color: #E2E8F0;
-    -fx-border-radius: 3;
-    -fx-border-width: 1;
-}
-
-.status-box {
-    -fx-padding: 24;
-    -fx-background-color: #ffffff;
-    -fx-background-radius: 10;
-    -fx-border-color: #E2E8F0;
-    -fx-border-width: 1;
-    -fx-border-radius: 10;
-}
-
-.status-card {
-    -fx-background-color: #F8FAFC;
-    -fx-padding: 16;
-    -fx-background-radius: 10;
-    -fx-min-width: 140;
-}
-
-.status-card-value {
-    -fx-font-weight: 700;
-    -fx-font-size: 18px;
-}
-
-.status-card-success {
-    -fx-text-fill: #10B981;
-}
-
-.status-card-danger {
-    -fx-text-fill: #EF4444;
-}
-
-.status-summary {
-    -fx-font-size: 13px;
-    -fx-text-fill: #475569;
-}
-
-.tab-card {
-    -fx-padding: 16 24;
-}
-
-.primary-button-success {
-    -fx-background-color: #10B981;
-    -fx-text-fill: #ffffff;
-    -fx-font-weight: 700;
-    -fx-padding: 10 20 10 20;
-    -fx-background-radius: 6;
-    -fx-effect: dropshadow(gaussian, rgba(16,185,129,0.25), 6, 0, 0, 2);
-}
-.primary-button-success:hover {
-    -fx-background-color: #059669;
-}
-
-/* Badge overrides to keep compact shape on cash panel */
-.badge { -fx-padding: 6 12; -fx-background-radius: 20; }
-
-/* Metric typography used in caixa header */
-.metric-small { -fx-font-size: 12px; -fx-text-fill: #F8FAFC; }
-.metric-value { -fx-font-weight: 700; -fx-font-size: 20px; -fx-text-fill: #F8FAFC; }
-.metric-large { -fx-font-weight: 700; -fx-font-size: 26px; -fx-text-fill: #10B981; }
-

@@ -219,7 +219,7 @@ public class CustomerFormController extends BaseFormController {
                 return null;
             }
         };
-        deleteTask.setOnSucceeded(e -> {
+        deleteTask.setOnSucceeded(e -> { systemLogService.logUserAction(currentUser != null ? currentUser.getUsername() : "Sistema", "CLIENTE_ELIMINADO", "Cliente eliminado: " + customer.getName());
             if (onSave != null) onSave.run();
             Stage stage = (Stage) saveButton.getScene().getWindow();
             stage.close();
@@ -266,7 +266,7 @@ public class CustomerFormController extends BaseFormController {
             }
         };
 
-        saveTask.setOnSucceeded(e -> {
+        saveTask.setOnSucceeded(e -> { systemLogService.logUserAction(currentUser != null ? currentUser.getUsername() : "Sistema", "CLIENTE_GRAVADO", "Cliente gravado: " + nameField.getText());
             if (onSave != null) onSave.run();
             Stage stage = (Stage) saveButton.getScene().getWindow();
             stage.close();

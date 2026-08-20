@@ -79,7 +79,7 @@ public class CategoryFormController extends BaseFormController {
                 return null;
             }
         };
-        saveTask.setOnSucceeded(e -> { if (onSave != null) onSave.run(); doCancel(); });
+        saveTask.setOnSucceeded(e -> { systemLogService.logUserAction(currentUser != null ? currentUser.getUsername() : "Sistema", "CATEGORIA_GRAVADA", "Categoria gravada com sucesso: " + nameField.getText()); if (onSave != null) onSave.run(); doCancel(); });
         saveTask.setOnFailed(e -> {
             Throwable ex = saveTask.getException();
             String msg = ex.getMessage() != null ? ex.getMessage() : "Erro desconhecido";

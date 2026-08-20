@@ -18,11 +18,13 @@ public class OpenSessionFormController extends BaseFormController {
     @FXML private TextField initialValueField;
 
     private final CashSessionService cashSessionService;
+    private final com.sgv.service.SystemLogService systemLogService;
     private Runnable onSuccess;
 
     private static final Logger log = LoggerFactory.getLogger(OpenSessionFormController.class);
 
-    public OpenSessionFormController(CashSessionService cashSessionService) {
+    public OpenSessionFormController(CashSessionService cashSessionService, com.sgv.service.SystemLogService systemLogService) {
+        this.systemLogService = systemLogService;
         this.cashSessionService = cashSessionService;
     }
 
@@ -96,8 +98,8 @@ public class OpenSessionFormController extends BaseFormController {
                 return null;
             }
         };
-        saveTask.setOnSucceeded(e -> { if (onSuccess != null) onSuccess.run(); doCancel(); });
-        saveTask.setOnFailed(e -> {
+        saveTask.setOnSucceeded(e -> { systemLogService.logUserAction(currentUser != null ? currentUser.getUsername() : "Sistema", "CAIXA_ABERTO", "Turno de caixa aberto com Fundo de Maneio: " + initialValueField.getText() + " MT"); if (onSuccess != null) onSuccess.run(); doCancel(); });
+        saveTask.setOnFailed(e -> { Throwable ex = saveTask.getException(); systemLogService.logError("OPEN_CASH_FAILED", "Erro ao abrir caixa: " + (ex != null ? ex.getMessage() : ""), ex);
             Throwable ex = saveTask.getException();
             String msg = ex != null && ex.getMessage() != null ? ex.getMessage() : "Erro desconhecido";
             showError(msg);

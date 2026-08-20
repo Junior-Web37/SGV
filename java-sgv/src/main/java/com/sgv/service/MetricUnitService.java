@@ -32,8 +32,9 @@ public class MetricUnitService {
     public boolean existsByAbbreviation(String abbreviation, Long excludeId) {
         if (abbreviation == null || abbreviation.isBlank()) return false;
         String trimmed = abbreviation.trim();
-        return metricUnitRepository.existsByAbbreviation(trimmed)
-                && (excludeId == null || !excludeId.equals(excludeId));
+        return metricUnitRepository.findByAbbreviation(trimmed)
+                .filter(u -> excludeId == null || !excludeId.equals(u.getId()))
+                .isPresent();
     }
 
     @Transactional

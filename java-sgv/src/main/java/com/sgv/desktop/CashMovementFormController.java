@@ -23,9 +23,11 @@ public class CashMovementFormController extends BaseFormController {
     @FXML private TextField descriptionField;
 
     private final CashSessionService cashSessionService;
+    private final com.sgv.service.SystemLogService systemLogService;
     private Runnable onSuccess;
 
-    public CashMovementFormController(CashSessionService cashSessionService) {
+    public CashMovementFormController(CashSessionService cashSessionService, com.sgv.service.SystemLogService systemLogService) {
+        this.systemLogService = systemLogService;
         this.cashSessionService = cashSessionService;
     }
 
@@ -128,8 +130,8 @@ public class CashMovementFormController extends BaseFormController {
                 return null;
             }
         };
-        saveTask.setOnSucceeded(e -> { if (onSuccess != null) onSuccess.run(); doCancel(); });
-        saveTask.setOnFailed(e -> {
+        saveTask.setOnSucceeded(e -> { systemLogService.logUserAction(currentUser != null ? currentUser.getUsername() : "Sistema", "MOVIMENTO_CAIXA_GRAVADO", "Movimento de caixa (" + typeCombo.getValue() + "): " + amountField.getText() + " MT - " + descriptionField.getText()); if (onSuccess != null) onSuccess.run(); doCancel(); });
+        saveTask.setOnFailed(e -> { Throwable ex = saveTask.getException(); systemLogService.logError("CASH_MOV_FAILED", "Erro em movimento de caixa: " + (ex != null ? ex.getMessage() : ""), ex);
             Throwable ex = saveTask.getException();
             String msg = ex != null && ex.getMessage() != null ? ex.getMessage() : "Erro desconhecido";
             showError(msg);

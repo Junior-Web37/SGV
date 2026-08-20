@@ -757,10 +757,10 @@ public class DashboardCrudManager {
             .field("Nome", custName)
             .field("NUIT", fullSale.getCustomerNuit())
             .section("Totais")
-            .field("Subtotal", String.format("%.2f MZN", fullSale.getSubtotal()))
-            .field("IVA", String.format("%.2f MZN", fullSale.getTotalTax()))
-            .field("Desconto", String.format("%.2f MZN", fullSale.getTotalDiscount()))
-            .field("Total", String.format("%.2f MZN", fullSale.getTotal()), "#2563EB");
+            .field("Subtotal", String.format("%.2f MT", fullSale.getSubtotal()))
+            .field("IVA (16%)", String.format("%.2f MT", fullSale.getTotalTax()))
+            .field("Desconto", String.format("%.2f MT", fullSale.getTotalDiscount()))
+            .field("Total", String.format("%.2f MT", fullSale.getTotal()), "#2563EB");
 
         if ("ANULADA".equals(fullSale.getState()) && fullSale.getAnnulReason() != null) {
             dd.section("Anulação")
@@ -797,24 +797,35 @@ public class DashboardCrudManager {
 
         String typeColor = "B2B".equals(selected.getType()) ? "#3B82F6" : "#10B981";
 
-        DetailDialog.create(owner)
+        var dialog = DetailDialog.create(owner)
             .title(selected.getName() != null ? selected.getName() : "Cliente")
             .subtitle("Código: " + (selected.getCode() != null ? selected.getCode() : "—"))
             .statusBadge(selected.getType() != null ? selected.getType() : "—", typeColor)
-            .section("Dados Pessoais")
+            .section("Dados do Cliente")
             .field("Nome Completo", selected.getName())
             .field("Código", selected.getCode())
-            .field("Tipo", selected.getType())
+            .field("Tipo de Cliente", selected.getType())
             .field("NUIT", selected.getNuit())
-            .section("Contacto")
+            .section("Contactos & Localização")
             .field("Telefone", selected.getContact())
             .field("Morada", selected.getAddress())
-            .section("Financeiro")
-            .field("Saldo", selected.getBalance() != null ? String.format("%.2f MT", selected.getBalance()) : "0.00 MT", "#2563EB")
+            .section("Posição Financeira")
+            .field("Saldo Devedor Actual", selected.getBalance() != null ? String.format("%.2f MT", selected.getBalance()) : "0.00 MT", "#2563EB")
             .field("Limite de Crédito", selected.getCreditLimit() != null ? String.format("%.2f MT", selected.getCreditLimit()) : "—")
-            .field("Desconto Padrão", selected.getDefaultDiscount() != null ? String.format("%.1f%%", selected.getDefaultDiscount()) : "—")
-            .field("Pontos de Fidelidade", selected.getFidelityPoints() != null ? String.valueOf(selected.getFidelityPoints()) : "0")
-            .show();
+            .field("Desconto Autorizado", selected.getDefaultDiscount() != null ? String.format("%.1f%%", selected.getDefaultDiscount()) : "—");
+
+        var statement = customerAccountService.getCustomerStatement(selected.getId());
+        if (statement != null && !statement.isEmpty()) {
+            dialog.section("Extrato de Conta Corrente (Últimos Movimentos)");
+            for (var entry : statement.stream().limit(8).toList()) {
+                String dateStr = entry.getDate() != null ? entry.getDate().format(java.time.format.DateTimeFormatter.ofPattern("dd/MM/yyyy")) : "";
+                String valStr = String.format("%s | D: %,.0f MT | C: %,.0f MT | Saldo: %,.0f MT",
+                        entry.getDocument(), entry.getDebit(), entry.getCredit(), entry.getRunningBalance());
+                dialog.field(dateStr + " (" + entry.getType() + ")", valStr);
+            }
+        }
+
+        dialog.show();
     }
 
     public void reconcileSelectedCustomerCredits(TableView<Customer> customersTable, Window owner, User currentUser) {
@@ -1112,13 +1123,36 @@ public class DashboardCrudManager {
         colDate.setCellValueFactory(d -> new SimpleStringProperty(
                 d.getValue().getCreatedAt() != null ? d.getValue().getCreatedAt().format(DATE_FORMATTER) : "—"));
         TableColumn<Sale, String> colTotal = new TableColumn<>("Total (MT)");
-        colTotal.setPrefWidth(130);
+        colTotal.setPrefWidth(110);
         colTotal.setCellValueFactory(d -> new SimpleStringProperty(
                 d.getValue().getTotal() != null ? String.format("%.2f", d.getValue().getTotal()) : "0.00"));
+
+        TableColumn<Sale, String> colPaid = new TableColumn<>("Já Pago (MT)");
+        colPaid.setPrefWidth(110);
+        colPaid.setCellValueFactory(d -> new SimpleStringProperty(
+                d.getValue().getPaidAmount() != null ? String.format("%.2f", d.getValue().getPaidAmount()) : "0.00"));
+
+        TableColumn<Sale, String> colPend = new TableColumn<>("Pendente (MT)");
+        colPend.setPrefWidth(120);
+        colPend.setCellValueFactory(d -> {
+            double tot = d.getValue().getTotal() != null ? d.getValue().getTotal() : 0.0;
+            double p = d.getValue().getPaidAmount() != null ? d.getValue().getPaidAmount() : 0.0;
+            return new SimpleStringProperty(String.format("%.2f", Math.max(0.0, tot - p)));
+        });
+
         TableColumn<Sale, String> colState = new TableColumn<>("Estado");
         colState.setPrefWidth(100);
         colState.setCellValueFactory(d -> new SimpleStringProperty(d.getValue().getState()));
-        pendingTable.getColumns().addAll(List.of(colDoc, colDate, colTotal, colState));
+        pendingTable.getColumns().addAll(List.of(colDoc, colDate, colTotal, colPaid, colPend, colState));
+
+        pendingTable.getSelectionModel().selectedItemProperty().addListener((obs, oldV, newV) -> {
+            if (newV != null) {
+                double tot = newV.getTotal() != null ? newV.getTotal() : 0.0;
+                double p = newV.getPaidAmount() != null ? newV.getPaidAmount() : 0.0;
+                double pend = Math.max(0.0, tot - p);
+                valorField.setText(String.format(java.util.Locale.US, "%.2f", pend));
+            }
+        });
 
         try {
             List<Sale> pending = saleRepository.findPendingByCustomerId(customer.getId());
