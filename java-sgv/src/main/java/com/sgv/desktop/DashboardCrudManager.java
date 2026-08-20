@@ -870,14 +870,18 @@ public class DashboardCrudManager {
         if (result.isPresent()) {
             String txt = result.get();
             try {
-                java.math.BigDecimal amount = new java.math.BigDecimal(txt.trim());
+                java.math.BigDecimal amount = new java.math.BigDecimal(txt.trim().replace(",", "."));
+                if (amount.compareTo(java.math.BigDecimal.ZERO) <= 0) {
+                    showAlert(Alert.AlertType.WARNING, "O montante a reconciliar deve ser superior a zero.");
+                    return;
+                }
                 ReconciliationResult response = dashboardCrudService.reconcileCustomerCredits(selected, amount, currentUser);
                 java.math.BigDecimal remaining = response != null ? response.getRemaining() : java.math.BigDecimal.ZERO;
                 if (remaining == null) remaining = java.math.BigDecimal.ZERO;
                 if (remaining.compareTo(java.math.BigDecimal.ZERO) == 0) {
-                    showAlert(Alert.AlertType.INFORMATION, "Reconciliação concluída. Não há saldo remanescente.");
+                    showAlert(Alert.AlertType.INFORMATION, "Reconciliação concluída: todo o valor foi aplicado nas faturas em aberto.");
                 } else {
-                    showAlert(Alert.AlertType.INFORMATION, "Reconciliação concluída. Saldo remanescente: " + remaining.toPlainString());
+                    showAlert(Alert.AlertType.INFORMATION, "Reconciliação concluída. Saldo remanescente a favor do cliente: " + String.format("%.2f MT", remaining));
                 }
             } catch (NumberFormatException ex) {
                 showAlert(Alert.AlertType.ERROR, "Montante inválido informado.");

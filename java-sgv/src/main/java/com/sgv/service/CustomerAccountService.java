@@ -163,6 +163,16 @@ public class CustomerAccountService {
         managedCustomer.setBalanceAmount(managedCustomer.getBalanceAmount().subtract(paymentAmount));
         customerRepository.save(managedCustomer);
 
+        // Registo de entrada em caixa na sessão do operador
+        if (cashSessionService != null && currentUser != null) {
+            try {
+                String docRef = "Reconciliação CC — " + (managedCustomer.getName() != null ? managedCustomer.getName() : "Cliente");
+                cashSessionService.registerMovement(currentUser, "IN", paymentAmount, docRef, "RECONCILIACAO");
+            } catch (Exception ignored) {
+                // Se a sessão estiver fechada, não trava a reconciliação de conta corrente
+            }
+        }
+
         systemLogService.logUserAction(currentUser != null ? currentUser.getUsername() : "Sistema", "CUSTOMER_RECONCILE", "Reconciliação de crédito registada para o cliente.");
         return new ReconciliationResult(allocations, remaining);
     }
