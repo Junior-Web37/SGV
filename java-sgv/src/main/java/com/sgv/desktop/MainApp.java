@@ -137,14 +137,29 @@ public class MainApp extends Application {
             log.error("[APP] Erro fatal ao iniciar contexto Spring Boot.", ex);
             try {
                 java.io.PrintWriter pw = new java.io.PrintWriter("app-crash.log");
-                ex.printStackTrace(pw);
+                if (ex != null) ex.printStackTrace(pw);
                 pw.flush(); pw.close();
             } catch (Exception e) {
                 log.error("Falha ao escrever app-crash.log", e);
             }
             splashStage.close();
-            showFatalError("Erro fatal ao iniciar a aplicação:\n" + ex.getMessage() +
-                    "\n\nConsulte o ficheiro app-crash.log para mais detalhes.");
+
+            String friendlyMsg = ex != null && ex.getMessage() != null ? ex.getMessage() : "Erro desconhecido";
+            Throwable root = ex;
+            while (root != null && root.getCause() != null && root.getCause() != root) {
+                root = root.getCause();
+            }
+            String rootMsg = root != null && root.getMessage() != null ? root.getMessage().toLowerCase() : "";
+            if (rootMsg.contains("connection refused") || rootMsg.contains("communications link failure") || rootMsg.contains("communicationsexception") || rootMsg.contains("access denied")) {
+                friendlyMsg = "Não foi possível ligar à Base de Dados MariaDB/MySQL na porta 3306.\n\n" +
+                              "Como resolver:\n" +
+                              "1. Abra o painel de controlo do XAMPP;\n" +
+                              "2. Clique no botão 'Start' do módulo MySQL;\n" +
+                              "3. Inicie novamente o SGV.";
+            }
+
+            showFatalError("Não foi possível iniciar o SGV:\n\n" + friendlyMsg +
+                    "\n\n(Consulte o ficheiro app-crash.log para o relatório técnico completo)");
         });
 
         // ── 5. Lançar a task numa daemon thread ────────────────────────────────
@@ -160,13 +175,16 @@ public class MainApp extends Application {
     private Stage buildSplashScreen() {
         Stage splash = new Stage();
         splash.initStyle(StageStyle.UNDECORATED);
+        try {
+            splash.getIcons().add(new javafx.scene.image.Image(getClass().getResourceAsStream("/icons/app-icon.png")));
+        } catch (Exception ignored) {}
 
         // Logo/título
         Label logo = new Label("SGV");
         logo.setStyle("-fx-font-size:56px; -fx-font-weight:800; -fx-text-fill:#2563EB;");
 
-        Label subtitle = new Label("Sistema de Gestão Avançada");
-        subtitle.setStyle("-fx-font-size:13px; -fx-text-fill:#94A3B8;");
+        Label subtitle = new Label("Sistema de Gestão de Vendas & Facturação — Moçambique");
+        subtitle.setStyle("-fx-font-size:12px; -fx-font-weight:600; -fx-text-fill:#94A3B8;");
 
         // Indicador de progresso
         ProgressIndicator progress = new ProgressIndicator();
