@@ -522,8 +522,26 @@ public class SaleService {
                 throw new IllegalStateException("NUIT do cliente inválido.");
             }
         }
-        if ("CREDITO".equals(sale.getPaymentMethod()) && (sale.getCustomer() == null || sale.getCustomer().getId() == null)) {
-            throw new IllegalStateException("Venda a crédito requer um cliente.");
+        if ("CREDITO".equals(sale.getPaymentMethod())) {
+            if (sale.getCustomer() == null || sale.getCustomer().getId() == null) {
+                throw new IllegalStateException("Venda a crédito requer um cliente registado.");
+            }
+            if (customerRepository != null) {
+                Customer cust = customerRepository.findById(sale.getCustomer().getId()).orElse(null);
+                if (cust != null) {
+                    BigDecimal limit = cust.getCreditLimitAmount();
+                    if (limit != null && limit.compareTo(BigDecimal.ZERO) > 0) {
+                        BigDecimal curBal = cust.getBalanceAmount() != null ? cust.getBalanceAmount() : BigDecimal.ZERO;
+                        BigDecimal saleTot = sale.getTotalAmount() != null ? sale.getTotalAmount() : BigDecimal.ZERO;
+                        if (curBal.add(saleTot).compareTo(limit) > 0) {
+                            throw new IllegalStateException(String.format(
+                                "Limite de crédito excedido para '%s'. Limite Máx: %,.2f MT | Dívida Atual: %,.2f MT | Total Venda: %,.2f MT",
+                                cust.getName(), limit, curBal, saleTot
+                            ));
+                        }
+                    }
+                }
+            }
         }
         if (sale.getItems() == null || sale.getItems().isEmpty()) {
             throw new IllegalStateException("A venda deve conter ao menos um item.");

@@ -132,10 +132,17 @@ public class ThermalPrintService {
                     y = drawLine(cs, y);
                 }
 
-                // HASH AT
-                if (sale.getHashHash() != null && !sale.getHashHash().isBlank()) {
-                    y = leftText(cs, fontBold, 8, "HASH AT: " + sale.getHashHash(), MARGIN, y);
-                    y = leftText(cs, fontReg, 7, "         " + sale.getHashHash().substring(0, Math.min(0, 0)), MARGIN, y);
+                // HASH AT (4 Caracteres de Controlo Fiscal Moçambicano)
+                if (sale.getSignatureHash() != null && sale.getSignatureHash().length() >= 4) {
+                    String h = sale.getSignatureHash();
+                    String hash4 = "" + h.charAt(0) + (h.length() > 10 ? h.charAt(10) : h.charAt(1))
+                            + (h.length() > 20 ? h.charAt(20) : h.charAt(2))
+                            + (h.length() > 30 ? h.charAt(30) : h.charAt(3));
+                    y = leftText(cs, fontBold, 8, hash4 + " - Processado por programa certificado nº " + (cert != null ? cert : "CERT-AT-2026"), MARGIN, y);
+                } else if (sale.getHashHash() != null && !sale.getHashHash().isBlank()) {
+                    String h = sale.getHashHash();
+                    String hash4 = h.length() >= 4 ? h.substring(0, 4) : h;
+                    y = leftText(cs, fontBold, 8, hash4 + " - Processado por programa certificado nº " + (cert != null ? cert : "CERT-AT-2026"), MARGIN, y);
                 }
                 if (sale.getHashControl() != null) {
                     y = leftText(cs, fontReg, 7, "Controle: " + sale.getHashControl(), MARGIN, y);

@@ -287,6 +287,12 @@ public class SaleFormController extends BaseFormController {
                 customerCombo.setValue(null);
             }
         });
+        customerCombo.valueProperty().addListener((obs, oldVal, newVal) -> {
+            if (newVal != null && ("GROSSO".equalsIgnoreCase(newVal.getType()) || "ATACADO".equalsIgnoreCase(newVal.getType()))) {
+                wholesaleModeToggle.setSelected(true);
+            }
+            validateRealTime();
+        });
 
         // Table Columns
         codeColumn.setCellValueFactory(new PropertyValueFactory<>("productCode"));
@@ -383,6 +389,27 @@ public class SaleFormController extends BaseFormController {
                     } else if (!com.sgv.util.NuitValidator.isValid(nuit)) {
                         errors.append("NUIT do cliente inválido. ");
                         isValid = false;
+                    }
+                }
+            }
+        }
+
+        // Validação de Venda a Crédito e Limite de Crédito
+        if (paymentMethodCombo != null && "CREDITO".equalsIgnoreCase(paymentMethodCombo.getValue())) {
+            if (diverseCustomerCheck.isSelected()) {
+                errors.append("Venda a crédito requer um cliente registado. ");
+                isValid = false;
+            } else {
+                Customer c = customerCombo.getValue();
+                if (c != null) {
+                    BigDecimal limit = c.getCreditLimitAmount();
+                    if (limit != null && limit.compareTo(BigDecimal.ZERO) > 0) {
+                        double currentTotal = calculateCurrentTotal();
+                        BigDecimal curBal = c.getBalanceAmount() != null ? c.getBalanceAmount() : BigDecimal.ZERO;
+                        if (curBal.add(BigDecimal.valueOf(currentTotal)).compareTo(limit) > 0) {
+                            errors.append(String.format("Limite de crédito excedido (Máx: %,.2f MT | Dívida atual: %,.2f MT). ", limit.doubleValue(), curBal.doubleValue()));
+                            isValid = false;
+                        }
                     }
                 }
             }
@@ -1230,6 +1257,12 @@ public class SaleFormController extends BaseFormController {
             if (cashDrawerPane != null) {
                 cashDrawerPane.setOpacity(isCash ? 1.0 : 0.6);
             }
+            if ("CREDITO".equalsIgnoreCase(n)) {
+                if (diverseCustomerCheck != null && diverseCustomerCheck.isSelected()) {
+                    diverseCustomerCheck.setSelected(false);
+                }
+            }
+            validateRealTime();
         });
     }
 
@@ -1531,7 +1564,7 @@ public class SaleFormController extends BaseFormController {
         saveTask.setOnSucceeded(e -> {
             File pdf = saveTask.getValue();
             try {
-                systemLogService.logUserAction("Sistema", "VENDA_CRIADA", "Venda/Documento gravado com sucesso.");
+                systemLogService.logUserAction(currentUser != null ? currentUser.getUsername() : "Sistema", "VENDA_CRIADA", "Venda/Documento " + sale.getDocumentType() + " gravado com sucesso.");
             } catch (Exception ex) {
                 log.error("Erro ao registar acção de venda", ex);
             }
