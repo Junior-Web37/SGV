@@ -39,6 +39,11 @@ public class CashMovementFormController extends BaseFormController {
         UiUtils.attachSafe(saveButton, this::doSave, null, "CASH_MOV_SAVE");
         UiUtils.attachSafe(cancelButton, this::doCancel, null, "CASH_MOV_CANCEL");
 
+        UiUtils.applyHoverElevation(saveButton);
+        UiUtils.applyPressFeedback(saveButton);
+        UiUtils.applyHoverElevation(cancelButton);
+        UiUtils.applyPressFeedback(cancelButton);
+
         UiUtils.applyNumericFormatter(amountField);
 
         typeCombo.valueProperty().addListener((obs, o, n) -> {
@@ -131,12 +136,13 @@ public class CashMovementFormController extends BaseFormController {
             }
         };
         saveTask.setOnSucceeded(e -> { systemLogService.logUserAction(currentUser != null ? currentUser.getUsername() : "Sistema", "MOVIMENTO_CAIXA_GRAVADO", "Movimento de caixa (" + typeCombo.getValue() + "): " + amountField.getText() + " MT - " + descriptionField.getText()); if (onSuccess != null) onSuccess.run(); doCancel(); });
-        saveTask.setOnFailed(e -> { Throwable ex = saveTask.getException(); systemLogService.logError("CASH_MOV_FAILED", "Erro em movimento de caixa: " + (ex != null ? ex.getMessage() : ""), ex);
+        saveTask.setOnFailed(e -> {
             Throwable ex = saveTask.getException();
+            systemLogService.logError("CASH_MOV_FAILED", "Erro em movimento de caixa: " + (ex != null ? ex.getMessage() : ""), ex);
             String msg = ex != null && ex.getMessage() != null ? ex.getMessage() : "Erro desconhecido";
             showError(msg);
             hideSaveSpinner();
         });
-        new Thread(saveTask).start();
+        UiUtils.runTask(saveTask);
     }
 }

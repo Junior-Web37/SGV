@@ -39,11 +39,11 @@
                 <Region HBox.hgrow="ALWAYS"/>
 
                 <!-- Botões de Ação de Abertura / Fecho -->
-                <HBox spacing="8" alignment="CENTER_RIGHT">
-                    <Button fx:id="openSessionButton" text="💼 Abrir Caixa"
-                            style="-fx-background-color:#2563EB; -fx-text-fill:#ffffff; -fx-font-weight:800; -fx-font-size:13px; -fx-padding:8 16; -fx-background-radius:6; -fx-cursor:hand;"/>
-                    <Button fx:id="closeSessionButton" text="🔒 Fechar Caixa (Fita Z)"
-                            style="-fx-background-color:#EF4444; -fx-text-fill:#ffffff; -fx-font-weight:800; -fx-font-size:13px; -fx-padding:8 16; -fx-background-radius:6; -fx-cursor:hand;"/>
+                <HBox spacing="10" alignment="CENTER_RIGHT">
+                    <Button fx:id="openSessionButton" text="💼 Abrir Caixa" styleClass="btn-primary-ux"
+                            style="-fx-font-weight:800; -fx-font-size:13px; -fx-padding:8 16;"/>
+                    <Button fx:id="closeSessionButton" text="🔒 Fechar Caixa (Fita Z)" styleClass="btn-danger-ux"
+                            style="-fx-font-weight:800; -fx-font-size:13px; -fx-padding:8 16;"/>
                 </HBox>
             </HBox>
         </VBox>
@@ -85,14 +85,14 @@
 
                         <!-- TOOLBAR DE MOVIMENTOS -->
                         <HBox spacing="10" alignment="CENTER_LEFT"
-                              style="-fx-background-color:#FFFFFF; -fx-padding:10 14; -fx-background-radius:6; -fx-border-color:#E2E8F0; -fx-border-width:1; -fx-border-radius:6;">
+                              style="-fx-background-color:#FFFFFF; -fx-padding:10 16; -fx-background-radius:8; -fx-border-color:#E2E8F0; -fx-border-width:1; -fx-border-radius:8;">
                             <Label fx:id="statusSummaryLabel" text="Turno activo — todos os movimentos gravados em tempo real"
-                                   style="-fx-font-size:12px; -fx-font-weight:600; -fx-text-fill:#475569;"/>
+                                   style="-fx-font-size:12px; -fx-font-weight:700; -fx-text-fill:#475569;"/>
                             <Region HBox.hgrow="ALWAYS"/>
-                            <Button fx:id="addMovementButton" text="➕ Registar Sangria / Reforço"
-                                    style="-fx-background-color:#2563EB; -fx-text-fill:#ffffff; -fx-font-weight:700; -fx-font-size:12px; -fx-padding:7 14; -fx-background-radius:4; -fx-cursor:hand;"/>
-                            <Button fx:id="refreshMovementsButton" text="🔄 Actualizar"
-                                    style="-fx-background-color:#F1F5F9; -fx-text-fill:#0F172A; -fx-font-weight:700; -fx-font-size:12px; -fx-padding:7 14; -fx-background-radius:4; -fx-cursor:hand; -fx-border-color:#CBD5E1; -fx-border-radius:4;"/>
+                            <Button fx:id="addMovementButton" text="➕ Registar Sangria / Reforço" styleClass="btn-primary-ux"
+                                    style="-fx-font-size:12px; -fx-padding:7 14;"/>
+                            <Button fx:id="refreshMovementsButton" text="🔄 Actualizar" styleClass="btn-secondary-ux"
+                                    style="-fx-font-size:12px; -fx-padding:7 14;"/>
                         </HBox>
 
                         <!-- TABELA DE MOVIMENTOS -->
@@ -129,14 +129,14 @@
                 <Tab text="📑  Histórico de Fechos de Caixa">
                     <VBox spacing="12" style="-fx-padding:12 0;">
                         <HBox spacing="10" alignment="CENTER_LEFT"
-                              style="-fx-background-color:#FFFFFF; -fx-padding:10 14; -fx-background-radius:6; -fx-border-color:#E2E8F0; -fx-border-width:1; -fx-border-radius:6;">
+                              style="-fx-background-color:#FFFFFF; -fx-padding:10 16; -fx-background-radius:8; -fx-border-color:#E2E8F0; -fx-border-width:1; -fx-border-radius:8;">
                             <Label text="Histórico consolidado de turnos anteriores e fitas Z emitidas"
-                                   style="-fx-font-size:12px; -fx-font-weight:600; -fx-text-fill:#475569;"/>
+                                   style="-fx-font-size:12px; -fx-font-weight:700; -fx-text-fill:#475569;"/>
                             <Region HBox.hgrow="ALWAYS"/>
-                            <Button fx:id="viewSessionButton" text="👁️ Ver Detalhes / Fita Z"
-                                    style="-fx-background-color:#2563EB; -fx-text-fill:#ffffff; -fx-font-weight:700; -fx-font-size:12px; -fx-padding:7 14; -fx-background-radius:4; -fx-cursor:hand;"/>
-                            <Button fx:id="refreshHistoryButton" text="🔄 Actualizar"
-                                    style="-fx-background-color:#F1F5F9; -fx-text-fill:#0F172A; -fx-font-weight:700; -fx-font-size:12px; -fx-padding:7 14; -fx-background-radius:4; -fx-cursor:hand; -fx-border-color:#CBD5E1; -fx-border-radius:4;"/>
+                            <Button fx:id="viewSessionButton" text="👁️ Ver Detalhes / Fita Z" styleClass="btn-primary-ux"
+                                    style="-fx-font-size:12px; -fx-padding:7 14;"/>
+                            <Button fx:id="refreshHistoryButton" text="🔄 Actualizar" styleClass="btn-secondary-ux"
+                                    style="-fx-font-size:12px; -fx-padding:7 14;"/>
                         </HBox>
 
                         <TableView fx:id="historyTable" VBox.vgrow="ALWAYS" styleClass="table-view"

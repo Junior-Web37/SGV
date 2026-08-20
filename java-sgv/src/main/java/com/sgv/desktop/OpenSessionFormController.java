@@ -34,6 +34,11 @@ public class OpenSessionFormController extends BaseFormController {
         UiUtils.attachSafe(saveButton, this::doSave, null, "OPEN_SESSION_SAVE");
         UiUtils.attachSafe(cancelButton, this::doCancel, null, "OPEN_SESSION_CANCEL");
 
+        UiUtils.applyHoverElevation(saveButton);
+        UiUtils.applyPressFeedback(saveButton);
+        UiUtils.applyHoverElevation(cancelButton);
+        UiUtils.applyPressFeedback(cancelButton);
+
         UiUtils.applyNumericFormatter(initialValueField);
 
         initialValueField.textProperty().addListener((obs, o, n) -> validateRealTime());
@@ -105,6 +110,6 @@ public class OpenSessionFormController extends BaseFormController {
             showError(msg);
             hideSaveSpinner();
         });
-        new Thread(saveTask).start();
+        UiUtils.runTask(saveTask);
     }
 }

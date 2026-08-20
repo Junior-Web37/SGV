@@ -1,48 +1,58 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <?import javafx.scene.control.*?>
 <?import javafx.scene.layout.*?>
+<?import javafx.geometry.Insets?>
 <VBox fx:id="rootPane" xmlns="http://javafx.com/javafx/17" xmlns:fx="http://javafx.com/fxml/1"
       fx:controller="com.sgv.desktop.CloseSessionFormController"
-      spacing="0" styleClass="card-pane" prefWidth="500" prefHeight="400" stylesheets="@/styles/styles.css">
+      spacing="0" styleClass="card-pane" style="-fx-padding:0; -fx-background-radius:10; -fx-background-color:#ffffff;"
+      prefWidth="560" prefHeight="480" stylesheets="@/styles/styles.css">
 
-        <HBox alignment="CENTER_LEFT" spacing="14" styleClass="card-header">
-            <VBox spacing="4">
-                <Label text="Fechar Caixa" styleClass="card-title"/>
-                <Label text="Encerrar turno e declarar valores" styleClass="card-subtitle"/>
+        <HBox alignment="CENTER_LEFT" spacing="14"
+              style="-fx-background-color:#0F172A; -fx-padding:18 24; -fx-border-color:#1E293B; -fx-border-width:0 0 2 0; -fx-background-radius:10 10 0 0;">
+            <VBox spacing="3">
+                <Label text="🔒 Fecho de Caixa &amp; Emissão de Fita Z" style="-fx-font-size:18px; -fx-font-weight:800; -fx-text-fill:#ffffff;"/>
+                <Label text="Encerrar turno de trabalho e declarar contagem física de gaveta" style="-fx-font-size:12px; -fx-text-fill:#94A3B8;"/>
             </VBox>
         </HBox>
 
-        <VBox spacing="20" styleClass="card-body">
-            <Label fx:id="errorLabel" text="" styleClass="form-alert" managed="false" visible="false"/>
+        <VBox spacing="16" style="-fx-padding:24; -fx-background-color:#ffffff; -fx-background-radius:0 0 10 10;">
+            <Label fx:id="errorLabel" text=""
+                   style="-fx-text-fill:#EF4444; -fx-font-size:12px; -fx-font-weight:700; -fx-background-color:#FEE2E2; -fx-background-radius:6; -fx-padding:8 12; -fx-border-color:#FCA5A5; -fx-border-width:1; -fx-border-radius:6;"
+                   managed="false" visible="false"/>
 
-            <!-- System total -->
-            <HBox alignment="CENTER_LEFT" spacing="12" styleClass="info-panel">
-                <Label text="Total Calculado:" styleClass="form-label"/>
-                <Region HBox.hgrow="ALWAYS"/>
-                <Label fx:id="expectedValueLabel" text="0.00" styleClass="status-card-value status-card-success"/>
+            <!-- Painel Comparativo em 2 Cartões: Esperado vs Diferença -->
+            <HBox spacing="14" alignment="CENTER">
+                <VBox spacing="3" HBox.hgrow="ALWAYS"
+                      style="-fx-background-color:#F8FAFC; -fx-padding:12 16; -fx-background-radius:8; -fx-border-color:#E2E8F0; -fx-border-width:1; -fx-border-radius:8;">
+                    <Label text="VALOR CALCULADO (SISTEMA)" style="-fx-font-size:10px; -fx-font-weight:800; -fx-text-fill:#64748B;"/>
+                    <Label fx:id="expectedValueLabel" text="0.00 MT" style="-fx-font-size:18px; -fx-font-weight:800; -fx-text-fill:#2563EB;"/>
+                </VBox>
+                <VBox spacing="3" HBox.hgrow="ALWAYS"
+                      style="-fx-background-color:#F8FAFC; -fx-padding:12 16; -fx-background-radius:8; -fx-border-color:#E2E8F0; -fx-border-width:1; -fx-border-radius:8;">
+                    <Label text="DIFERENÇA (QUEBRA / SOBRA)" style="-fx-font-size:10px; -fx-font-weight:800; -fx-text-fill:#64748B;"/>
+                    <Label fx:id="differenceLabel" text="0.00 MT" style="-fx-font-size:18px; -fx-font-weight:900; -fx-text-fill:#10B981;"/>
+                </VBox>
             </HBox>
 
-            <HBox alignment="CENTER_LEFT" spacing="12" styleClass="form-row">
-                <Label text="Diferença:" styleClass="form-label"/>
-                <Label fx:id="differenceLabel" text="0.00 MT" styleClass="difference-label"/>
-            </HBox>
-
-            <VBox spacing="6">
-                <Label text="Valor Declarado / Contado *" styleClass="form-label"/>
-                <TextField fx:id="reportedValueField" promptText="0.00" styleClass="form-input"/>
+            <VBox spacing="4">
+                <Label text="Valor Físico Declarado / Contado (MT) *" style="-fx-font-weight:700; -fx-text-fill:#0F172A; -fx-font-size:13px;"/>
+                <TextField fx:id="reportedValueField" promptText="0.00"
+                           style="-fx-padding:10 14; -fx-background-radius:6; -fx-border-color:#CBD5E1; -fx-border-radius:6; -fx-font-size:17px; -fx-font-weight:800; -fx-text-fill:#0F172A; -fx-background-color:#FFFFFF;"/>
             </VBox>
 
-            <VBox spacing="6">
-                <Label text="Observações / Justificação de Diferença" styleClass="form-label"/>
-                <TextArea fx:id="notesArea" prefRowCount="3" promptText="Ex: Faltam 10 MT" styleClass="form-input"/>
+            <VBox spacing="4">
+                <Label text="Observações / Justificação de Diferença" style="-fx-font-weight:700; -fx-text-fill:#0F172A; -fx-font-size:12px;"/>
+                <TextArea fx:id="notesArea" prefRowCount="3" promptText="Ex: Fundo de maneio conferido e fita Z gerada"
+                          style="-fx-padding:8 12; -fx-background-radius:6; -fx-border-color:#CBD5E1; -fx-border-radius:6; -fx-font-size:13px; -fx-background-color:#FFFFFF; -fx-text-fill:#0F172A;"/>
             </VBox>
 
-            <Separator styleClass="separator-light"/>
-            <HBox spacing="12" alignment="CENTER_RIGHT">
-                <Button fx:id="cancelButton" text="Cancelar" styleClass="secondary-button"/>
+            <Separator style="-fx-opacity:0.2;"/>
+            <HBox spacing="12" alignment="CENTER_RIGHT" style="-fx-padding:8 0 0 0;">
+                <Button fx:id="cancelButton" text="Cancelar" styleClass="btn-secondary-ux"/>
                 <StackPane>
-                    <Button fx:id="saveButton" text="Confirmar Fecho" disable="true" styleClass="danger-button"/>
-                    <ProgressIndicator fx:id="saveSpinner" visible="false" managed="false" styleClass="progress-indicator-white"/>
+                    <Button fx:id="saveButton" text="🔒 Confirmar Fecho (Fita Z)" styleClass="btn-danger-ux"/>
+                    <ProgressIndicator fx:id="saveSpinner" visible="false" managed="false"
+                                       style="-fx-progress-color:white; -fx-max-width:20; -fx-max-height:20;"/>
                 </StackPane>
             </HBox>
         </VBox>

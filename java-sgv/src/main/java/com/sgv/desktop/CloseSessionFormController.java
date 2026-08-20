@@ -56,6 +56,11 @@ public class CloseSessionFormController extends BaseFormController {
         UiUtils.attachSafe(saveButton, this::doSave, null, "CLOSE_SESSION_SAVE");
         UiUtils.attachSafe(cancelButton, this::doCancel, null, "CLOSE_SESSION_CANCEL");
 
+        UiUtils.applyHoverElevation(saveButton);
+        UiUtils.applyPressFeedback(saveButton);
+        UiUtils.applyHoverElevation(cancelButton);
+        UiUtils.applyPressFeedback(cancelButton);
+
         UiUtils.applyNumericFormatter(reportedValueField);
 
         reportedValueField.textProperty().addListener((obs, o, n) -> {
@@ -160,6 +165,6 @@ public class CloseSessionFormController extends BaseFormController {
             showError(msg);
             hideSaveSpinner();
         });
-        new Thread(saveTask).start();
+        UiUtils.runTask(saveTask);
     }
 }

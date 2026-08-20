@@ -4,84 +4,82 @@
 <?import javafx.geometry.Insets?>
 <VBox fx:id="rootPane" xmlns="http://javafx.com/javafx/17" xmlns:fx="http://javafx.com/fxml/1"
       fx:controller="com.sgv.desktop.PaymentFormController"
-      spacing="0" styleClass="card-pane" style="-fx-padding:0; -fx-background-radius:8; -fx-background-color:#ffffff;"
+      spacing="0" styleClass="card-pane" style="-fx-padding:0; -fx-background-radius:10; -fx-background-color:#ffffff;"
       prefWidth="780" prefHeight="580" stylesheets="@/styles/styles.css">
 
         <HBox alignment="CENTER_LEFT" spacing="14"
-              style="-fx-background-color:#0F172A; -fx-padding:20 24; -fx-border-color:#E2E8F0; -fx-border-width:0 0 1 0; -fx-background-radius:3 3 0 0;">
-            <VBox spacing="4">
-                <Label text="Registo de Recebimento de Factura" style="-fx-font-size:18px; -fx-font-weight:700; -fx-text-fill:#ffffff;"/>
-                <Label text="Liquidação total ou parcial de facturas emitidas a crédito" style="-fx-font-size:12px; -fx-text-fill:#94A3B8;"/>
+              style="-fx-background-color:#0F172A; -fx-padding:18 24; -fx-border-color:#1E293B; -fx-border-width:0 0 2 0; -fx-background-radius:10 10 0 0;">
+            <VBox spacing="3">
+                <Label text="Registo de Recebimento de Factura" style="-fx-font-size:18px; -fx-font-weight:800; -fx-text-fill:#ffffff;"/>
+                <Label text="Liquidação total ou amortização parcial de facturas emitidas a crédito" style="-fx-font-size:12px; -fx-text-fill:#94A3B8;"/>
             </VBox>
         </HBox>
 
-        <VBox spacing="16" style="-fx-padding:24; -fx-background-color:#ffffff; -fx-background-radius:0 0 3 3;">
+        <VBox spacing="16" style="-fx-padding:24; -fx-background-color:#ffffff; -fx-background-radius:0 0 10 10;">
             <Label fx:id="errorLabel" text=""
-                   style="-fx-text-fill:#EF4444; -fx-font-size:13px; -fx-font-weight:600; -fx-background-color:#FEE2E2; -fx-background-radius:3; -fx-padding:8 12;"
+                   style="-fx-text-fill:#EF4444; -fx-font-size:12px; -fx-font-weight:700; -fx-background-color:#FEE2E2; -fx-background-radius:6; -fx-padding:8 12; -fx-border-color:#FCA5A5; -fx-border-width:1; -fx-border-radius:6;"
                    visible="false" managed="false"/>
 
             <!-- PAINEL RESUMO DA FACTURA SELECIONADA -->
             <HBox spacing="16" alignment="CENTER"
-                  style="-fx-background-color:#F8FAFC; -fx-padding:12 16; -fx-background-radius:6; -fx-border-color:#E2E8F0; -fx-border-width:1; -fx-border-radius:6;">
-                <VBox spacing="2" HBox.hgrow="ALWAYS">
-                    <Label text="TOTAL DA FACTURA" style="-fx-font-size:10px; -fx-font-weight:700; -fx-text-fill:#64748B;"/>
+                  style="-fx-background-color:#F8FAFC; -fx-padding:14 18; -fx-background-radius:8; -fx-border-color:#E2E8F0; -fx-border-width:1; -fx-border-radius:8;">
+                <VBox spacing="3" HBox.hgrow="ALWAYS">
+                    <Label text="TOTAL DA FACTURA" style="-fx-font-size:10px; -fx-font-weight:800; -fx-text-fill:#64748B;"/>
                     <Label fx:id="totalSaleLabel" text="0.00 MT" style="-fx-font-size:16px; -fx-font-weight:800; -fx-text-fill:#0F172A;"/>
                 </VBox>
                 <Separator orientation="VERTICAL"/>
-                <VBox spacing="2" HBox.hgrow="ALWAYS">
-                    <Label text="JÁ LIQUIDADO" style="-fx-font-size:10px; -fx-font-weight:700; -fx-text-fill:#64748B;"/>
-                    <Label fx:id="paidSaleLabel" text="0.00 MT" style="-fx-font-size:16px; -fx-font-weight:800; -fx-text-fill:#3B82F6;"/>
+                <VBox spacing="3" HBox.hgrow="ALWAYS">
+                    <Label text="JÁ LIQUIDADO" style="-fx-font-size:10px; -fx-font-weight:800; -fx-text-fill:#64748B;"/>
+                    <Label fx:id="paidSaleLabel" text="0.00 MT" style="-fx-font-size:16px; -fx-font-weight:800; -fx-text-fill:#2563EB;"/>
                 </VBox>
                 <Separator orientation="VERTICAL"/>
-                <VBox spacing="2" HBox.hgrow="ALWAYS">
-                    <Label text="SALDO PENDENTE" style="-fx-font-size:10px; -fx-font-weight:700; -fx-text-fill:#64748B;"/>
-                    <Label fx:id="pendingSaleLabel" text="0.00 MT" style="-fx-font-size:16px; -fx-font-weight:900; -fx-text-fill:#EF4444;"/>
+                <VBox spacing="3" HBox.hgrow="ALWAYS">
+                    <Label text="SALDO PENDENTE" style="-fx-font-size:10px; -fx-font-weight:800; -fx-text-fill:#64748B;"/>
+                    <Label fx:id="pendingSaleLabel" text="0.00 MT" style="-fx-font-size:17px; -fx-font-weight:900; -fx-text-fill:#EF4444;"/>
                 </VBox>
             </HBox>
 
-            <Label text="DADOS DO RECEBIMENTO" style="-fx-font-size:11px; -fx-font-weight:700; -fx-text-fill:#475569;"/>
+            <Label text="DADOS DO RECEBIMENTO" style="-fx-font-size:11px; -fx-font-weight:800; -fx-text-fill:#2563EB;"/>
             <GridPane hgap="16" vgap="14">
                 <columnConstraints>
                     <ColumnConstraints percentWidth="50"/>
                     <ColumnConstraints percentWidth="50"/>
                 </columnConstraints>
                 <children>
-                    <VBox spacing="6" GridPane.columnIndex="0" GridPane.rowIndex="0">
-                        <Label text="Factura Pendente *" style="-fx-font-weight:600; -fx-text-fill:#0F172A; -fx-font-size:12px;"/>
+                    <VBox spacing="4" GridPane.columnIndex="0" GridPane.rowIndex="0">
+                        <Label text="Factura Pendente *" style="-fx-font-weight:700; -fx-text-fill:#0F172A; -fx-font-size:12px;"/>
                         <ComboBox fx:id="saleCombo" promptText="Seleccione a factura a liquidar..."
-                                  style="-fx-pref-width:1000; -fx-background-radius:3; -fx-border-color:#E2E8F0; -fx-border-radius:3; -fx-font-size:13px; -fx-padding:4; -fx-background-color:#F8FAFC;"/>
+                                  style="-fx-pref-width:1000; -fx-background-radius:6; -fx-border-color:#CBD5E1; -fx-border-radius:6; -fx-font-size:13px; -fx-padding:4; -fx-background-color:#FFFFFF;"/>
                     </VBox>
-                    <VBox spacing="6" GridPane.columnIndex="1" GridPane.rowIndex="0">
-                        <Label text="Valor a Receber (MT) *" style="-fx-font-weight:600; -fx-text-fill:#0F172A; -fx-font-size:12px;"/>
+                    <VBox spacing="4" GridPane.columnIndex="1" GridPane.rowIndex="0">
+                        <Label text="Valor a Receber (MT) *" style="-fx-font-weight:700; -fx-text-fill:#0F172A; -fx-font-size:12px;"/>
                         <TextField fx:id="amountField" promptText="0.00"
-                                   style="-fx-padding:8 12; -fx-background-radius:3; -fx-border-color:#10B981; -fx-border-radius:3; -fx-font-size:18px; -fx-font-weight:800; -fx-text-fill:#10B981; -fx-background-color:#F8FAFC;"/>
+                                   style="-fx-padding:8 12; -fx-background-radius:6; -fx-border-color:#10B981; -fx-border-radius:6; -fx-font-size:17px; -fx-font-weight:800; -fx-text-fill:#15803D; -fx-background-color:#FFFFFF;"/>
                     </VBox>
-                    <VBox spacing="6" GridPane.columnIndex="0" GridPane.rowIndex="1">
-                        <Label text="Forma de Pagamento *" style="-fx-font-weight:600; -fx-text-fill:#0F172A; -fx-font-size:12px;"/>
+                    <VBox spacing="4" GridPane.columnIndex="0" GridPane.rowIndex="1">
+                        <Label text="Forma de Pagamento *" style="-fx-font-weight:700; -fx-text-fill:#0F172A; -fx-font-size:12px;"/>
                         <ComboBox fx:id="paymentMethodCombo"
-                                  style="-fx-pref-width:1000; -fx-background-radius:3; -fx-border-color:#E2E8F0; -fx-border-radius:3; -fx-font-size:13px; -fx-padding:4; -fx-background-color:#F8FAFC;"/>
+                                  style="-fx-pref-width:1000; -fx-background-radius:6; -fx-border-color:#CBD5E1; -fx-border-radius:6; -fx-font-size:13px; -fx-padding:4; -fx-background-color:#FFFFFF;"/>
                     </VBox>
-                    <VBox spacing="6" GridPane.columnIndex="1" GridPane.rowIndex="1">
-                        <Label text="Data do Recebimento *" style="-fx-font-weight:600; -fx-text-fill:#0F172A; -fx-font-size:12px;"/>
+                    <VBox spacing="4" GridPane.columnIndex="1" GridPane.rowIndex="1">
+                        <Label text="Data do Recebimento *" style="-fx-font-weight:700; -fx-text-fill:#0F172A; -fx-font-size:12px;"/>
                         <DatePicker fx:id="paymentDatePicker"
-                                    style="-fx-pref-width:1000; -fx-background-radius:3; -fx-border-color:#E2E8F0; -fx-border-radius:3; -fx-font-size:13px; -fx-padding:3;"/>
+                                    style="-fx-pref-width:1000; -fx-background-radius:6; -fx-border-color:#CBD5E1; -fx-border-radius:6; -fx-font-size:13px; -fx-padding:3;"/>
                     </VBox>
                 </children>
             </GridPane>
 
-            <VBox spacing="6">
-                <Label text="Referência / Nº de Comprovativo" style="-fx-font-weight:600; -fx-text-fill:#0F172A; -fx-font-size:12px;"/>
+            <VBox spacing="4">
+                <Label text="Referência / Nº de Comprovativo" style="-fx-font-weight:700; -fx-text-fill:#0F172A; -fx-font-size:12px;"/>
                 <TextField fx:id="referenceField" promptText="Ex: Ref. M-Pesa / Talão POS / Transferência Bancária"
-                           style="-fx-padding:8 12; -fx-background-radius:3; -fx-border-color:#E2E8F0; -fx-border-radius:3; -fx-font-size:13px; -fx-background-color:#F8FAFC; -fx-text-fill:#0F172A;"/>
+                           style="-fx-padding:8 12; -fx-background-radius:6; -fx-border-color:#CBD5E1; -fx-border-radius:6; -fx-font-size:13px; -fx-background-color:#FFFFFF; -fx-text-fill:#0F172A;"/>
             </VBox>
 
             <Separator style="-fx-opacity:0.2;"/>
-            <HBox spacing="12" alignment="CENTER_RIGHT">
-                <Button fx:id="cancelButton" text="Cancelar" styleClass="btn-secondary-ux"
-                        style="-fx-padding:8 16; -fx-font-size:13px; -fx-background-color:#ffffff; -fx-text-fill:#0F172A; -fx-background-radius:3; -fx-cursor:hand; -fx-font-weight:600; -fx-border-color:#E2E8F0; -fx-border-radius:3;"/>
+            <HBox spacing="12" alignment="CENTER_RIGHT" style="-fx-padding:8 0 0 0;">
+                <Button fx:id="cancelButton" text="Cancelar" styleClass="btn-secondary-ux"/>
                 <StackPane>
-                    <Button fx:id="saveButton" text="Emitir Recibo" styleClass="btn-primary-ux"
-                            style="-fx-padding:8 18; -fx-font-size:13px; -fx-background-color:#10B981; -fx-text-fill:white; -fx-font-weight:700; -fx-background-radius:3; -fx-cursor:hand;"/>
+                    <Button fx:id="saveButton" text="Emitir Recibo" styleClass="btn-success-ux"/>
                     <ProgressIndicator fx:id="saveSpinner" visible="false" managed="false"
                                        style="-fx-progress-color:white; -fx-max-width:20; -fx-max-height:20;"/>
                 </StackPane>

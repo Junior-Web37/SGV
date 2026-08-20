@@ -80,6 +80,10 @@ public class PaymentFormController extends BaseFormController {
 
         UiUtils.attachSafe(saveButton, this::doSave, systemLogService, "PAYMENT_SAVE");
         UiUtils.attachSafe(cancelButton, this::doCancel, systemLogService, "PAYMENT_CANCEL");
+        UiUtils.applyHoverElevation(saveButton);
+        UiUtils.applyPressFeedback(saveButton);
+        UiUtils.applyHoverElevation(cancelButton);
+        UiUtils.applyPressFeedback(cancelButton);
         UiUtils.applyNumericFormatter(amountField);
 
         amountField.textProperty().addListener((obs, o, n) -> validateRealTime());
@@ -209,6 +213,6 @@ public class PaymentFormController extends BaseFormController {
             showError("Erro ao salvar: " + msg);
             hideSaveSpinner();
         });
-        new Thread(saveTask).start();
+        UiUtils.runTask(saveTask);
     }
 }
