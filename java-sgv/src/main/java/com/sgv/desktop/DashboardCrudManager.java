@@ -1205,9 +1205,9 @@ public class DashboardCrudManager {
         Label lblMetodo = new Label("Método:");
         lblMetodo.setStyle("-fx-font-weight:700; -fx-text-fill:#0F172A;");
         ComboBox<String> metodoCombo = new ComboBox<>();
-        metodoCombo.getItems().addAll("Dinheiro", "TPA/Multibanco", "Transferência", "M-Pesa", "E-Mola");
-        metodoCombo.setValue("Dinheiro");
-        metodoCombo.setPrefWidth(160);
+        metodoCombo.getItems().addAll("Numerário", "M-Pesa", "e-Mola", "mKesh", "Cartão (POS)", "Transferência Bancária", "Cheque");
+        metodoCombo.setValue("Numerário");
+        metodoCombo.setPrefWidth(180);
         Region spacerPay = new Region();
         HBox.setHgrow(spacerPay, Priority.ALWAYS);
         Button btnConfirmar = new Button("✓ Confirmar");
@@ -1215,6 +1215,9 @@ public class DashboardCrudManager {
         Button btnCancelarPay = new Button("Cancelar");
         btnCancelarPay.setStyle("-fx-padding: 7 14; -fx-background-radius: 6; -fx-font-size: 12px; -fx-font-weight: 700; -fx-background-color: #475569; -fx-text-fill: #ffffff; -fx-cursor: hand;");
         btnCancelarPay.setOnAction(ev -> dialog.close());
+
+        UiUtils.applyPressFeedback(btnConfirmar);
+        UiUtils.applyPressFeedback(btnCancelarPay);
 
         btnConfirmar.setOnAction(ev -> {
             Sale selSale = pendingTable.getSelectionModel().getSelectedItem();

@@ -370,12 +370,16 @@ public class DashboardKpiManager {
         if (grid == null) return;
         try {
             long total = customerRepository.count();
-            long atacados = customerRepository.findAll().stream().filter(c -> "GROSSO".equalsIgnoreCase(c.getType()) || "ATACADO".equalsIgnoreCase(c.getType())).count();
+            List<Customer> allCustomers = customerRepository.findAll();
+            long atacados = allCustomers.stream().filter(c -> "GROSSO".equalsIgnoreCase(c.getType()) || "ATACADO".equalsIgnoreCase(c.getType())).count();
             long retalhos = total - atacados;
+            LocalDateTime thirtyDaysAgo = LocalDateTime.now().minusDays(30);
+            long recentes = allCustomers.stream().filter(c -> c.getCreatedAt() != null && c.getCreatedAt().isAfter(thirtyDaysAgo)).count();
+
             updateKPICard(grid, 0, String.valueOf(total));
             updateKPICard(grid, 1, String.valueOf(atacados));
             updateKPICard(grid, 2, String.valueOf(retalhos));
-            updateKPICard(grid, 3, String.valueOf(total));
+            updateKPICard(grid, 3, String.valueOf(recentes));
         } catch (Exception ex) { log.error("Erro ao actualizar KPIs de clientes", ex); }
     }
 

@@ -2,6 +2,7 @@ package com.sgv.service;
 
 import com.sgv.entity.Customer;
 import com.sgv.entity.Payment;
+import com.sgv.entity.PaymentAllocation;
 import com.sgv.entity.Sale;
 import com.sgv.entity.User;
 import com.sgv.repository.CustomerRepository;
@@ -22,17 +23,20 @@ public class CustomerAccountService {
     private final PaymentRepository paymentRepository;
     private final PaymentAllocationRepository paymentAllocationRepository;
     private final SystemLogService systemLogService;
+    private final CashSessionService cashSessionService;
 
     public CustomerAccountService(CustomerRepository customerRepository,
                                   SaleRepository saleRepository,
                                   PaymentRepository paymentRepository,
                                   PaymentAllocationRepository paymentAllocationRepository,
-                                  SystemLogService systemLogService) {
+                                  SystemLogService systemLogService,
+                                  CashSessionService cashSessionService) {
         this.customerRepository = customerRepository;
         this.saleRepository = saleRepository;
         this.paymentRepository = paymentRepository;
         this.paymentAllocationRepository = paymentAllocationRepository;
         this.systemLogService = systemLogService;
+        this.cashSessionService = cashSessionService;
     }
 
     @Transactional
@@ -40,15 +44,26 @@ public class CustomerAccountService {
         if (customer == null || customer.getId() == null) {
             throw new IllegalArgumentException("Cliente inválido.");
         }
+        Sale managedSale = null;
         if (sale != null && sale.getId() != null) {
-            Sale managedSale = saleRepository.findById(sale.getId()).orElse(null);
-            if (managedSale != null) {
-                sale = managedSale;
-            }
+            managedSale = saleRepository.findById(sale.getId()).orElse(null);
         }
 
         if (amount == null || amount.compareTo(BigDecimal.ZERO) <= 0) {
             throw new IllegalArgumentException("Valor do recebimento deve ser maior que zero.");
+        }
+
+        if (managedSale != null) {
+            BigDecimal saleTotal = managedSale.getTotalAmount() != null ? managedSale.getTotalAmount() : BigDecimal.ZERO;
+            BigDecimal currentPaid = managedSale.getPaidAmountValue() != null ? managedSale.getPaidAmountValue() : BigDecimal.ZERO;
+            BigDecimal pendingBalance = saleTotal.subtract(currentPaid);
+
+            if (pendingBalance.compareTo(BigDecimal.ZERO) <= 0) {
+                throw new IllegalStateException("Esta factura já se encontra totalmente liquidada.");
+            }
+            if (amount.compareTo(pendingBalance) > 0) {
+                throw new IllegalArgumentException(String.format("Valor a pagar (%.2f MT) excede o saldo pendente da factura (%.2f MT).", amount, pendingBalance));
+            }
         }
 
         Customer managedCustomer = customerRepository.findById(customer.getId()).orElseThrow(() -> new IllegalArgumentException("Cliente não encontrado."));
@@ -57,24 +72,41 @@ public class CustomerAccountService {
 
         Payment payment = new Payment();
         payment.setAmountValue(amount);
-        payment.setMethod(method);
+        payment.setMethod(method != null ? method : "Numerário");
         payment.setCreatedAt(LocalDateTime.now());
-        payment.setSale(sale);
-        paymentRepository.save(payment);
+        payment.setSale(managedSale);
+        Payment savedPayment = paymentRepository.save(payment);
 
-        if (sale != null) {
-            BigDecimal saleTotal = sale.getTotalAmount() != null ? sale.getTotalAmount() : BigDecimal.ZERO;
-            BigDecimal paidAmount = sale.getPaidAmountValue() != null ? sale.getPaidAmountValue() : BigDecimal.ZERO;
+        if (managedSale != null) {
+            BigDecimal saleTotal = managedSale.getTotalAmount() != null ? managedSale.getTotalAmount() : BigDecimal.ZERO;
+            BigDecimal paidAmount = managedSale.getPaidAmountValue() != null ? managedSale.getPaidAmountValue() : BigDecimal.ZERO;
             BigDecimal nextPaidAmount = paidAmount.add(amount);
-            sale.setPaidAmountValue(nextPaidAmount);
+            managedSale.setPaidAmountValue(nextPaidAmount);
             if (nextPaidAmount.compareTo(saleTotal) >= 0) {
-                sale.setState("PAGO");
+                managedSale.setState("PAGO");
+            } else {
+                managedSale.setState("PAGO_PARCIAL");
             }
-            saleRepository.save(sale);
+            saleRepository.save(managedSale);
+
+            PaymentAllocation alloc = new PaymentAllocation();
+            alloc.setPayment(savedPayment);
+            alloc.setSale(managedSale);
+            alloc.setAmountValue(amount);
+            alloc.setCreatedAt(LocalDateTime.now());
+            paymentAllocationRepository.save(alloc);
+
+            if (cashSessionService != null && currentUser != null) {
+                try {
+                    String docRef = "Recibo FT " + (managedSale.getSeries() != null ? managedSale.getSeries() : "A")
+                            + "/" + (managedSale.getDocumentNumber() != null ? managedSale.getDocumentNumber() : managedSale.getId());
+                    cashSessionService.registerMovement(currentUser, "IN", amount, docRef, method != null ? method : "RECEBIMENTO");
+                } catch (Exception ignored) {}
+            }
         }
 
         systemLogService.logUserAction(currentUser != null ? currentUser.getUsername() : "Sistema", "CUSTOMER_RECEIPT", "Recebimento registado para o cliente.");
-        return payment;
+        return savedPayment;
     }
 
     @Transactional

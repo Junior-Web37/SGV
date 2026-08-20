@@ -682,6 +682,11 @@ public class DashboardNavigationManager {
             Button btnAtualizar = makeActionButton("Atualizar", "#10B981", "#ffffff");
             Button btnExportar = makeActionButton("Exportar Excel", "#475569", "#ffffff");
 
+            for (Button b : List.of(btnNovo, btnEditar, btnDetalhes, btnLiquidar, btnReconciliar, btnEliminar, btnAtualizar, btnExportar)) {
+                UiUtils.applyHoverElevation(b);
+                UiUtils.applyPressFeedback(b);
+            }
+
             Region spacer = new Region();
             HBox.setHgrow(spacer, Priority.ALWAYS);
 
