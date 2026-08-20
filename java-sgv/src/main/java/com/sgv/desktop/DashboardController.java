@@ -615,7 +615,8 @@ public class DashboardController {
         navManager.setPaneVisibility(summaryPane, allPanes());
         pageTitleLabel.setText("Painel Geral");
         pageSubtitleLabel.setText("Visão geral das operações, vendas e tesouraria");
-        kpiManager.loadStats(salesLabel, productsLabel, customersLabel, branchesLabel, salesLineChart, salesPieChart,
+        Long branchId = currentUser != null && !currentUser.isSuperAdmin() && currentUser.getBranch() != null ? currentUser.getBranch().getId() : null;
+        kpiManager.loadStats(currentUser, branchId, salesLabel, productsLabel, customersLabel, branchesLabel, salesLineChart, salesPieChart,
             () -> kpiManager.checkAlerts(notificationBadge), this::animateEntrance);
         updateCashBadge();
     }
@@ -645,7 +646,10 @@ public class DashboardController {
             this::clearSaleFilter,
             this::loadSales,
             () -> kpiManager.loadSalesStats(salesStatsRevenueTodayLabel, salesStatsCountTodayLabel, salesStatsAvgTicketLabel, salesStatsPendingLabel, salesStatsBarChart, salesStatsPieChart),
-            () -> kpiManager.loadStats(salesLabel, productsLabel, customersLabel, branchesLabel, salesLineChart, salesPieChart, null, null),
+            () -> {
+                Long bId = currentUser != null && !currentUser.isSuperAdmin() && currentUser.getBranch() != null ? currentUser.getBranch().getId() : null;
+                kpiManager.loadStats(currentUser, bId, salesLabel, productsLabel, customersLabel, branchesLabel, salesLineChart, salesPieChart, null, null);
+            },
             this::updateCashBadge,
             () -> openSaleFormWithType(null, null),
             this::printSelectedSale,
@@ -858,7 +862,8 @@ public class DashboardController {
     // ═══════════════════════════════════════════════════════════════════════════
 
     private void loadStats() {
-        kpiManager.loadStats(salesLabel, productsLabel, customersLabel, branchesLabel, salesLineChart, salesPieChart,
+        Long branchId = currentUser != null && !currentUser.isSuperAdmin() && currentUser.getBranch() != null ? currentUser.getBranch().getId() : null;
+        kpiManager.loadStats(currentUser, branchId, salesLabel, productsLabel, customersLabel, branchesLabel, salesLineChart, salesPieChart,
             () -> kpiManager.checkAlerts(notificationBadge), this::animateEntrance);
     }
 

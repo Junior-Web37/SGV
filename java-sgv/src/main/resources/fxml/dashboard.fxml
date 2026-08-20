@@ -196,16 +196,16 @@
                                             </VBox>
                                         </HBox>
                                     </VBox>
-                                    <VBox GridPane.columnIndex="3" styleClass="card-pane" style="-fx-padding:20;">
-                                        <HBox spacing="14" alignment="CENTER_LEFT">
-                                            <Label text="&#127970;" styleClass="kpi-icon kpi-icon-orange"/>
-                                            <VBox spacing="4" HBox.hgrow="ALWAYS">
-                                                <Label text="Lojas &amp; Filiais" style="-fx-font-size:12px; -fx-text-fill:#0F172A; -fx-font-weight:700;"/>
-                                                <Label fx:id="branchesLabel" text="—" style="-fx-font-size:26px; -fx-font-weight:800; -fx-text-fill:#0F172A;"/>
-                                                <Label text="Unidades activas" style="-fx-font-size:11px; -fx-text-fill:#475569;"/>
-                                            </VBox>
-                                        </HBox>
-                                    </VBox>
+                                     <VBox GridPane.columnIndex="3" styleClass="card-pane" style="-fx-padding:20;">
+                                         <HBox spacing="14" alignment="CENTER_LEFT">
+                                             <Label text="&#128181;" styleClass="kpi-icon kpi-icon-orange"/>
+                                             <VBox spacing="4" HBox.hgrow="ALWAYS">
+                                                 <Label text="Caixa / Gaveta" style="-fx-font-size:12px; -fx-text-fill:#0F172A; -fx-font-weight:700;"/>
+                                                 <Label fx:id="branchesLabel" text="—" style="-fx-font-size:26px; -fx-font-weight:800; -fx-text-fill:#15803D;"/>
+                                                 <Label text="Saldo líquido no turno actual" style="-fx-font-size:11px; -fx-text-fill:#64748B;"/>
+                                             </VBox>
+                                         </HBox>
+                                     </VBox>
                                 </children>
                             </GridPane>
 

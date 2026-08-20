@@ -38,6 +38,7 @@ public class DashboardKpiManager {
     private final StockBranchRepository stockBranchRepository;
     private final StockBranchService stockBranchService;
     private final CashSessionService cashSessionService;
+    private final SaleItemRepository saleItemRepository;
 
     public DashboardKpiManager(SaleRepository saleRepository,
                                ProductRepository productRepository,
@@ -53,7 +54,8 @@ public class DashboardKpiManager {
                                PaymentRepository paymentRepository,
                                StockBranchRepository stockBranchRepository,
                                StockBranchService stockBranchService,
-                               CashSessionService cashSessionService) {
+                               CashSessionService cashSessionService,
+                               SaleItemRepository saleItemRepository) {
         this.saleRepository = saleRepository;
         this.productRepository = productRepository;
         this.customerRepository = customerRepository;
@@ -69,45 +71,69 @@ public class DashboardKpiManager {
         this.stockBranchRepository = stockBranchRepository;
         this.stockBranchService = stockBranchService;
         this.cashSessionService = cashSessionService;
+        this.saleItemRepository = saleItemRepository;
     }
 
     /**
-     * Carrega as métricas de alta performance para o Painel Geral do SGV.
-     * Utiliza agregações SQL directas na base de dados para tempo de resposta inferior a 15ms.
+     * Carrega as métricas executivas e operacionais para o Painel Geral do SGV.
+     * Suporta segmentação por filial do utilizador e agregação SQL directa (<15ms).
      */
-    public void loadStats(Label salesLabel, Label productsLabel, Label customersLabel, Label branchesLabel,
+    public void loadStats(User currentUser, Long branchId,
+                          Label salesLabel, Label productsLabel, Label customersLabel, Label branchesLabel,
                           LineChart<String, Number> salesLineChart, PieChart salesPieChart,
                           Runnable onCheckAlerts, Runnable onAnimateEntrance) {
         LocalDate today = LocalDate.now();
         LocalDateTime startOfDay = today.atStartOfDay();
         LocalDateTime endOfDay = today.atTime(23, 59, 59);
 
+        // Se o utilizador não for super-administrador, restringe automaticamente à sua filial
+        Long effectiveBranchId = branchId;
+        if (effectiveBranchId == null && currentUser != null && !currentUser.isSuperAdmin() && currentUser.getBranch() != null) {
+            effectiveBranchId = currentUser.getBranch().getId();
+        }
+
         // 1. Vendas de Hoje
-        BigDecimal todayTotal = saleRepository.sumTotalByDateRangeAndBranch(startOfDay, endOfDay, null);
-        long todayCount = saleRepository.countByDateRangeAndBranch(startOfDay, endOfDay, null);
+        BigDecimal todayTotal = saleRepository.sumTotalByDateRangeAndBranch(startOfDay, endOfDay, effectiveBranchId);
+        long todayCount = saleRepository.countByDateRangeAndBranch(startOfDay, endOfDay, effectiveBranchId);
         if (salesLabel != null) {
             salesLabel.setText(String.format("%,.2f MT (%d vendas)", todayTotal, todayCount));
         }
 
         // 2. Artigos em Falta / Rutura
-        long lowStockCount = stockBranchRepository.countLowStockByBranch(null);
-        long zeroStockCount = stockBranchRepository.countZeroStockByBranch(null);
+        long lowStockCount = stockBranchRepository.countLowStockByBranch(effectiveBranchId);
+        long zeroStockCount = stockBranchRepository.countZeroStockByBranch(effectiveBranchId);
         if (productsLabel != null) {
             productsLabel.setText(String.format("%d artigos (%d esgotados)", lowStockCount + zeroStockCount, zeroStockCount));
             productsLabel.setStyle(zeroStockCount > 0 ? "-fx-text-fill: #EF4444; -fx-font-weight: 800;" : "-fx-text-fill: #0F172A; -fx-font-weight: 800;");
         }
 
         // 3. Contas a Receber (Créditos Pendentes de Clientes)
-        BigDecimal pendingCredits = saleRepository.sumTotalPendingCreditsByBranch(null);
+        BigDecimal pendingCredits = saleRepository.sumTotalPendingCreditsByBranch(effectiveBranchId);
         if (customersLabel != null) {
             customersLabel.setText(String.format("%,.2f MT", pendingCredits));
             customersLabel.setStyle("-fx-text-fill: #2563EB; -fx-font-weight: 800;");
         }
 
-        // 4. Lojas / Filiais
-        long branchCount = branchRepository.count();
+        // 4. Saldo Real em Caixa / Gaveta (Turno Atual do Operador)
         if (branchesLabel != null) {
-            branchesLabel.setText(String.format("%d filiais activas", branchCount));
+            if (currentUser != null && cashSessionService != null) {
+                var sessionOpt = cashSessionService.getOpenSession(currentUser);
+                if (sessionOpt.isPresent()) {
+                    List<CashMovement> movements = cashSessionService.getMovements(sessionOpt.get());
+                    BigDecimal initVal = sessionOpt.get().getInitialValue() != null ? sessionOpt.get().getInitialValue() : BigDecimal.ZERO;
+                    BigDecimal inVal = movements.stream().filter(m -> "IN".equals(m.getType())).map(CashMovement::getAmount).filter(java.util.Objects::nonNull).reduce(BigDecimal.ZERO, BigDecimal::add);
+                    BigDecimal outVal = movements.stream().filter(m -> "OUT".equals(m.getType())).map(CashMovement::getAmount).filter(java.util.Objects::nonNull).reduce(BigDecimal.ZERO, BigDecimal::add);
+                    BigDecimal currentBalance = initVal.add(inVal).subtract(outVal);
+                    branchesLabel.setText(String.format("%,.2f MT", currentBalance));
+                    branchesLabel.setStyle("-fx-font-size:26px; -fx-font-weight:800; -fx-text-fill:#15803D;");
+                } else {
+                    branchesLabel.setText("Caixa Fechado");
+                    branchesLabel.setStyle("-fx-font-size:22px; -fx-font-weight:800; -fx-text-fill:#94A3B8;");
+                }
+            } else {
+                long branchCount = branchRepository.count();
+                branchesLabel.setText(String.format("%d filiais", branchCount));
+            }
         }
 
         // 5. Gráfico de Faturação dos Últimos 7 Dias (MT)
@@ -119,21 +145,23 @@ public class DashboardKpiManager {
                 LocalDate date = today.minusDays(i);
                 LocalDateTime dStart = date.atStartOfDay();
                 LocalDateTime dEnd = date.atTime(23, 59, 59);
-                BigDecimal dailyTotal = saleRepository.sumTotalByDateRangeAndBranch(dStart, dEnd, null);
+                BigDecimal dailyTotal = saleRepository.sumTotalByDateRangeAndBranch(dStart, dEnd, effectiveBranchId);
                 series.getData().add(new XYChart.Data<>(date.format(DateTimeFormatter.ofPattern("dd/MM")), dailyTotal.doubleValue()));
             }
             salesLineChart.getData().add(series);
         }
 
-        // 6. Gráfico de Meios de Pagamento de Hoje (Numerário, M-Pesa, POS, etc.)
+        // 6. Gráfico de Meios de Pagamento de Hoje (Numerário, M-Pesa, e-Mola, mKesh, POS)
         if (salesPieChart != null) {
-            List<Object[]> paymentRows = saleRepository.sumTotalByPaymentMethodToday(startOfDay, endOfDay, null);
+            List<Object[]> paymentRows = saleRepository.sumTotalByPaymentMethodToday(startOfDay, endOfDay, effectiveBranchId);
             ObservableList<PieChart.Data> pieData = FXCollections.observableArrayList();
             for (Object[] r : paymentRows) {
-                String method = (r[0] != null) ? r[0].toString() : "Outro";
+                String rawMethod = (r[0] != null) ? r[0].toString() : "Outro";
+                com.sgv.model.PaymentMethod pm = com.sgv.model.PaymentMethod.fromString(rawMethod);
+                String label = pm.getDescription();
                 BigDecimal val = (r[1] instanceof BigDecimal bd) ? bd : BigDecimal.valueOf(((Number) r[1]).doubleValue());
                 if (val.compareTo(BigDecimal.ZERO) > 0) {
-                    pieData.add(new PieChart.Data(String.format("%s (%,.0f MT)", method, val), val.doubleValue()));
+                    pieData.add(new PieChart.Data(String.format("%s (%,.0f MT)", label, val), val.doubleValue()));
                 }
             }
             if (pieData.isEmpty()) {
@@ -144,6 +172,15 @@ public class DashboardKpiManager {
 
         if (onCheckAlerts != null) onCheckAlerts.run();
         if (onAnimateEntrance != null) onAnimateEntrance.run();
+    }
+
+    /**
+     * Sobrecarga de compatibilidade para carregamento sem parâmetros de utilizador explícitos.
+     */
+    public void loadStats(Label salesLabel, Label productsLabel, Label customersLabel, Label branchesLabel,
+                          LineChart<String, Number> salesLineChart, PieChart salesPieChart,
+                          Runnable onCheckAlerts, Runnable onAnimateEntrance) {
+        loadStats(null, null, salesLabel, productsLabel, customersLabel, branchesLabel, salesLineChart, salesPieChart, onCheckAlerts, onAnimateEntrance);
     }
 
     public void loadSalesStats(Label revenueLabel, Label countLabel, Label avgLabel, Label pendingLabel,
