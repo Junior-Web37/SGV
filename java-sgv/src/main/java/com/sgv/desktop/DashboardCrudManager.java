@@ -825,6 +825,8 @@ public class DashboardCrudManager {
             .title(selected.getName() != null ? selected.getName() : "Cliente")
             .subtitle("Código: " + (selected.getCode() != null ? selected.getCode() : "—"))
             .statusBadge(selected.getType() != null ? selected.getType() : "—", typeColor)
+            .width(680)
+            .height(580)
             .section("Dados do Cliente")
             .field("Nome Completo", selected.getName())
             .field("Código", selected.getCode())
@@ -840,13 +842,19 @@ public class DashboardCrudManager {
 
         var statement = customerAccountService.getCustomerStatement(selected.getId());
         if (statement != null && !statement.isEmpty()) {
-            dialog.section("Extrato de Conta Corrente (Últimos Movimentos)");
-            for (var entry : statement.stream().limit(8).toList()) {
-                String dateStr = entry.getDate() != null ? entry.getDate().format(java.time.format.DateTimeFormatter.ofPattern("dd/MM/yyyy")) : "";
-                String valStr = String.format("%s | D: %,.0f MT | C: %,.0f MT | Saldo: %,.0f MT",
-                        entry.getDocument(), entry.getDebit(), entry.getCredit(), entry.getRunningBalance());
-                dialog.field(dateStr + " (" + entry.getType() + ")", valStr);
+            String[] cols = {"Data", "Tipo", "Documento", "Débito (MT)", "Crédito (MT)", "Saldo (MT)"};
+            List<Map<String, String>> rows = new ArrayList<>();
+            for (var entry : statement.stream().limit(12).toList()) {
+                Map<String, String> row = new LinkedHashMap<>();
+                row.put("Data", entry.getDate() != null ? entry.getDate().format(java.time.format.DateTimeFormatter.ofPattern("dd/MM/yyyy")) : "");
+                row.put("Tipo", entry.getType() != null ? entry.getType() : "—");
+                row.put("Documento", entry.getDocument() != null ? entry.getDocument() : "—");
+                row.put("Débito (MT)", entry.getDebit() != null && entry.getDebit().compareTo(BigDecimal.ZERO) > 0 ? String.format("%,.2f", entry.getDebit()) : "—");
+                row.put("Crédito (MT)", entry.getCredit() != null && entry.getCredit().compareTo(BigDecimal.ZERO) > 0 ? String.format("%,.2f", entry.getCredit()) : "—");
+                row.put("Saldo (MT)", entry.getRunningBalance() != null ? String.format("%,.2f", entry.getRunningBalance()) : "0.00");
+                rows.add(row);
             }
+            dialog.tableSection("Extrato de Conta Corrente (Últimos Movimentos)", cols, rows);
         }
 
         dialog.show();

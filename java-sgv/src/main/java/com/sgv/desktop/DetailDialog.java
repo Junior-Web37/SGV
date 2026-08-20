@@ -227,13 +227,24 @@ public class DetailDialog {
                     table.setVgap(0);
                     table.setStyle("-fx-padding: 0;");
                     table.setPrefWidth(Double.MAX_VALUE);
+                    table.setMaxWidth(Double.MAX_VALUE);
+
+                    double colPercent = 100.0 / sec.columns.length;
+                    table.getColumnConstraints().clear();
+                    for (int c = 0; c < sec.columns.length; c++) {
+                        ColumnConstraints cc = new ColumnConstraints();
+                        cc.setPercentWidth(colPercent);
+                        cc.setHgrow(Priority.ALWAYS);
+                        table.getColumnConstraints().add(cc);
+                    }
 
                     // Header row
                     for (int c = 0; c < sec.columns.length; c++) {
-                        Label hdr = new Label("  " + sec.columns[c]);
+                        Label hdr = new Label(sec.columns[c]);
                         hdr.setStyle("-fx-background-color: #E2E8F0; -fx-padding: 8 12; " +
-                            "-fx-font-size: 11px; -fx-font-weight: 700; -fx-text-fill: #475569;");
-                        hdr.setPrefWidth(120);
+                            "-fx-font-size: 11px; -fx-font-weight: 800; -fx-text-fill: #334155; -fx-alignment: CENTER_LEFT;");
+                        hdr.setMaxWidth(Double.MAX_VALUE);
+                        GridPane.setHgrow(hdr, Priority.ALWAYS);
                         GridPane.setColumnIndex(hdr, c);
                         GridPane.setRowIndex(hdr, 0);
                         table.getChildren().add(hdr);
@@ -244,13 +255,14 @@ public class DetailDialog {
                         String bg = (r % 2 == 0) ? "#F8FAFC" : "#FFFFFF";
                         for (int c = 0; c < sec.columns.length; c++) {
                             String val = rowData.get(sec.columns[c]);
-                            Label cell = new Label("  " + (val != null ? val : "—"));
+                            Label cell = new Label(val != null ? val : "—");
                             cell.setStyle(String.format(
-                                "-fx-background-color: %s; -fx-padding: 7 12; " +
-                                "-fx-font-size: 12px; -fx-text-fill: #334155;",
+                                "-fx-background-color: %s; -fx-padding: 8 12; " +
+                                "-fx-font-size: 12px; -fx-text-fill: #1E293B; -fx-alignment: CENTER_LEFT;",
                                 bg));
-                            cell.setPrefWidth(120);
+                            cell.setMaxWidth(Double.MAX_VALUE);
                             cell.setWrapText(true);
+                            GridPane.setHgrow(cell, Priority.ALWAYS);
                             GridPane.setColumnIndex(cell, c);
                             GridPane.setRowIndex(cell, r);
                             table.getChildren().add(cell);
@@ -275,17 +287,24 @@ public class DetailDialog {
         footer.setStyle("-fx-background-color: #FFFFFF; -fx-padding: 12 24; " +
             "-fx-border-color: #E2E8F0; -fx-border-width: 1 0 0 0;");
 
-        Button closeBtn = new Button("Fechar");
+        Button closeBtn = new Button("Fechar (ESC)");
         closeBtn.setStyle(
             "-fx-background-color: #2563EB; -fx-text-fill: #FFFFFF; -fx-font-size: 13px; " +
             "-fx-font-weight: 700; -fx-padding: 8 24; -fx-background-radius: 8; -fx-cursor: hand;"
         );
         closeBtn.setOnAction(e -> dialog.close());
+        UiUtils.applyHoverElevation(closeBtn);
+        UiUtils.applyPressFeedback(closeBtn);
         footer.getChildren().add(closeBtn);
 
         root.getChildren().addAll(headerBox, scrollPane, footer);
 
         Scene scene = new Scene(root, width, height);
+        scene.setOnKeyPressed(ke -> {
+            if (ke.getCode() == javafx.scene.input.KeyCode.ESCAPE) {
+                dialog.close();
+            }
+        });
         dialog.setScene(scene);
         dialog.setTitle(title);
         if (owner != null) {
