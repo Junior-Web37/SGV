@@ -26,6 +26,10 @@ public class CategoryFormController extends BaseFormController {
         initCommonFields();
         UiUtils.attachSafe(saveButton, this::doSave, systemLogService, "CATEGORY_SAVE");
         UiUtils.attachSafe(cancelButton, this::doCancel, systemLogService, "CATEGORY_CANCEL");
+        UiUtils.applyHoverElevation(saveButton);
+        UiUtils.applyPressFeedback(saveButton);
+        UiUtils.applyHoverElevation(cancelButton);
+        UiUtils.applyPressFeedback(cancelButton);
         nameField.textProperty().addListener((obs, o, n) -> validateRealTime());
         javafx.application.Platform.runLater(this::validateRealTime);
     }
@@ -87,6 +91,6 @@ public class CategoryFormController extends BaseFormController {
             showError("Erro ao salvar: " + msg);
             hideSaveSpinner();
         });
-        new Thread(saveTask).start();
+        UiUtils.runTask(saveTask);
     }
 }
