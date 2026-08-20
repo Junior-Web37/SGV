@@ -38,9 +38,15 @@ public class CustomerFormController extends BaseFormController {
     public void initialize() {
         initCommonFields();
         typeCombo.setItems(javafx.collections.FXCollections.observableArrayList(
-                "PESSOA_FISICA", "PESSOA_JURIDICA", "EMPRESA"));
+                "RETALHO", "GROSSO", "EMPRESA", "ISENTO"));
+        typeCombo.setValue("RETALHO");
         UiUtils.attachSafe(saveButton, this::doSave, systemLogService, "CUSTOMER_SAVE");
         UiUtils.attachSafe(cancelButton, this::doCancel, systemLogService, "CUSTOMER_CANCEL");
+
+        UiUtils.applyHoverElevation(saveButton);
+        UiUtils.applyPressFeedback(saveButton);
+        UiUtils.applyHoverElevation(cancelButton);
+        UiUtils.applyPressFeedback(cancelButton);
 
         UiUtils.applyNumericFormatter(creditLimitField);
         UiUtils.applyNumericFormatter(defaultDiscountField);
@@ -49,6 +55,8 @@ public class CustomerFormController extends BaseFormController {
             deleteButton.setVisible(false);
             deleteButton.setManaged(false);
             UiUtils.attachSafe(deleteButton, this::doDelete, systemLogService, "CUSTOMER_DELETE");
+            UiUtils.applyHoverElevation(deleteButton);
+            UiUtils.applyPressFeedback(deleteButton);
         }
 
         setupRealTimeValidation();
@@ -75,8 +83,8 @@ public class CustomerFormController extends BaseFormController {
     }
 
     private void checkDuplicateCode(String code) {
-        new Thread(() -> {
-                try {
+        UiUtils.runAsync(() -> {
+            try {
                 String finalCode = code;
                 Long excludeId = customer != null ? customer.getId() : null;
                 codeAlreadyExists = customerService.existsByCode(finalCode, excludeId);
@@ -85,7 +93,7 @@ public class CustomerFormController extends BaseFormController {
                 systemLogService.logError("CUSTOMER_DUPL_CHECK", "Erro ao verificar código", e);
             }
             javafx.application.Platform.runLater(this::validateRealTime);
-        }).start();
+        });
     }
 
     @Override
@@ -185,7 +193,14 @@ public class CustomerFormController extends BaseFormController {
             codeField.setText(c.getCode());
             nameField.setText(c.getName());
             nuitField.setText(c.getNuit() != null ? c.getNuit() : "");
-            typeCombo.setValue(c.getType());
+            
+            String t = c.getType();
+            if (t == null) t = "RETALHO";
+            else if ("PESSOA_FISICA".equalsIgnoreCase(t) || "VAREJO".equalsIgnoreCase(t)) t = "RETALHO";
+            else if ("PESSOA_JURIDICA".equalsIgnoreCase(t) || "B2B".equalsIgnoreCase(t)) t = "EMPRESA";
+            else if ("ATACADO".equalsIgnoreCase(t)) t = "GROSSO";
+            typeCombo.setValue(t);
+
             creditLimitField.setText(c.getCreditLimitAmount() != null
                     ? c.getCreditLimitAmount().stripTrailingZeros().toPlainString() : "");
             defaultDiscountField.setText(c.getDefaultDiscountAmount() != null
@@ -198,6 +213,7 @@ public class CustomerFormController extends BaseFormController {
             this.customer = new Customer();
             codeField.setText(customerService.generateNewCode());
             codeField.setDisable(true);
+            typeCombo.setValue("RETALHO");
         }
         validateRealTime();
     }
@@ -230,7 +246,7 @@ public class CustomerFormController extends BaseFormController {
             systemLogService.logError("CUSTOMER_DELETE_FAILED", "Erro ao apagar cliente: " + msg, ex);
             showError("Erro ao apagar: " + msg);
         });
-        new Thread(deleteTask).start();
+        UiUtils.runTask(deleteTask);
     }
 
     @Override
@@ -255,7 +271,7 @@ public class CustomerFormController extends BaseFormController {
                 customer.setCode(trimmedCode);
                 customer.setName(nameField.getText().trim());
                 customer.setNuit(nuitField.getText() != null ? nuitField.getText().trim() : "");
-                customer.setType(typeCombo.getValue() != null ? typeCombo.getValue() : "PESSOA_FISICA");
+                customer.setType(typeCombo.getValue() != null ? typeCombo.getValue() : "RETALHO");
                 customer.setCreditLimitAmount(parseBigDecimalOrZero(creditLimitField.getText()));
                 customer.setDefaultDiscountAmount(parseBigDecimalOrZero(defaultDiscountField.getText()));
                 customer.setAddress(addressField.getText() != null ? addressField.getText().trim() : "");
@@ -284,7 +300,7 @@ public class CustomerFormController extends BaseFormController {
             hideSaveSpinner();
         });
 
-        new Thread(saveTask).start();
+        UiUtils.runTask(saveTask);
     }
 
     private BigDecimal parseBigDecimalOrZero(String text) {
