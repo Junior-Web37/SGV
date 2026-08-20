@@ -867,7 +867,7 @@ public class DashboardController {
             () -> kpiManager.checkAlerts(notificationBadge), this::animateEntrance);
     }
 
-    private void loadSales() { crudManager.loadSales(navManager.getSalesTable(), saleFilter, saleStateFilter, saleDocTypeFilter, saleStartDate, saleEndDate); }
+    private void loadSales() { crudManager.loadSales(navManager.getSalesTable(), saleFilter, saleStateFilter, saleDocTypeFilter, saleStartDate, saleEndDate, currentUser); }
     private void loadProducts() { crudManager.loadProducts(navManager.getProductsTable(), productFilter, currentProductsPage); }
     private void loadCustomers() { crudManager.loadCustomers(navManager.getCustomersTable(), customerFilter, currentCustomersPage); }
     private void loadStock() { crudManager.loadStock(stockTable, stockSearchField); }

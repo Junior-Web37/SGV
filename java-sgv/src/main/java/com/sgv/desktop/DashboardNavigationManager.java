@@ -481,6 +481,11 @@ public class DashboardNavigationManager {
             Button annulBtn = makeActionButton("Anular", "#EF4444", "#ffffff");
             Button refreshBtn = makeIconButton("↻", "#10B981", "#ffffff");
 
+            for (Button b : List.of(newBtn, printBtn, viewBtn, convertBtn, creditNoteBtn, annulBtn, refreshBtn)) {
+                UiUtils.applyHoverElevation(b);
+                UiUtils.applyPressFeedback(b);
+            }
+
             UiUtils.attachSafe(newBtn, onNewSale, systemLogService, "SALE_NEW");
             UiUtils.attachSafe(printBtn, onPrint, systemLogService, "SALE_PRINT");
             UiUtils.attachSafe(viewBtn, onViewDetails, systemLogService, "SALE_VIEW");
@@ -635,7 +640,7 @@ public class DashboardNavigationManager {
         }
 
         GridPane kpi = (GridPane) salesStatsPane.lookup("#salesKPI");
-        kpiManager.updateSalesKPIs(kpi);
+        kpiManager.updateSalesKPIs(kpi, currentUser);
         loadSalesStats.run();
         loadSales.run();
         updateCashBadge.run();
@@ -2236,18 +2241,6 @@ public void showTurnoCaixaPane(Label pageTitleLabel, Label pageSubtitleLabel,
         if (!(info instanceof VBox)) return;
         javafx.scene.Node valueLbl = ((VBox) info).getChildren().get(1);
         if (valueLbl instanceof Label) ((Label) valueLbl).setText(value);
-    }
-
-    public void showSalesPane(Label pageTitleLabel, Label pageSubtitleLabel,
-                               VBox salesPane, User currentUser,
-                               VBox[] allPanes, Button[] allNavButtons,
-                               Runnable loadSales, Runnable updateCashBadge) {
-        setActiveNav(null, allNavButtons);
-        pageTitleLabel.setText("Consultar Vendas");
-        pageSubtitleLabel.setText("Histórico de vendas e facturas");
-        setPaneVisibility(salesPane, allPanes);
-        loadSales.run();
-        updateCashBadge.run();
     }
 
     private void showAlert(javafx.scene.control.Alert.AlertType type, String message) {

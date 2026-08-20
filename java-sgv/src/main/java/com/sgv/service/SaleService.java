@@ -412,6 +412,22 @@ public class SaleService {
                 customerRepository.save(cust);
                 if (entityManager != null) entityManager.flush();
             }
+        } else {
+            // Estorno de tesouraria / saída de caixa para vendas a pronto que movimentaram caixa
+            com.sgv.model.DocumentType docType = com.sgv.model.DocumentType.fromString(saved.getDocumentType());
+            if (docType == com.sgv.model.DocumentType.VENDA || docType == com.sgv.model.DocumentType.FACTURA || docType == com.sgv.model.DocumentType.RECIBO) {
+                if (cashSessionService != null && currentUser != null) {
+                    try {
+                        BigDecimal saleTotal = saved.getTotalAmount() != null ? saved.getTotalAmount() : BigDecimal.ZERO;
+                        String ref = "Estorno " + (saved.getDocumentType() != null ? saved.getDocumentType() : "DOC")
+                                + " #" + (saved.getDocumentNumber() != null ? saved.getDocumentNumber() : saved.getId())
+                                + "/" + (saved.getSeries() != null ? saved.getSeries() : "A");
+                        cashSessionService.registerMovement(currentUser, "OUT", saleTotal, ref, "ANULACAO_VENDA", com.sgv.entity.OperationKind.REFUND, false);
+                    } catch (Exception ignored) {
+                        // Se o operador não tiver sessão aberta no momento da anulação, prossegue sem travar a anulação fiscal
+                    }
+                }
+            }
         }
 
         return saved;

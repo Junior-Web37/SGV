@@ -126,14 +126,21 @@ public class DashboardCrudManager {
     }
 
     public void loadSales(TableView<Sale> salesTable, String filter, String stateFilter) {
-        loadSales(salesTable, filter, stateFilter, "TODOS", null, null);
+        loadSales(salesTable, filter, stateFilter, "TODOS", null, null, null);
     }
 
     public void loadSales(TableView<Sale> salesTable, String filter, String stateFilter,
-                          String docTypeFilter, LocalDateTime startDate, LocalDateTime endDate) {
+                          String docTypeFilter, LocalDateTime startDate, LocalDateTime endDate, User currentUser) {
         if (salesTable == null) return;
+        Long branchId = currentUser != null && !currentUser.isSuperAdmin() && currentUser.getBranch() != null
+                ? currentUser.getBranch().getId() : null;
+
         List<Sale> allSales = saleRepository.findAllWithCustomerAndItems();
         List<Sale> filtered = allSales.stream()
+                .filter(s -> {
+                    if (branchId == null) return true;
+                    return s.getBranch() != null && branchId.equals(s.getBranch().getId());
+                })
                 .filter(s -> {
                     if (filter == null || filter.isBlank()) return true;
                     String term = filter.toLowerCase();
@@ -164,6 +171,11 @@ public class DashboardCrudManager {
                 .sorted(Comparator.comparing(Sale::getCreatedAt, Comparator.nullsLast(Comparator.reverseOrder())))
                 .toList();
         salesTable.setItems(FXCollections.observableArrayList(filtered));
+    }
+
+    public void loadSales(TableView<Sale> salesTable, String filter, String stateFilter,
+                          String docTypeFilter, LocalDateTime startDate, LocalDateTime endDate) {
+        loadSales(salesTable, filter, stateFilter, docTypeFilter, startDate, endDate, null);
     }
 
     public void loadProducts(TableView<Product> productsTable, String filter, int page) {

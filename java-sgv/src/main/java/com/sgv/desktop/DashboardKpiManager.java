@@ -304,17 +304,20 @@ public class DashboardKpiManager {
         menu.show(notificationBellButton, javafx.geometry.Side.BOTTOM, 0, 0);
     }
 
-    public void updateSalesKPIs(GridPane grid) {
+    public void updateSalesKPIs(GridPane grid, User currentUser) {
         if (grid == null) return;
         try {
             LocalDate today = LocalDate.now();
             LocalDateTime startOfDay = today.atStartOfDay();
             LocalDateTime endOfDay = today.atTime(23, 59, 59);
 
-            BigDecimal hoje = saleRepository.sumTotalByDateRangeAndBranch(startOfDay, endOfDay, null);
-            BigDecimal semana = saleRepository.sumTotalByDateRangeAndBranch(today.minusDays(7).atStartOfDay(), endOfDay, null);
-            BigDecimal mes = saleRepository.sumTotalByDateRangeAndBranch(today.withDayOfMonth(1).atStartOfDay(), endOfDay, null);
-            long countMes = saleRepository.countByDateRangeAndBranch(today.withDayOfMonth(1).atStartOfDay(), endOfDay, null);
+            Long branchId = currentUser != null && !currentUser.isSuperAdmin() && currentUser.getBranch() != null
+                    ? currentUser.getBranch().getId() : null;
+
+            BigDecimal hoje = saleRepository.sumTotalByDateRangeAndBranch(startOfDay, endOfDay, branchId);
+            BigDecimal semana = saleRepository.sumTotalByDateRangeAndBranch(today.minusDays(7).atStartOfDay(), endOfDay, branchId);
+            BigDecimal mes = saleRepository.sumTotalByDateRangeAndBranch(today.withDayOfMonth(1).atStartOfDay(), endOfDay, branchId);
+            long countMes = saleRepository.countByDateRangeAndBranch(today.withDayOfMonth(1).atStartOfDay(), endOfDay, branchId);
             double ticketMed = countMes > 0 ? mes.doubleValue() / countMes : 0.0;
 
             updateKPICard(grid, 0, String.format("%,.0f MT", hoje));
@@ -322,6 +325,10 @@ public class DashboardKpiManager {
             updateKPICard(grid, 2, String.format("%,.0f MT", mes));
             updateKPICard(grid, 3, String.format("%,.0f MT", ticketMed));
         } catch (Exception ex) { log.error("Erro inesperado ao actualizar KPIs de vendas", ex); }
+    }
+
+    public void updateSalesKPIs(GridPane grid) {
+        updateSalesKPIs(grid, null);
     }
 
     public void updateFinanceiroKPIs(GridPane grid) {
