@@ -205,6 +205,38 @@ public class DashboardKpiManager {
         }
     }
 
+    public void updateCashBadge(Label cashStatusBadge, User currentUser) {
+        if (cashStatusBadge == null) return;
+        try {
+            boolean open = currentUser != null && cashSessionService != null && cashSessionService.hasOpenSession(currentUser);
+            if (open) {
+                cashStatusBadge.setText("● Caixa Aberto");
+                cashStatusBadge.setStyle(
+                    "-fx-background-color: #DCFCE7; " +
+                    "-fx-text-fill: #15803D; " +
+                    "-fx-font-weight: 700; " +
+                    "-fx-font-size: 11px; " +
+                    "-fx-padding: 4 10; " +
+                    "-fx-background-radius: 12; " +
+                    "-fx-cursor: hand;"
+                );
+            } else {
+                cashStatusBadge.setText("○ Caixa Fechado");
+                cashStatusBadge.setStyle(
+                    "-fx-background-color: #FEE2E2; " +
+                    "-fx-text-fill: #B91C1C; " +
+                    "-fx-font-weight: 700; " +
+                    "-fx-font-size: 11px; " +
+                    "-fx-padding: 4 10; " +
+                    "-fx-background-radius: 12; " +
+                    "-fx-cursor: hand;"
+                );
+            }
+        } catch (Exception ex) {
+            log.error("Erro ao actualizar estado do caixa no badge", ex);
+        }
+    }
+
     public void showNotificationPopup(Button notificationBellButton) {
         if (notificationBellButton == null) return;
         List<StockBranch> lowStocks = stockBranchRepository.findAll().stream()
