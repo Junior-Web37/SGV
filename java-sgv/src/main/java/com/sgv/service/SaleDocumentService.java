@@ -25,6 +25,114 @@ public class SaleDocumentService {
     private static final DateTimeFormatter DT_FMT = DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm");
 
     /**
+     * Generates an A5 (compact half-page) PDF for the given Sale.
+     */
+    public File generateDocumentA5(Sale sale) throws IOException {
+        File outputDir = new File(System.getProperty("user.home"), "Documents/SGV/recibos");
+        outputDir.mkdirs();
+        String docType = sale.getDocumentType() != null ? sale.getDocumentType() : "DOCUMENTO";
+        String fileName = "A5_" + docType + "_" + (sale.getSeries() != null ? sale.getSeries() : "A")
+                + "_" + (sale.getDocumentNumber() != null ? sale.getDocumentNumber() : sale.getId())
+                + ".pdf";
+        File outputFile = new File(outputDir, fileName);
+
+        float a5Width = PDRectangle.A5.getWidth();
+        float a5Height = PDRectangle.A5.getHeight();
+        float a5Margin = 24f;
+
+        try (PDDocument doc = new PDDocument()) {
+            PDPage page = new PDPage(PDRectangle.A5);
+            doc.addPage(page);
+
+            PDType1Font fontBold = new PDType1Font(Standard14Fonts.FontName.HELVETICA_BOLD);
+            PDType1Font fontRegular = new PDType1Font(Standard14Fonts.FontName.HELVETICA);
+
+            try (PDPageContentStream cs = new PDPageContentStream(doc, page)) {
+                float y = a5Height - a5Margin;
+
+                String branchName = sale.getBranch() != null ? sale.getBranch().getName() : "SGV Sistema";
+                String branchNuit = sale.getBranch() != null ? (sale.getBranch().getNuit() != null ? sale.getBranch().getNuit() : "") : "";
+
+                y = drawCenteredText(cs, fontBold, 13, branchName, y);
+                if (!branchNuit.isBlank()) y = drawCenteredText(cs, fontRegular, 8, "NUIT: " + branchNuit, y - 1);
+
+                y -= 6;
+                cs.setLineWidth(1.0f);
+                cs.moveTo(a5Margin, y); cs.lineTo(a5Width - a5Margin, y); cs.stroke();
+                y -= 10;
+
+                String title = docType + " Nº " + (sale.getSeries() != null ? sale.getSeries() : "A") + "/"
+                        + (sale.getDocumentNumber() != null ? sale.getDocumentNumber() : sale.getId());
+                y = drawCenteredText(cs, fontBold, 11, title, y);
+                y -= 4;
+                cs.setLineWidth(0.5f);
+                cs.moveTo(a5Margin, y); cs.lineTo(a5Width - a5Margin, y); cs.stroke();
+                y -= 10;
+
+                String dateStr = sale.getCreatedAt() != null ? sale.getCreatedAt().format(DT_FMT) : "—";
+                y = drawTwoColumnRow(cs, fontRegular, fontBold, 8, "Data:", dateStr, y);
+                String custName = sale.getCustomerName() != null ? sale.getCustomerName() : "Consumidor Final";
+                String custNuit = sale.getCustomerNuit() != null ? sale.getCustomerNuit() : "999999999";
+                y = drawTwoColumnRow(cs, fontRegular, fontRegular, 8, "Cliente:", custName + " (NUIT: " + custNuit + ")", y);
+                y -= 6;
+
+                // Tabela A5
+                float col0 = a5Margin;
+                float col1 = col0 + 150;
+                float col2 = col1 + 45;
+                float col3 = col2 + 45;
+                float col4 = col3 + 40;
+                float col5 = a5Width - a5Margin - 45;
+
+                cs.setLineWidth(0.5f);
+                cs.moveTo(a5Margin, y); cs.lineTo(a5Width - a5Margin, y); cs.stroke();
+                y -= 8;
+                drawTextAt(cs, fontBold, 8, "Artigo", col0, y);
+                drawTextAt(cs, fontBold, 8, "Qtd.", col1, y);
+                drawTextAt(cs, fontBold, 8, "Preço", col2, y);
+                drawTextAt(cs, fontBold, 8, "IVA", col3, y);
+                drawTextAt(cs, fontBold, 8, "Total", col5, y);
+                y -= 8;
+                cs.moveTo(a5Margin, y); cs.lineTo(a5Width - a5Margin, y); cs.stroke();
+                y -= 10;
+
+                if (sale.getItems() != null) {
+                    for (SaleItem item : sale.getItems()) {
+                        String desc = item.getProductName() != null ? item.getProductName() : (item.getDescription() != null ? item.getDescription() : "—");
+                        if (desc.length() > 22) desc = desc.substring(0, 20) + "..";
+                        drawTextAt(cs, fontRegular, 8, desc, col0, y);
+                        drawTextAt(cs, fontRegular, 8, String.format("%.1f", item.getQty() != null ? item.getQty() : 0), col1, y);
+                        drawTextAt(cs, fontRegular, 8, String.format("%.2f", item.getUnitPrice() != null ? item.getUnitPrice() : 0), col2, y);
+                        drawTextAt(cs, fontRegular, 8, String.format("%.0f%%", item.getTaxRate() != null ? item.getTaxRate() : 0), col3, y);
+                        drawTextAt(cs, fontRegular, 8, String.format("%.2f", item.getLineTotal() != null ? item.getLineTotal() : 0), col5, y);
+                        y -= 10;
+                        if (y < 80) break;
+                    }
+                }
+
+                cs.moveTo(a5Margin, y); cs.lineTo(a5Width - a5Margin, y); cs.stroke();
+                y -= 10;
+                float totLabelX = a5Width - a5Margin - 140;
+                float totValueX = a5Width - a5Margin - 50;
+                y = drawTotalsRow(cs, fontRegular, 8, "Subtotal:", fmtVal(sale.getSubtotal()), totLabelX, totValueX, y);
+                y = drawTotalsRow(cs, fontRegular, 8, "IVA (16%):", fmtVal(sale.getTotalTax()), totLabelX, totValueX, y);
+                y = drawTotalsRow(cs, fontBold, 10, "TOTAL MT:", fmtVal(sale.getTotal()), totLabelX, totValueX, y);
+
+                if (sale.getSignatureHash() != null && sale.getSignatureHash().length() >= 4) {
+                    y -= 6;
+                    String h = sale.getSignatureHash();
+                    String hash4 = "" + h.charAt(0) + (h.length() > 10 ? h.charAt(10) : h.charAt(1))
+                            + (h.length() > 20 ? h.charAt(20) : h.charAt(2))
+                            + (h.length() > 30 ? h.charAt(30) : h.charAt(3));
+                    drawTextAt(cs, fontRegular, 7, hash4 + " - CERT-AT-2026", a5Margin, y);
+                }
+            }
+            doc.save(outputFile);
+        }
+        return outputFile;
+    }
+
+    /**
      * Generates a PDF for the given Sale and saves it to the user's Documents/SGV/recibos folder.
      * Returns the file path.
      */

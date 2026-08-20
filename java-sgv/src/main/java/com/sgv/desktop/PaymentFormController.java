@@ -31,12 +31,19 @@ public class PaymentFormController extends BaseFormController {
 
     private final PaymentService paymentService;
     private final SystemLogService systemLogService;
+    private final com.sgv.service.ThermalPrintService thermalPrintService;
+    private final com.sgv.service.SaleDocumentService saleDocumentService;
     private Payment payment;
     private BigDecimal currentPendingBalance = BigDecimal.ZERO;
 
-    public PaymentFormController(PaymentService paymentService, SystemLogService systemLogService) {
+    public PaymentFormController(PaymentService paymentService,
+                                 SystemLogService systemLogService,
+                                 com.sgv.service.ThermalPrintService thermalPrintService,
+                                 com.sgv.service.SaleDocumentService saleDocumentService) {
         this.paymentService = paymentService;
         this.systemLogService = systemLogService;
+        this.thermalPrintService = thermalPrintService;
+        this.saleDocumentService = saleDocumentService;
     }
 
     @FXML
@@ -180,7 +187,17 @@ public class PaymentFormController extends BaseFormController {
         saveTask.setOnSucceeded(e -> {
             File pdf = saveTask.getValue();
             if (pdf != null) {
-                javafx.application.Platform.runLater(() -> DocumentPreviewDialog.show(pdf, "RECIBO"));
+                Sale s = saleCombo.getValue();
+                javafx.application.Platform.runLater(() -> DocumentPreviewDialog.show(
+                    pdf,
+                    "RECIBO",
+                    DocumentPreviewDialog.FMT_THERMAL_80MM,
+                    s,
+                    sale -> { try { return thermalPrintService.printReceipt(sale); } catch (Exception ex) { return null; } },
+                    sale -> { try { return thermalPrintService.printReceipt58mm(sale); } catch (Exception ex) { return null; } },
+                    sale -> { try { return saleDocumentService.generateDocument(sale); } catch (Exception ex) { return null; } },
+                    sale -> { try { return saleDocumentService.generateDocumentA5(sale); } catch (Exception ex) { return null; } }
+                ));
             }
             if (onSave != null) onSave.run();
             doCancel();

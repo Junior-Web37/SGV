@@ -169,6 +169,123 @@ public class ThermalPrintService {
         return outputFile;
     }
 
+    public File printReceipt58mm(Sale sale) throws IOException {
+        File outputDir = new File(System.getProperty("user.home"), "Documents/SGV/recibos");
+        outputDir.mkdirs();
+        String docType = sale.getDocumentType() != null ? sale.getDocumentType() : "DOC";
+        String fileName = "T58_" + docType + "_" + (sale.getSeries() != null ? sale.getSeries() : "A")
+                + "_" + (sale.getDocumentNumber() != null ? sale.getDocumentNumber() : sale.getId())
+                + ".pdf";
+        File outputFile = new File(outputDir, fileName);
+
+        float pWidth = 164f; // Rolo 58mm
+        float pMargin = 4f;
+        float pHeight = 800f;
+
+        try (PDDocument doc = new PDDocument()) {
+            PDPage page = new PDPage(new PDRectangle(pWidth, pHeight));
+            doc.addPage(page);
+
+            PDType1Font fontBold = new PDType1Font(Standard14Fonts.FontName.COURIER_BOLD);
+            PDType1Font fontReg = new PDType1Font(Standard14Fonts.FontName.COURIER);
+
+            try (PDPageContentStream cs = new PDPageContentStream(doc, page)) {
+                float y = pHeight - pMargin;
+
+                // HEADER
+                String branchName = sale.getBranch() != null ? sale.getBranch().getName() : "SGV";
+                String branchNuit = sale.getBranch() != null && sale.getBranch().getNuit() != null ? sale.getBranch().getNuit() : "";
+
+                y = centeredTextOn(cs, fontBold, 10, branchName, y, pWidth, pMargin);
+                if (!branchNuit.isBlank()) y = centeredTextOn(cs, fontReg, 7, "NUIT: " + branchNuit, y, pWidth, pMargin);
+
+                cs.setLineWidth(0.3f);
+                cs.moveTo(pMargin, y); cs.lineTo(pWidth - pMargin, y); cs.stroke();
+                y -= 4;
+
+                // DOCUMENT TITLE
+                String title = docType + " " + (sale.getSeries() != null ? sale.getSeries() : "A") + "/"
+                        + (sale.getDocumentNumber() != null ? sale.getDocumentNumber() : sale.getId());
+                y = centeredTextOn(cs, fontBold, 9, title, y, pWidth, pMargin);
+                if (sale.getCreatedAt() != null) y = centeredTextOn(cs, fontReg, 7, sale.getCreatedAt().format(DT_FMT), y, pWidth, pMargin);
+                
+                cs.moveTo(pMargin, y); cs.lineTo(pWidth - pMargin, y); cs.stroke();
+                y -= 4;
+
+                // CLIENT
+                String custName = sale.getCustomerName() != null ? sale.getCustomerName() : "Consumidor Final";
+                y = leftTextOn(cs, fontReg, 7, "Cli: " + truncate(custName, 18), pMargin, y);
+                
+                cs.moveTo(pMargin, y); cs.lineTo(pWidth - pMargin, y); cs.stroke();
+                y -= 4;
+
+                // ITEMS
+                if (sale.getItems() != null) {
+                    for (SaleItem item : sale.getItems()) {
+                        String desc = item.getProductName() != null ? item.getProductName() :
+                                (item.getDescription() != null ? item.getDescription() : "");
+                        if (desc.length() > 16) desc = desc.substring(0, 16);
+                        y = leftTextOn(cs, fontReg, 7, pad(desc, 16), pMargin, y);
+                        String line = String.format("%4.1f x %6.2f = %7.2f",
+                                item.getQty() != null ? item.getQty() : 0,
+                                item.getUnitPrice() != null ? item.getUnitPrice() : 0,
+                                item.getLineTotal() != null ? item.getLineTotal() : 0);
+                        y = leftTextOn(cs, fontReg, 7, line, pMargin, y);
+                        if (y < 150) break;
+                    }
+                }
+                cs.moveTo(pMargin, y); cs.lineTo(pWidth - pMargin, y); cs.stroke();
+                y -= 4;
+
+                // TOTALS
+                y = rightTextOn(cs, fontReg, 7, "Subtot: " + fmt(sale.getSubtotal()), y, pWidth, pMargin);
+                y = rightTextOn(cs, fontReg, 7, "IVA(16%): " + fmt(sale.getTotalTax()), y, pWidth, pMargin);
+                y = rightTextOn(cs, fontBold, 9, "TOTAL: " + fmt(sale.getTotal()) + " MT", y, pWidth, pMargin);
+                if (sale.getPaidAmount() != null && sale.getPaidAmount() > 0) {
+                    y = rightTextOn(cs, fontReg, 7, "Pago: " + fmt(sale.getPaidAmount()), y, pWidth, pMargin);
+                }
+                if (sale.getChangeAmount() != null && sale.getChangeAmount() > 0) {
+                    y = rightTextOn(cs, fontReg, 7, "Troco: " + fmt(sale.getChangeAmount()), y, pWidth, pMargin);
+                }
+                
+                cs.moveTo(pMargin, y); cs.lineTo(pWidth - pMargin, y); cs.stroke();
+                y -= 4;
+
+                // HASH AT
+                if (sale.getSignatureHash() != null && sale.getSignatureHash().length() >= 4) {
+                    String h = sale.getSignatureHash();
+                    String hash4 = "" + h.charAt(0) + (h.length() > 10 ? h.charAt(10) : h.charAt(1))
+                            + (h.length() > 20 ? h.charAt(20) : h.charAt(2))
+                            + (h.length() > 30 ? h.charAt(30) : h.charAt(3));
+                    y = leftTextOn(cs, fontBold, 7, hash4 + " - CERT-AT-2026", pMargin, y);
+                }
+                y = centeredTextOn(cs, fontReg, 6, "Processado por SGV", y, pWidth, pMargin);
+            }
+            doc.save(outputFile);
+        }
+        return outputFile;
+    }
+
+    private float centeredTextOn(PDPageContentStream cs, PDType1Font font, float size, String text, float y, float width, float margin) throws IOException {
+        float w = font.getStringWidth(text) / 1000 * size;
+        float x = (width - w) / 2;
+        return leftTextOn(cs, font, size, text, x, y);
+    }
+
+    private float leftTextOn(PDPageContentStream cs, PDType1Font font, float size, String text, float x, float y) throws IOException {
+        cs.beginText();
+        cs.setFont(font, size);
+        cs.newLineAtOffset(x, y);
+        cs.showText(sanitize(text));
+        cs.endText();
+        return y - 9.5f;
+    }
+
+    private float rightTextOn(PDPageContentStream cs, PDType1Font font, float size, String text, float y, float width, float margin) throws IOException {
+        float w = font.getStringWidth(text) / 1000 * size;
+        return leftTextOn(cs, font, size, text, width - margin - w, y);
+    }
+
     public File printCashSessionReport(com.sgv.entity.CashSession session, java.util.List<com.sgv.entity.CashMovement> movements, com.sgv.entity.AppConfig config) throws IOException {
         File outputDir = new File(System.getProperty("user.home"), "Documents/SGV/caixa");
         outputDir.mkdirs();

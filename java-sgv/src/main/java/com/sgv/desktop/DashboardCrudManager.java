@@ -55,6 +55,7 @@ public class DashboardCrudManager {
     private final CashSessionService cashSessionService;
     private final MetricUnitRepository metricUnitRepository;
     private final SaleDocumentService saleDocumentService;
+    private final ThermalPrintService thermalPrintService;
     private final WarehouseRepository warehouseRepository;
     private final StockWarehouseRepository stockWarehouseRepository;
     private final SystemLogService systemLogService;
@@ -80,6 +81,7 @@ public class DashboardCrudManager {
                                 CashSessionService cashSessionService,
                                 MetricUnitRepository metricUnitRepository,
                                 SaleDocumentService saleDocumentService,
+                                ThermalPrintService thermalPrintService,
                                 WarehouseRepository warehouseRepository,
                                 StockWarehouseRepository stockWarehouseRepository,
                                 SystemLogService systemLogService,
@@ -104,6 +106,7 @@ public class DashboardCrudManager {
         this.cashSessionService = cashSessionService;
         this.metricUnitRepository = metricUnitRepository;
         this.saleDocumentService = saleDocumentService;
+        this.thermalPrintService = thermalPrintService;
         this.warehouseRepository = warehouseRepository;
         this.stockWarehouseRepository = stockWarehouseRepository;
         this.systemLogService = systemLogService;
@@ -711,7 +714,16 @@ public class DashboardCrudManager {
                 Sale fullSale = saleRepository.findByIdWithItems(selected.getId());
                 if (fullSale == null) fullSale = selected;
                 File pdf = saleDocumentService.generateDocument(fullSale);
-                DocumentPreviewDialog.show(pdf, fullSale.getDocumentType());
+                DocumentPreviewDialog.show(
+                    pdf,
+                    fullSale.getDocumentType(),
+                    DocumentPreviewDialog.atDefaultFormat(fullSale.getDocumentType()),
+                    fullSale,
+                    s -> { try { return thermalPrintService.printReceipt(s); } catch (Exception ex) { return null; } },
+                    s -> { try { return thermalPrintService.printReceipt58mm(s); } catch (Exception ex) { return null; } },
+                    s -> { try { return saleDocumentService.generateDocument(s); } catch (Exception ex) { return null; } },
+                    s -> { try { return saleDocumentService.generateDocumentA5(s); } catch (Exception ex) { return null; } }
+                );
             } catch (Exception ex) {
                 showAlert(Alert.AlertType.ERROR, "Erro na impressão: " + ex.getMessage());
                 log.error("Erro inesperado", ex);
@@ -1023,8 +1035,19 @@ public class DashboardCrudManager {
         String origType = selected.getDocumentType();
         try {
             selected.setDocumentType(DocumentType.RECIBO.name());
-            File pdf = saleDocumentService.generateDocument(selected);
-            if (pdf != null) DocumentPreviewDialog.show(pdf, "RECIBO");
+            File pdf = thermalPrintService.printReceipt(selected);
+            if (pdf != null) {
+                DocumentPreviewDialog.show(
+                    pdf,
+                    "RECIBO",
+                    DocumentPreviewDialog.FMT_THERMAL_80MM,
+                    selected,
+                    s -> { try { return thermalPrintService.printReceipt(s); } catch (Exception ex) { return null; } },
+                    s -> { try { return thermalPrintService.printReceipt58mm(s); } catch (Exception ex) { return null; } },
+                    s -> { try { return saleDocumentService.generateDocument(s); } catch (Exception ex) { return null; } },
+                    s -> { try { return saleDocumentService.generateDocumentA5(s); } catch (Exception ex) { return null; } }
+                );
+            }
         } catch (Exception ex) {
             showAlert(Alert.AlertType.ERROR, "Erro ao gerar recibo: " + ex.getMessage());
         } finally {

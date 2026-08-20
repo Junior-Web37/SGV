@@ -1581,14 +1581,16 @@ public class SaleFormController extends BaseFormController {
                         delay.setOnFinished(ev -> rootPane.getChildren().remove(successLabel));
                         delay.play();
 
-                        // Fix #4: Passar os geradores para permitir troca de formato no preview
+                        // Passar todos os 4 geradores de formato (80mm, 58mm, A4, A5)
                         com.sgv.desktop.DocumentPreviewDialog.show(
                             pdf,
                             sale.getDocumentType(),
                             atDefaultFormat(sale.getDocumentType()),
                             sale,
-                            s -> { try { return thermalPrintService.printReceipt(s); } catch (Exception ex) { log.error("Thermal gen failed", ex); return null; } },
-                            s -> { try { return saleDocumentService.generateDocument(s); } catch (Exception ex) { log.error("A4 gen failed", ex); return null; } }
+                            s -> { try { return thermalPrintService.printReceipt(s); } catch (Exception ex) { log.error("Thermal 80mm gen failed", ex); return null; } },
+                            s -> { try { return thermalPrintService.printReceipt58mm(s); } catch (Exception ex) { log.error("Thermal 58mm gen failed", ex); return null; } },
+                            s -> { try { return saleDocumentService.generateDocument(s); } catch (Exception ex) { log.error("A4 gen failed", ex); return null; } },
+                            s -> { try { return saleDocumentService.generateDocumentA5(s); } catch (Exception ex) { log.error("A5 gen failed", ex); return null; } }
                         );
                     }
                     // Fix #8: Chamar onSave antes do resetForm para evitar NPE de timing

@@ -99,8 +99,19 @@ public class DocumentPreviewDialog {
                             Sale sale,
                             Function<Sale, File> thermalGenerator,
                             Function<Sale, File> a4Generator) {
+        show(pdfFile, docType, format, sale, thermalGenerator, null, a4Generator, null);
+    }
+
+    public static void show(File pdfFile,
+                            String docType,
+                            String format,
+                            Sale sale,
+                            Function<Sale, File> thermalGenerator,
+                            Function<Sale, File> thermal58Generator,
+                            Function<Sale, File> a4Generator,
+                            Function<Sale, File> a5Generator) {
         if (!Platform.isFxApplicationThread()) {
-            Platform.runLater(() -> show(pdfFile, docType, format, sale, thermalGenerator, a4Generator));
+            Platform.runLater(() -> show(pdfFile, docType, format, sale, thermalGenerator, thermal58Generator, a4Generator, a5Generator));
             return;
         }
 
@@ -202,18 +213,21 @@ public class DocumentPreviewDialog {
         Region spacer = new Region();
         HBox.setHgrow(spacer, Priority.ALWAYS);
 
-        Button btnPrint = new Button("🖨️ Imprimir");
-        btnPrint.setStyle("-fx-background-color: #2563EB; -fx-text-fill: white; -fx-font-weight: bold; -fx-padding: 7 14; -fx-background-radius: 4;");
+        Button btnPrint = new Button("🖨️ Imprimir (Ctrl+P)");
+        btnPrint.setStyle("-fx-background-color: #2563EB; -fx-text-fill: white; -fx-font-weight: bold; -fx-padding: 7 14; -fx-background-radius: 4; -fx-cursor: hand;");
+
+        Button btnWhatsapp = new Button("📱 WhatsApp");
+        btnWhatsapp.setStyle("-fx-background-color: #10B981; -fx-text-fill: white; -fx-font-weight: bold; -fx-padding: 7 14; -fx-background-radius: 4; -fx-cursor: hand;");
 
         Button btnExport = new Button(exportLabel);
-        btnExport.setStyle("-fx-background-color: " + headerBg + "; -fx-text-fill: white; -fx-font-weight: bold; -fx-padding: 7 14; -fx-background-radius: 4;");
+        btnExport.setStyle("-fx-background-color: " + headerBg + "; -fx-text-fill: white; -fx-font-weight: bold; -fx-padding: 7 14; -fx-background-radius: 4; -fx-cursor: hand;");
 
-        Button btnClose = new Button("✕ Fechar");
-        btnClose.setStyle("-fx-background-color: #EF4444; -fx-text-fill: white; -fx-font-weight: bold; -fx-padding: 7 14; -fx-background-radius: 4;");
+        Button btnClose = new Button("✕ Fechar (ESC)");
+        btnClose.setStyle("-fx-background-color: #EF4444; -fx-text-fill: white; -fx-font-weight: bold; -fx-padding: 7 14; -fx-background-radius: 4; -fx-cursor: hand;");
 
         toolbar.getChildren().addAll(
             formatLabel, btnFmt80mm, btnFmtA4, btnFmtA5, btnFmt58mm,
-            spacer, btnPrint, btnExport, btnClose
+            spacer, btnWhatsapp, btnPrint, btnExport, btnClose
         );
 
         // ── Hint do formato AT activo ────────────────────────────────────
@@ -276,22 +290,22 @@ public class DocumentPreviewDialog {
 
         // Handlers de mudança de formato
         btnFmt80mm.setOnAction(e -> switchFormat(
-            stage, sale, thermalGenerator, a4Generator,
+            stage, sale, thermalGenerator, thermal58Generator, a4Generator, a5Generator,
             FMT_THERMAL_80MM, currentPdf, currentFormat, renderCurrent,
             atDefaultHint
         ));
         btnFmtA4.setOnAction(e -> switchFormat(
-            stage, sale, thermalGenerator, a4Generator,
+            stage, sale, thermalGenerator, thermal58Generator, a4Generator, a5Generator,
             FMT_A4, currentPdf, currentFormat, renderCurrent,
             atDefaultHint
         ));
         btnFmtA5.setOnAction(e -> switchFormat(
-            stage, sale, thermalGenerator, a4Generator,
+            stage, sale, thermalGenerator, thermal58Generator, a4Generator, a5Generator,
             FMT_A5, currentPdf, currentFormat, renderCurrent,
             atDefaultHint
         ));
         btnFmt58mm.setOnAction(e -> switchFormat(
-            stage, sale, thermalGenerator, a4Generator,
+            stage, sale, thermalGenerator, thermal58Generator, a4Generator, a5Generator,
             FMT_THERMAL_58MM, currentPdf, currentFormat, renderCurrent,
             atDefaultHint
         ));
@@ -299,33 +313,77 @@ public class DocumentPreviewDialog {
         btnPrint.setOnAction(e -> {
             btnPrint.setDisable(true);
             new Thread(() -> {
-                try (PDDocument document = Loader.loadPDF(currentPdf[0])) {
+                PDDocument document = null;
+                try {
+                    document = Loader.loadPDF(currentPdf[0]);
+                    final PDDocument finalDoc = document;
                     PrinterJob job = PrinterJob.getPrinterJob();
-                    job.setPageable(new PDFPageable(document));
+                    job.setPageable(new PDFPageable(finalDoc));
                     
-                    // Executar o diálogo de impressão na thread do AWT para evitar deadlocks/congelamentos no JavaFX
-                    javax.swing.SwingUtilities.invokeLater(() -> {
-                        try {
-                            if (job.printDialog()) {
-                                job.print();
-                            }
-                        } catch (Exception ex) {
-                            Platform.runLater(() -> {
-                                Alert alert = new Alert(Alert.AlertType.ERROR, "Erro ao imprimir: " + ex.getMessage());
-                                alert.showAndWait();
-                            });
-                        } finally {
-                            Platform.runLater(() -> btnPrint.setDisable(false));
-                        }
-                    });
+                    // Executa a impressão no background thread sem fechar prematuramente o documento
+                    boolean proceed = job.printDialog();
+                    if (proceed) {
+                        job.print();
+                        Platform.runLater(() -> {
+                            Alert alert = new Alert(Alert.AlertType.INFORMATION, "Documento enviado para a impressora com sucesso.");
+                            alert.showAndWait();
+                        });
+                    }
                 } catch (Exception ex) {
                     Platform.runLater(() -> {
-                        Alert alert = new Alert(Alert.AlertType.ERROR, "Erro ao carregar PDF para impressão: " + ex.getMessage());
+                        Alert alert = new Alert(Alert.AlertType.ERROR, "Erro ao imprimir: " + ex.getMessage());
                         alert.showAndWait();
-                        btnPrint.setDisable(false);
                     });
+                } finally {
+                    if (document != null) {
+                        try { document.close(); } catch (Exception ignored) {}
+                    }
+                    Platform.runLater(() -> btnPrint.setDisable(false));
                 }
             }).start();
+        });
+
+        btnWhatsapp.setOnAction(e -> {
+            if (sale == null) {
+                Alert alert = new Alert(Alert.AlertType.WARNING, "Dados da venda não disponíveis para partilha directa.");
+                alert.showAndWait();
+                return;
+            }
+            String defaultPhone = (sale.getCustomer() != null && sale.getCustomer().getContact() != null)
+                    ? sale.getCustomer().getContact() : "";
+            javafx.scene.control.TextInputDialog phoneDialog = new javafx.scene.control.TextInputDialog(defaultPhone);
+            phoneDialog.setTitle("Enviar Recibo por WhatsApp");
+            phoneDialog.setHeaderText("Envio Digital de Recibo / Documento");
+            phoneDialog.setContentText("Número de Telemóvel (+258):");
+            phoneDialog.showAndWait().ifPresent(phone -> {
+                if (phone.isBlank()) return;
+                try {
+                    String raw = phone.replaceAll("[^0-9+]", "");
+                    if (raw.startsWith("8") && raw.length() == 9) raw = "258" + raw;
+                    else if (raw.startsWith("+")) raw = raw.substring(1);
+                    else if (!raw.startsWith("258")) raw = "258" + raw;
+
+                    String docName = (sale.getDocumentType() != null ? sale.getDocumentType() : "DOC")
+                            + " " + (sale.getSeries() != null ? sale.getSeries() : "A")
+                            + "/" + (sale.getDocumentNumber() != null ? sale.getDocumentNumber() : sale.getId());
+
+                    String msg = String.format("*%s*\n*Documento Fiscal:* %s\n*Data:* %s\n*Total:* *%,.2f MT*\nObrigado pela preferência!",
+                            sale.getBranch() != null ? sale.getBranch().getName() : "SGV Moçambique",
+                            docName,
+                            sale.getCreatedAt() != null ? sale.getCreatedAt().format(java.time.format.DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm")) : "",
+                            sale.getTotal() != null ? sale.getTotal() : 0.0);
+
+                    String url = "https://wa.me/" + raw + "?text=" + java.net.URLEncoder.encode(msg, java.nio.charset.StandardCharsets.UTF_8);
+                    if (java.awt.Desktop.isDesktopSupported() && java.awt.Desktop.getDesktop().isSupported(java.awt.Desktop.Action.BROWSE)) {
+                        java.awt.Desktop.getDesktop().browse(java.net.URI.create(url));
+                    } else {
+                        Runtime.getRuntime().exec(new String[]{"cmd", "/c", "start", "", url});
+                    }
+                } catch (Exception ex) {
+                    Alert alert = new Alert(Alert.AlertType.ERROR, "Erro ao abrir WhatsApp: " + ex.getMessage());
+                    alert.showAndWait();
+                }
+            });
         });
 
         btnExport.setOnAction(e -> {
@@ -352,6 +410,16 @@ public class DocumentPreviewDialog {
 
         root.getChildren().addAll(header, toolbar, atHintLabel, scrollPane);
         Scene scene = new Scene(root);
+
+        // Atalhos de teclado no preview: ESC fecha, Ctrl+P imprime, Enter imprime
+        scene.setOnKeyPressed(ke -> {
+            if (ke.getCode() == javafx.scene.input.KeyCode.ESCAPE) {
+                stage.close();
+            } else if (ke.isControlDown() && ke.getCode() == javafx.scene.input.KeyCode.P) {
+                btnPrint.fire();
+            }
+        });
+
         stage.setScene(scene);
 
         // Quando a janela terminar de aparecer, força um re-render para que o
@@ -446,8 +514,10 @@ public class DocumentPreviewDialog {
 
     private static void switchFormat(Stage stage,
                                      Sale sale,
-                                     Function<Sale, File> thermalGen,
+                                     Function<Sale, File> thermal80Gen,
+                                     Function<Sale, File> thermal58Gen,
                                      Function<Sale, File> a4Gen,
+                                     Function<Sale, File> a5Gen,
                                      String targetFormat,
                                      File[] currentPdf,
                                      String[] currentFormat,
@@ -463,12 +533,16 @@ public class DocumentPreviewDialog {
 
         File newPdf = null;
         try {
-            if (FMT_THERMAL_80MM.equals(targetFormat) || FMT_THERMAL_58MM.equals(targetFormat)) {
-                if (thermalGen != null) newPdf = thermalGen.apply(sale);
-            } else if (FMT_A4.equals(targetFormat) || FMT_A5.equals(targetFormat)) {
-                // A4 e A5 usam o mesmo gerador (SaleDocumentService); o A5 fica
-                // para uma evolução futura que faça render específico.
+            if (FMT_THERMAL_80MM.equals(targetFormat)) {
+                if (thermal80Gen != null) newPdf = thermal80Gen.apply(sale);
+            } else if (FMT_THERMAL_58MM.equals(targetFormat)) {
+                if (thermal58Gen != null) newPdf = thermal58Gen.apply(sale);
+                else if (thermal80Gen != null) newPdf = thermal80Gen.apply(sale);
+            } else if (FMT_A4.equals(targetFormat)) {
                 if (a4Gen != null) newPdf = a4Gen.apply(sale);
+            } else if (FMT_A5.equals(targetFormat)) {
+                if (a5Gen != null) newPdf = a5Gen.apply(sale);
+                else if (a4Gen != null) newPdf = a4Gen.apply(sale);
             }
         } catch (Exception ex) {
             Platform.runLater(() -> {
