@@ -78,4 +78,13 @@ public class AuditLog {
     public void setStackTrace(String stackTrace) {
         this.stackTrace = stackTrace;
     }
+
+    /** Entidade afectada — derivada da acção quando não há coluna própria. */
+    public String getEntity() {
+        return action;
+    }
+
+    public Long getEntityId() {
+        return id;
+    }
 }

@@ -436,7 +436,7 @@ public class DocumentPreviewDialog {
 
     // ── Helpers ────────────────────────────────────────────────────────────
 
-    private static String atDefaultFormat(String docType) {
+    public static String atDefaultFormat(String docType) {
         if (docType == null) return FMT_THERMAL_80MM;
         switch (docType.toUpperCase()) {
             case "VENDA":

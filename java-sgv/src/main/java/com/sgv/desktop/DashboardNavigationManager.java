@@ -27,6 +27,7 @@ import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.function.Consumer;
@@ -73,9 +74,11 @@ public class DashboardNavigationManager {
     private Map<Long, BigDecimal> supplierBalances = new HashMap<>();
 
     private TableView<Purchase> purchasesTable;
+    private TableView<ProductionOrder> ordersTable;
     private Runnable purchasesLoadRunnable;
 
     public TableView<Product> getProductsTable() { return productsTable; }
+    public TableView<ProductionOrder> getOrdersTable() { return ordersTable; }
     public TableView<Sale> getSalesTable() { return salesTable; }
     public TableView<Customer> getCustomersTable() { return customersTable; }
     public TableView<Category> getCategoriesTable() { return categoriesTable; }
@@ -2513,6 +2516,20 @@ public void showTurnoCaixaPane(Label pageTitleLabel, Label pageSubtitleLabel,
         }
 
         dialog.show();
+    }
+
+    private VBox makeKpiCard(String title, Label valueLabel, String color) {
+        VBox card = new VBox(4);
+        card.setStyle("-fx-background-color: #ffffff; -fx-padding: 14 18; -fx-background-radius: 8; "
+                + "-fx-border-color: #E2E8F0; -fx-border-radius: 8; -fx-min-width: 180;");
+        Label titleLbl = new Label(title);
+        titleLbl.setStyle("-fx-font-size: 11px; -fx-font-weight: 700; -fx-text-fill: #64748B;");
+        if (valueLabel.getText() == null || valueLabel.getText().isBlank()) {
+            valueLabel.setText("0");
+        }
+        valueLabel.setStyle("-fx-font-size: 22px; -fx-font-weight: 900; -fx-text-fill: " + color + ";");
+        card.getChildren().addAll(titleLbl, valueLabel);
+        return card;
     }
 
     public void showTransfersPane(Button navTransferir, Label pageTitleLabel, Label pageSubtitleLabel,

@@ -1286,6 +1286,7 @@ public class DashboardCrudManager {
         colState.setCellValueFactory(d -> new SimpleStringProperty(d.getValue().getState()));
         pendingTable.getColumns().addAll(List.of(colDoc, colDate, colTotal, colPaid, colPend, colState));
 
+        TextField valorField = new TextField();
         pendingTable.getSelectionModel().selectedItemProperty().addListener((obs, oldV, newV) -> {
             if (newV != null) {
                 double tot = newV.getTotal() != null ? newV.getTotal() : 0.0;
@@ -1304,7 +1305,6 @@ public class DashboardCrudManager {
         payRow.setStyle("-fx-background-color:#ffffff; -fx-padding:16 24; -fx-border-color:#E2E8F0; -fx-border-width:1 0 0 0; -fx-alignment:CENTER_LEFT;");
         Label lblValor = new Label("Valor (MT):");
         lblValor.setStyle("-fx-font-weight:700; -fx-text-fill:#0F172A;");
-        TextField valorField = new TextField();
         valorField.setPromptText("0.00");
         valorField.setPrefWidth(130);
         valorField.setStyle("-fx-font-size:14px; -fx-font-weight:700; -fx-padding:6 10; -fx-border-color:#CBD5E1; -fx-border-radius:6; -fx-background-radius:6;");

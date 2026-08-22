@@ -1,12 +1,25 @@
-# SGV Desktop 1.0.0 — Notas de Lançamento
+# SGV Desktop 1.0.1 — Notas de Lançamento
 
 **Data:** 22 de Agosto de 2026  
-**Tag:** `v1.0.0`
+**Tag:** `v1.0.1`
 
 ## Pacote de download
 
-- **ZIP oficial:** [SGV-Desktop 1.0.0.zip](https://github.com/Junior-Web37/SGV/archive/refs/tags/v1.0.0.zip)
-- **Página da release:** https://github.com/Junior-Web37/SGV/releases/tag/v1.0.0
+- **ZIP oficial:** [SGV-Desktop 1.0.1.zip](https://github.com/Junior-Web37/SGV/archive/refs/tags/v1.0.1.zip)
+- **Página da release:** https://github.com/Junior-Web37/SGV/releases/tag/v1.0.1
+
+## Correcção crítica desta versão
+
+A v1.0.0 **não compilava** (`36 erros` no `mvn javafx:run`). Esta versão corrige todos os erros:
+
+- imports em falta (`VBox`, `List`, `LinkedHashMap`)
+- métodos de caixa (`getInitialValueAmount`, `getAmountValue`) alinhados com as entidades
+- `CategoryRepository.findByName` e `DocumentPreviewDialog.atDefaultFormat` públicos
+- `valorField` usado antes de ser declarado
+- `ordersTable` / `getOrdersTable()` no gestor de navegação
+- `stockMovementRepository` no Kardex de stock
+- variável `ex` duplicada na abertura de caixa
+- `AuditLog.getEntity()` / `getEntityId()`
 
 ## O que está incluído
 
