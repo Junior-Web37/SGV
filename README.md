@@ -6,6 +6,21 @@ O sistema opera **100% offline** e está em total conformidade com a legislaçã
 
 ---
 
+## 📥 Download — SGV Desktop 1.0.0
+
+**[⬇ Descarregar SGV Desktop 1.0.0 (ZIP)](https://github.com/Junior-Web37/SGV/releases/latest/download/SGV-Desktop-1.0.0.zip)**
+
+Também disponível na [página de Releases](https://github.com/Junior-Web37/SGV/releases/tag/v1.0.0).
+
+### Instalação em 3 passos (Windows)
+1. Extraia o ZIP para uma pasta (ex.: `C:\SGV`).
+2. Abra o **XAMPP Control Panel** e clique em **Start** no MySQL (porta `3306`).
+3. Dê duplo clique em **`INSTALAR-SGV.bat`** — o atalho é criado no Ambiente de Trabalho.
+
+**Login padrão:** `admin` / `admin`
+
+---
+
 ## 📋 Entregáveis de Engenharia & Documentação
 
 * [CRIMES_LEGADO.md](CRIMES_LEGADO.md) — Levantamento forense das 10 piores violações do código legado.
