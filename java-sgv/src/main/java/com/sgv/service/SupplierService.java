@@ -1,6 +1,8 @@
 package com.sgv.service;
 
 import com.sgv.entity.Supplier;
+import com.sgv.repository.PurchaseRepository;
+import com.sgv.repository.SupplierPaymentRepository;
 import com.sgv.repository.SupplierRepository;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -12,9 +14,15 @@ import java.util.Optional;
 public class SupplierService {
 
     private final SupplierRepository supplierRepository;
+    private final PurchaseRepository purchaseRepository;
+    private final SupplierPaymentRepository supplierPaymentRepository;
 
-    public SupplierService(SupplierRepository supplierRepository) {
+    public SupplierService(SupplierRepository supplierRepository,
+                           PurchaseRepository purchaseRepository,
+                           SupplierPaymentRepository supplierPaymentRepository) {
         this.supplierRepository = supplierRepository;
+        this.purchaseRepository = purchaseRepository;
+        this.supplierPaymentRepository = supplierPaymentRepository;
     }
 
     public List<Supplier> findAll() {
@@ -38,9 +46,9 @@ public class SupplierService {
 
     @Transactional
     public Supplier saveSupplier(Supplier supplier) {
-        if (supplier == null) throw new IllegalArgumentException("Supplier is null");
+        if (supplier == null) throw new IllegalArgumentException("Fornecedor é obrigatório.");
         String trimmedName = supplier.getName() == null ? "" : supplier.getName().trim();
-        if (trimmedName.isBlank()) throw new IllegalArgumentException("Nome é obrigatório.");
+        if (trimmedName.isBlank()) throw new IllegalArgumentException("Nome do fornecedor é obrigatório.");
         if (existsByName(trimmedName, supplier.getId())) {
             throw new IllegalArgumentException("Nome de fornecedor já existe.");
         }
@@ -50,6 +58,13 @@ public class SupplierService {
 
     @Transactional
     public void deleteById(Long id) {
+        if (id == null) return;
+        int purchaseCount = purchaseRepository.findBySupplierIdOrderByCreatedAtDesc(id).size();
+        int paymentCount = supplierPaymentRepository.findBySupplierId(id).size();
+        if (purchaseCount > 0 || paymentCount > 0) {
+            throw new IllegalStateException("Não é possível eliminar fornecedor com histórico de transações (" +
+                    purchaseCount + " compras, " + paymentCount + " pagamentos). Recomenda-se desativá-lo.");
+        }
         supplierRepository.deleteById(id);
     }
 }

@@ -393,13 +393,26 @@ public class DashboardKpiManager {
         if (grid == null) return;
         try {
             List<Purchase> all = purchaseRepository.findAll();
-            double totalValor = all.stream().mapToDouble(p -> p.getTotal() != null ? p.getTotal() : 0.0).sum();
-            long pendentes = all.stream().filter(p -> "PENDING".equalsIgnoreCase(p.getState())).count();
-            long recebidas = all.stream().filter(p -> "RECEIVED".equalsIgnoreCase(p.getState())).count();
+            double totalValor = all.stream()
+                    .filter(p -> !"CANCELLED".equalsIgnoreCase(p.getState()))
+                    .mapToDouble(p -> p.getTotal() != null ? p.getTotal() : 0.0)
+                    .sum();
+            long pendentesPagamento = all.stream()
+                    .filter(p -> !"CANCELLED".equalsIgnoreCase(p.getState()))
+                    .filter(p -> {
+                        BigDecimal tot = p.getTotalAmount() != null ? p.getTotalAmount() : BigDecimal.ZERO;
+                        BigDecimal paid = p.getPaidAmountValue() != null ? p.getPaidAmountValue() : BigDecimal.ZERO;
+                        return tot.subtract(paid).compareTo(new BigDecimal("0.01")) > 0;
+                    })
+                    .count();
+            long quitadas = all.stream()
+                    .filter(p -> "PAID".equalsIgnoreCase(p.getState()))
+                    .count();
+
             updateKPICard(grid, 0, String.valueOf(all.size()));
             updateKPICard(grid, 1, String.format("%,.0f MT", totalValor));
-            updateKPICard(grid, 2, String.valueOf(pendentes));
-            updateKPICard(grid, 3, String.valueOf(recebidas));
+            updateKPICard(grid, 2, String.valueOf(pendentesPagamento));
+            updateKPICard(grid, 3, String.valueOf(quitadas));
         } catch (Exception ex) { log.error("Erro ao actualizar KPIs de compras", ex); }
     }
 
@@ -423,9 +436,20 @@ public class DashboardKpiManager {
             List<Supplier> all = supplierRepository.findAll();
             long total = all.size();
             long activos = all.stream().filter(s -> Boolean.TRUE.equals(s.getActive())).count();
+            long inactivos = total - activos;
+
+            BigDecimal totalDivida = BigDecimal.ZERO;
+            for (Object[] row : purchaseRepository.findOutstandingBalanceBySupplier()) {
+                BigDecimal bal = (BigDecimal) row[1];
+                if (bal != null && bal.compareTo(BigDecimal.ZERO) > 0) {
+                    totalDivida = totalDivida.add(bal);
+                }
+            }
+
             updateKPICard(grid, 0, String.valueOf(total));
             updateKPICard(grid, 1, String.valueOf(activos));
-            updateKPICard(grid, 2, String.valueOf(total - activos));
+            updateKPICard(grid, 2, String.valueOf(inactivos));
+            updateKPICard(grid, 3, String.format("%,.0f MT", totalDivida));
         } catch (Exception ex) { log.error("Erro ao actualizar KPIs de fornecedores", ex); }
     }
 

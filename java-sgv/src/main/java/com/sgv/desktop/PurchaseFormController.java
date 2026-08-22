@@ -18,11 +18,11 @@ import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
+import java.util.Optional;
 import javafx.concurrent.Task;
 
 @Component
 public class PurchaseFormController extends BaseFormController {
-
 
     @FXML private TextField invoiceNumberField;
     @FXML private DatePicker invoiceDatePicker;
@@ -52,10 +52,9 @@ public class PurchaseFormController extends BaseFormController {
     private final com.sgv.repository.PurchaseRepository purchaseRepository;
 
     private Purchase editingPurchase;
-    private User currentUser;
     private final ObservableList<PurchaseItem> items = FXCollections.observableArrayList();
 
-    private ObservableList<Product> allProducts = FXCollections.observableArrayList();
+    private final ObservableList<Product> allProducts = FXCollections.observableArrayList();
     private FilteredList<Product> filteredProducts;
     private final ObservableList<Product> comboDisplayList = FXCollections.observableArrayList();
     private boolean isRefreshingProducts = false;
@@ -79,7 +78,6 @@ public class PurchaseFormController extends BaseFormController {
     @FXML
     public void initialize() {
         editingPurchase = null;
-        currentUser = null;
         items.clear();
         lastSelectedProduct = null;
         isRefreshingProducts = false;
@@ -89,7 +87,7 @@ public class PurchaseFormController extends BaseFormController {
         productCombo.setOnAction(e -> {
             Product p = productCombo.getValue();
             if (p != null && p.getPriceCost() != null) {
-                unitCostField.setText(String.format("%.2f", p.getPriceCost()).replace(",", "."));
+                unitCostField.setText(String.format(java.util.Locale.US, "%.2f", p.getPriceCost()));
             }
         });
 
@@ -97,7 +95,7 @@ public class PurchaseFormController extends BaseFormController {
 
         supplierCombo.setItems(FXCollections.observableArrayList(supplierService.findAll()));
         supplierCombo.setConverter(new javafx.util.StringConverter<>() {
-            public String toString(Supplier s) { return s != null ? s.getName() : ""; }
+            public String toString(Supplier s) { return s != null ? s.getName() + (s.getNuit() != null ? " (NUIT: " + s.getNuit() + ")" : "") : ""; }
             public Supplier fromString(String s) { return null; }
         });
 
@@ -111,17 +109,17 @@ public class PurchaseFormController extends BaseFormController {
         productColumn.setCellValueFactory(d -> new SimpleStringProperty(
             d.getValue().getProduct() != null ? d.getValue().getProduct().getName() : ""));
         quantityColumn.setCellValueFactory(d -> new SimpleStringProperty(
-            String.format("%.2f %s", d.getValue().getQuantity(),
+            String.format(java.util.Locale.US, "%.2f %s", d.getValue().getQuantity(),
                 d.getValue().getProduct() != null && d.getValue().getProduct().getUnit() != null
                     ? d.getValue().getProduct().getUnit().getAbbreviation() : "")));
         priceColumn.setCellValueFactory(d -> new SimpleStringProperty(
-            String.format("%.2f MT", d.getValue().getCostPrice())));
+            String.format(java.util.Locale.US, "%.2f MT", d.getValue().getCostPrice())));
         totalColumn.setCellValueFactory(d -> new SimpleStringProperty(
-            String.format("%.2f MT", d.getValue().getSubtotal())));
+            String.format(java.util.Locale.US, "%.2f MT", d.getValue().getSubtotal())));
         actionColumn.setCellFactory(col -> new TableCell<>() {
             final Button btn = new Button("🗑");
             {
-                btn.setStyle("-fx-background-color: transparent; -fx-text-fill: #EF4444; -fx-cursor: hand;");
+                btn.setStyle("-fx-background-color: transparent; -fx-text-fill: #EF4444; -fx-cursor: hand; -fx-font-size: 13px;");
                 btn.setOnAction(UiUtils.safeOnAction(() -> {
                     PurchaseItem item = getTableView().getItems().get(getIndex());
                     items.remove(item);
@@ -139,6 +137,13 @@ public class PurchaseFormController extends BaseFormController {
         UiUtils.attachSafe(addItemButton, this::addItem, systemLogService, "PURCHASE_ADD_ITEM");
         UiUtils.attachSafe(saveButton, this::doSave, systemLogService, "PURCHASE_SAVE");
         UiUtils.attachSafe(cancelButton, this::doCancel, systemLogService, "PURCHASE_CANCEL");
+
+        UiUtils.applyHoverElevation(addItemButton);
+        UiUtils.applyPressFeedback(addItemButton);
+        UiUtils.applyHoverElevation(saveButton);
+        UiUtils.applyPressFeedback(saveButton);
+        UiUtils.applyHoverElevation(cancelButton);
+        UiUtils.applyPressFeedback(cancelButton);
         
         UiUtils.applyNumericFormatter(quantityField);
         UiUtils.applyNumericFormatter(unitCostField);
@@ -211,7 +216,7 @@ public class PurchaseFormController extends BaseFormController {
 
     private String productDisplayText(Product p) {
         if (p == null) return "";
-        String cost = p.getPriceCost() != null ? String.format("%.2f", p.getPriceCost()) : "0.00";
+        String cost = p.getPriceCost() != null ? String.format(java.util.Locale.US, "%.2f", p.getPriceCost()) : "0.00";
         return p.getCode() + " - " + p.getName() + " (Custo: " + cost + " MT)";
     }
 
@@ -286,8 +291,9 @@ public class PurchaseFormController extends BaseFormController {
     private void setupRealTimeValidation() {
         invoiceNumberField.textProperty().addListener((obs, o, n) -> validateRealTime());
         invoiceDatePicker.valueProperty().addListener((obs, o, n) -> validateRealTime());
+        supplierCombo.valueProperty().addListener((obs, o, n) -> validateRealTime());
+        warehouseCombo.valueProperty().addListener((obs, o, n) -> validateRealTime());
         
-        // Ouça mudanças na lista para validar também
         items.addListener((javafx.collections.ListChangeListener.Change<? extends PurchaseItem> c) -> validateRealTime());
         
         javafx.application.Platform.runLater(this::validateRealTime);
@@ -311,6 +317,10 @@ public class PurchaseFormController extends BaseFormController {
             errors.append("Data da factura é obrigatória. ");
             valid = false;
         }
+        if (warehouseCombo.getValue() == null) {
+            errors.append("Seleccione o armazém. ");
+            valid = false;
+        }
         if (items.isEmpty()) {
             errors.append("Adicione pelo menos um item. ");
             valid = false;
@@ -330,7 +340,7 @@ public class PurchaseFormController extends BaseFormController {
             duplicateCheckTask = new Task<>() {
                 @Override
                 protected Boolean call() {
-                    java.util.Optional<Purchase> existing = purchaseRepository.findByInvoiceNumberIgnoreCase(trimmedInvoice);
+                    Optional<Purchase> existing = purchaseRepository.findByInvoiceNumberIgnoreCase(trimmedInvoice);
                     if (existing.isEmpty()) return false;
                     Purchase p = existing.get();
                     boolean sameSupplier = p.getSupplier() != null && selectedSupplier.getId() != null
@@ -341,19 +351,21 @@ public class PurchaseFormController extends BaseFormController {
                 }
             };
             duplicateCheckTask.setOnSucceeded(e -> {
-                if (duplicateCheckTask.getValue()) {
+                if (Boolean.TRUE.equals(duplicateCheckTask.getValue())) {
                     formValidProperty.set(false);
                     showError("Já existe uma compra com este número de factura para este fornecedor.");
                 }
             });
-            new Thread(duplicateCheckTask).start();
+            Thread dupThread = new Thread(duplicateCheckTask);
+            dupThread.setDaemon(true);
+            dupThread.start();
         }
     }
 
     private void addItem() {
         Product product = resolveSelectedProduct();
         if (product == null) {
-            showError("Produto não encontrado");
+            showError("Produto não encontrado.");
             return;
         }
         double qty = 0;
@@ -364,20 +376,33 @@ public class PurchaseFormController extends BaseFormController {
         } catch (Exception ex) { /* will be caught below */ }
         
         if (qty <= 0) {
-            showError("Quantidade deve ser maior que 0");
+            showError("Quantidade deve ser maior que zero.");
             return;
         }
         if (cost < 0) {
-            showError("Custo não pode ser negativo");
+            showError("Custo não pode ser negativo.");
             return;
         }
 
-        PurchaseItem item = new PurchaseItem();
-        item.setProduct(product);
-        item.setQuantity(qty);
-        item.setCostPrice(cost);
-        item.setSubtotal(qty * cost);
-        items.add(item);
+        Optional<PurchaseItem> existing = items.stream()
+                .filter(i -> i.getProduct() != null && product.getId() != null && product.getId().equals(i.getProduct().getId()))
+                .findFirst();
+
+        if (existing.isPresent()) {
+            PurchaseItem item = existing.get();
+            double combinedQty = (item.getQuantity() != null ? item.getQuantity() : 0.0) + qty;
+            item.setQuantity(combinedQty);
+            item.setCostPrice(cost);
+            item.setSubtotal(combinedQty * cost);
+            itemsTable.refresh();
+        } else {
+            PurchaseItem item = new PurchaseItem();
+            item.setProduct(product);
+            item.setQuantity(qty);
+            item.setCostPrice(cost);
+            item.setSubtotal(qty * cost);
+            items.add(item);
+        }
 
         productCombo.setValue(null);
         productCombo.getEditor().clear();
@@ -399,11 +424,11 @@ public class PurchaseFormController extends BaseFormController {
                 tax += lineSubtotal * (taxRate / 100.0);
             }
         }
-        subtotalLabel.setText(String.format("%.2f MT", sub));
-        if (taxLabel != null) taxLabel.setText(String.format("%.2f MT", tax));
+        subtotalLabel.setText(String.format(java.util.Locale.US, "%.2f MT", sub));
+        if (taxLabel != null) taxLabel.setText(String.format(java.util.Locale.US, "%.2f MT", tax));
         double total = sub + tax;
-        totalLabel.setText(String.format("%.2f MT", total));
-        if (headerTotalLabel != null) headerTotalLabel.setText(String.format("Total: %.2f", total));
+        totalLabel.setText(String.format(java.util.Locale.US, "%.2f MT", total));
+        if (headerTotalLabel != null) headerTotalLabel.setText(String.format(java.util.Locale.US, "Total: %.2f MT", total));
     }
 
     @Override
@@ -448,7 +473,6 @@ public class PurchaseFormController extends BaseFormController {
                 if (invoiceDatePicker.getValue() != null)
                     p.setPurchaseDate(invoiceDatePicker.getValue().atStartOfDay());
 
-                // copy items into purchase
                 p.getItems().clear();
                 p.getItems().addAll(new ArrayList<>(items));
 
@@ -463,27 +487,28 @@ public class PurchaseFormController extends BaseFormController {
             }
         };
 
-        saveTask.setOnSucceeded(e -> { systemLogService.logUserAction(currentUser != null ? currentUser.getUsername() : "Sistema", "COMPRA_GRAVADA", "Compra gravada - Factura nº " + invoiceNumberField.getText());
+        saveTask.setOnSucceeded(e -> {
+            systemLogService.logUserAction(currentUser != null ? currentUser.getUsername() : "Sistema", "COMPRA_GRAVADA", "Compra gravada - Factura nº " + invoiceNumberField.getText());
             if (onSave != null) onSave.run();
             doCancel();
         });
 
         saveTask.setOnFailed(e -> {
             Throwable ex = saveTask.getException();
-            systemLogService.logError("PURCHASE_SAVE_FAILED", "Erro ao salvar compra: " + ex.getMessage(), ex);
-            showError("Erro ao salvar: " + ex.getMessage());
+            String msg = ex != null && ex.getMessage() != null ? ex.getMessage() : "Erro desconhecido";
+            systemLogService.logError("PURCHASE_SAVE_FAILED", "Erro ao salvar compra: " + msg, ex);
+            showError("Erro ao salvar: " + msg);
             hideSaveSpinner();
         });
 
-        new Thread(saveTask).start();
+        Thread saveThread = new Thread(saveTask);
+        saveThread.setDaemon(true);
+        saveThread.start();
     }
 
     private Supplier resolveSelectedSupplier() {
         Supplier selectedSupplier = supplierCombo.getValue();
-        if (selectedSupplier == null) {
-            throw new IllegalStateException("Fornecedor selecionado inválido.");
-        }
-        if (selectedSupplier.getId() == null) {
+        if (selectedSupplier == null || selectedSupplier.getId() == null) {
             throw new IllegalStateException("Fornecedor selecionado inválido.");
         }
         return supplierService.findById(selectedSupplier.getId())
@@ -493,7 +518,6 @@ public class PurchaseFormController extends BaseFormController {
     public void setPurchase(Purchase purchase) {
         this.editingPurchase = purchase;
         if (purchase != null) {
-
             invoiceNumberField.setText(purchase.getInvoiceNumber() != null ? purchase.getInvoiceNumber() : "");
             if (purchase.getSupplier() != null) {
                 Supplier managedSupplier = supplierService.findById(purchase.getSupplier().getId()).orElse(purchase.getSupplier());
@@ -509,16 +533,6 @@ public class PurchaseFormController extends BaseFormController {
             if (notesField != null) notesField.setText(purchase.getNotes() != null ? purchase.getNotes() : "");
             items.setAll(purchase.getItems());
             updateTotals();
-        }
-    }
-
-    public void setCurrentUser(User user) { this.currentUser = user; }
-
-    private double parseDoubleSafe(String text) {
-        try {
-            return text == null || text.isBlank() ? 0.0 : Double.parseDouble(text.trim().replace(",", "."));
-        } catch (NumberFormatException e) {
-            return 0.0;
         }
     }
 }

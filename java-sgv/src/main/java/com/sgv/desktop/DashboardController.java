@@ -727,7 +727,56 @@ public class DashboardController {
 
     private void showComprasPane() {
         navManager.showComprasPane(navMenuCompras, pageTitleLabel, pageSubtitleLabel,
-            comprasPane, currentUser, allPanes(), allNavButtons(), this::updateCashBadge);
+            comprasPane, currentUser, allPanes(), allNavButtons(), this::updateCashBadge,
+            () -> crudManager.openPurchaseForm(null, getOwner(), currentUser, () -> navManager.reloadPurchases()),
+            () -> {
+                TableView<Purchase> tbl = navManager.getPurchasesTable();
+                Purchase sel = tbl != null ? tbl.getSelectionModel().getSelectedItem() : null;
+                if (sel != null) {
+                    navManager.showPurchaseDetails(sel, getOwner());
+                } else {
+                    Alert a = new Alert(Alert.AlertType.WARNING, "Selecione uma compra na lista.");
+                    a.setHeaderText(null);
+                    a.showAndWait();
+                }
+            },
+            () -> {
+                TableView<Purchase> tbl = navManager.getPurchasesTable();
+                Purchase sel = tbl != null ? tbl.getSelectionModel().getSelectedItem() : null;
+                if (sel != null && sel.getSupplier() != null) {
+                    crudManager.openSupplierPaymentForm(sel.getSupplier(), getOwner(), () -> navManager.reloadPurchases());
+                } else {
+                    crudManager.openSupplierPaymentForm(null, getOwner(), () -> navManager.reloadPurchases());
+                }
+            },
+            () -> {
+                TableView<Purchase> tbl = navManager.getPurchasesTable();
+                Purchase sel = tbl != null ? tbl.getSelectionModel().getSelectedItem() : null;
+                if (sel != null) {
+                    Alert confirm = new Alert(Alert.AlertType.CONFIRMATION,
+                            "Tem a certeza que deseja anular a Factura de Compra " + (sel.getInvoiceNumber() != null ? sel.getInvoiceNumber() : "#" + sel.getId()) + "?\nO stock correspondente será revertido do armazém.",
+                            ButtonType.YES, ButtonType.NO);
+                    confirm.setHeaderText(null);
+                    confirm.setTitle("Confirmar Anulação de Compra");
+                    confirm.showAndWait().ifPresent(r -> {
+                        if (r == ButtonType.YES) {
+                            try {
+                                applicationContext.getBean(com.sgv.service.PurchaseService.class).annulPurchase(sel.getId(), currentUser);
+                                navManager.reloadPurchases();
+                            } catch (Exception ex) {
+                                Alert err = new Alert(Alert.AlertType.ERROR, "Erro ao anular compra: " + ex.getMessage());
+                                err.setHeaderText(null);
+                                err.showAndWait();
+                            }
+                        }
+                    });
+                } else {
+                    Alert a = new Alert(Alert.AlertType.WARNING, "Selecione uma compra na lista.");
+                    a.setHeaderText(null);
+                    a.showAndWait();
+                }
+            },
+            () -> navManager.reloadPurchases());
     }
 
     private void showFornecedoresPane() {
@@ -739,6 +788,17 @@ public class DashboardController {
                 Supplier sel = tbl != null ? tbl.getSelectionModel().getSelectedItem() : null;
                 if (sel != null) {
                     crudManager.openSupplierForm(sel, getOwner(), () -> navManager.reloadSuppliers());
+                } else {
+                    Alert a = new Alert(Alert.AlertType.WARNING, "Selecione um fornecedor na lista.");
+                    a.setHeaderText(null);
+                    a.showAndWait();
+                }
+            },
+            () -> {
+                TableView<Supplier> tbl = navManager.getSuppliersTable();
+                Supplier sel = tbl != null ? tbl.getSelectionModel().getSelectedItem() : null;
+                if (sel != null) {
+                    navManager.showSupplierDetails(sel, getOwner());
                 } else {
                     Alert a = new Alert(Alert.AlertType.WARNING, "Selecione um fornecedor na lista.");
                     a.setHeaderText(null);
@@ -765,7 +825,7 @@ public class DashboardController {
                     confirm.showAndWait().ifPresent(r -> {
                         if (r == ButtonType.OK) {
                             crudManager.safeDelete(
-                                () -> applicationContext.getBean(SupplierRepository.class).deleteById(sel.getId()),
+                                () -> applicationContext.getBean(com.sgv.service.SupplierService.class).deleteById(sel.getId()),
                                 () -> navManager.reloadSuppliers(), "Fornecedor", currentUser);
                         }
                     });

@@ -2,7 +2,6 @@ package com.sgv.service;
 
 import com.sgv.entity.Purchase;
 import com.sgv.entity.PurchaseItem;
-import com.sgv.entity.Purchase;
 import com.sgv.entity.Warehouse;
 import com.sgv.entity.Product;
 import com.sgv.repository.PurchaseRepository;
@@ -11,6 +10,7 @@ import com.sgv.repository.WarehouseRepository;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -110,23 +110,30 @@ public class PurchaseService {
         if ("RECEIVED".equals(saved.getState())) {
             for (PurchaseItem item : savedItems) {
                 if (item.getProduct() != null && item.getQuantity() != null && item.getQuantity() > 0) {
+                    Product p = item.getProduct();
+                    double oldCost = p.getPriceCost() != null ? p.getPriceCost() : 0.0;
+                    double newCost = item.getCostPrice() != null ? item.getCostPrice() : 0.0;
+                    double newQty = item.getQuantity();
+
+                    // Obter stock antes da nova entrada
+                    BigDecimal curStockBd = warehouseService.getCurrentStockAmount(targetWarehouse.getId(), p.getId());
+                    double currentStock = curStockBd != null ? curStockBd.doubleValue() : 0.0;
+
                     warehouseService.addStock(
                             targetWarehouse.getId(),
-                            item.getProduct().getId(),
-                            item.getQuantity(),
+                            p.getId(),
+                            newQty,
                             saved.getInvoiceNumber() != null ? saved.getInvoiceNumber() : "COMPRA",
                             currentUser,
-                            item.getCostPrice());
+                            newCost);
 
-                    // Atualização automática de custo do produto
-                    if (item.getCostPrice() != null && item.getCostPrice() > 0) {
-                        Product p = item.getProduct();
-                        double oldCost = p.getPriceCost() != null ? p.getPriceCost() : 0.0;
-                        double newCost = item.getCostPrice();
-                        if (oldCost <= 0.0) {
+                    // Recálculo do Preço Médio Ponderado (PMP / WAC - Padrão Contabilístico Moçambicano)
+                    if (newCost > 0) {
+                        if (currentStock <= 0 || oldCost <= 0) {
                             p.setPriceCost(newCost);
                         } else {
-                            p.setPriceCost((oldCost + newCost) / 2.0);
+                            double weightedCost = ((currentStock * oldCost) + (newQty * newCost)) / (currentStock + newQty);
+                            p.setPriceCost(Math.round(weightedCost * 10000.0) / 10000.0);
                         }
                         productRepository.save(p);
                     }
@@ -135,6 +142,42 @@ public class PurchaseService {
         }
 
         return saved;
+    }
+
+    @Transactional
+    public void annulPurchase(Long purchaseId, com.sgv.entity.User currentUser) {
+        if (purchaseId == null) throw new IllegalArgumentException("ID da compra é obrigatório.");
+        Purchase p = purchaseRepository.findByIdWithItems(purchaseId);
+        if (p == null) throw new IllegalArgumentException("Factura de compra não encontrada.");
+        if ("CANCELLED".equalsIgnoreCase(p.getState())) {
+            throw new IllegalStateException("Esta factura de compra já se encontra anulada.");
+        }
+        if (p.getPaidAmountValue() != null && p.getPaidAmountValue().compareTo(BigDecimal.ZERO) > 0) {
+            throw new IllegalStateException(String.format("Não é possível anular compra com pagamentos registados (Pago: %.2f MT). Anule primeiro os pagamentos associados.", p.getPaidAmountValue()));
+        }
+
+        if ("RECEIVED".equalsIgnoreCase(p.getState())) {
+            Warehouse wh = p.getTargetWarehouse();
+            if (wh != null) {
+                for (PurchaseItem item : p.getItems()) {
+                    if (item.getProduct() != null && item.getQuantity() != null && item.getQuantity() > 0) {
+                        warehouseService.removeStock(
+                                wh.getId(),
+                                item.getProduct().getId(),
+                                item.getQuantity(),
+                                "ANULACAO-COMPRA-" + (p.getInvoiceNumber() != null ? p.getInvoiceNumber() : p.getId()),
+                                currentUser);
+                    }
+                }
+            }
+        }
+
+        p.setState("CANCELLED");
+        purchaseRepository.save(p);
+        systemLogService.logUserAction(
+                currentUser != null ? currentUser.getUsername() : "Sistema",
+                "PURCHASE_ANNULLED",
+                "Factura de compra " + (p.getInvoiceNumber() != null ? p.getInvoiceNumber() : p.getId()) + " anulada com sucesso.");
     }
 
     public boolean isDuplicateInvoiceForSupplier(String invoiceNumber, Long supplierId, Long excludePurchaseId) {

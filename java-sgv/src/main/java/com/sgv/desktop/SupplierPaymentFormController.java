@@ -15,7 +15,6 @@ import org.springframework.stereotype.Component;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
-import java.time.LocalDateTime;
 import java.util.List;
 
 @Component
@@ -73,19 +72,36 @@ public class SupplierPaymentFormController extends BaseFormController {
                 BigDecimal tot = p.getTotalAmount() != null ? p.getTotalAmount() : BigDecimal.ZERO;
                 BigDecimal paid = p.getPaidAmountValue() != null ? p.getPaidAmountValue() : BigDecimal.ZERO;
                 BigDecimal pend = tot.subtract(paid);
-                return String.format("%s | Total: %.2f MT (Pendente: %.2f MT)", num, tot, pend);
+                return String.format(java.util.Locale.US, "%s | Total: %.2f MT (Pendente: %.2f MT)", num, tot, pend);
             }
             @Override public Purchase fromString(String s) { return null; }
         });
 
-        methodCombo.getItems().addAll("Transferência Bancária", "Dinheiro / Caixa", "Cheque", "POS", "M-Pesa");
-        methodCombo.setValue("Transferência Bancária");
+        methodCombo.getItems().setAll(
+                "Transferência Bancária (Millennium BIM)",
+                "Transferência Bancária (BCI)",
+                "Transferência Bancária (Standard Bank)",
+                "Transferência Bancária (Moza Banco)",
+                "Transferência Bancária (Absa MZ)",
+                "Dinheiro / Caixa",
+                "M-Pesa",
+                "e-Mola",
+                "mKesh",
+                "Cheque",
+                "POS"
+        );
+        methodCombo.setValue("Transferência Bancária (Millennium BIM)");
         paymentDatePicker.setValue(LocalDate.now());
         amountField.setText("0.00");
 
         UiUtils.applyNumericFormatter(amountField);
         UiUtils.attachSafe(saveButton, this::doSave, systemLogService, "SUPPLIER_PAYMENT_SAVE");
         UiUtils.attachSafe(cancelButton, this::doCancel, systemLogService, "SUPPLIER_PAYMENT_CANCEL");
+
+        UiUtils.applyHoverElevation(saveButton);
+        UiUtils.applyPressFeedback(saveButton);
+        UiUtils.applyHoverElevation(cancelButton);
+        UiUtils.applyPressFeedback(cancelButton);
 
         javafx.application.Platform.runLater(this::validateRealTime);
     }
@@ -109,6 +125,9 @@ public class SupplierPaymentFormController extends BaseFormController {
         }
         List<Purchase> purchases = supplierPaymentService.findPendingPurchasesBySupplier(supplier.getId());
         purchaseCombo.setItems(FXCollections.observableArrayList(purchases));
+        if (!purchases.isEmpty()) {
+            purchaseCombo.getSelectionModel().selectFirst();
+        }
     }
 
     @Override
@@ -132,7 +151,7 @@ public class SupplierPaymentFormController extends BaseFormController {
                     errors.append("Valor deve ser maior que zero. ");
                     valid = false;
                 } else if (currentPendingBalance.compareTo(BigDecimal.ZERO) > 0 && value.compareTo(currentPendingBalance) > 0) {
-                    errors.append(String.format("Valor (%.2f MT) excede o saldo pendente da compra (%.2f MT). ", value, currentPendingBalance));
+                    errors.append(String.format(java.util.Locale.US, "Valor (%.2f MT) excede o saldo pendente da compra (%.2f MT). ", value, currentPendingBalance));
                     valid = false;
                 }
             } catch (NumberFormatException e) {
@@ -155,7 +174,7 @@ public class SupplierPaymentFormController extends BaseFormController {
         if (payment != null && payment.getId() != null) {
             supplierCombo.setValue(payment.getSupplier());
             purchaseCombo.setValue(payment.getPurchase());
-            amountField.setText(String.valueOf(payment.getAmount()));
+            amountField.setText(String.format(java.util.Locale.US, "%.2f", payment.getAmount() != null ? payment.getAmount() : 0.0));
             methodCombo.setValue(payment.getMethod());
             if (payment.getCreatedAt() != null) paymentDatePicker.setValue(payment.getCreatedAt().toLocalDate());
             referenceField.setText(payment.getReference());
@@ -190,11 +209,12 @@ public class SupplierPaymentFormController extends BaseFormController {
         javafx.concurrent.Task<Void> task = new javafx.concurrent.Task<>() {
             @Override
             protected Void call() {
-                supplierPaymentService.savePayment(p);
+                supplierPaymentService.savePayment(p, currentUser);
                 return null;
             }
         };
-        task.setOnSucceeded(e -> { systemLogService.logUserAction(currentUser != null ? currentUser.getUsername() : "Sistema", "PAGAMENTO_FORNECEDOR_GRAVADO", "Pagamento a fornecedor gravado: " + amountField.getText() + " MT");
+        task.setOnSucceeded(e -> {
+            systemLogService.logUserAction(currentUser != null ? currentUser.getUsername() : "Sistema", "PAGAMENTO_FORNECEDOR_GRAVADO", "Pagamento a fornecedor gravado: " + amountField.getText() + " MT");
             if (onSave != null) onSave.run();
             doCancel();
         });
@@ -205,6 +225,8 @@ public class SupplierPaymentFormController extends BaseFormController {
             showError("Erro ao salvar: " + msg);
             hideSaveSpinner();
         });
-        new Thread(task).start();
+        Thread payThread = new Thread(task);
+        payThread.setDaemon(true);
+        payThread.start();
     }
 }

@@ -41,10 +41,20 @@ public class SupplierFormController extends BaseFormController {
             deleteButton.setVisible(false);
             deleteButton.setManaged(false);
             UiUtils.attachSafe(deleteButton, this::doDelete, systemLogService, "SUPPLIER_DELETE");
+            UiUtils.applyHoverElevation(deleteButton);
+            UiUtils.applyPressFeedback(deleteButton);
         }
 
         nameField.textProperty().addListener((obs, o, n) -> validateRealTime());
+        nuitField.textProperty().addListener((obs, o, n) -> validateRealTime());
+        contactField.textProperty().addListener((obs, o, n) -> validateRealTime());
         activeCheckbox.setSelected(true);
+
+        UiUtils.applyHoverElevation(saveButton);
+        UiUtils.applyPressFeedback(saveButton);
+        UiUtils.applyHoverElevation(cancelButton);
+        UiUtils.applyPressFeedback(cancelButton);
+
         javafx.application.Platform.runLater(this::validateRealTime);
     }
 
@@ -114,12 +124,14 @@ public class SupplierFormController extends BaseFormController {
                 }
             };
             duplicateCheckTask.setOnSucceeded(e -> {
-                if (duplicateCheckTask.getValue()) {
+                if (Boolean.TRUE.equals(duplicateCheckTask.getValue())) {
                     formValidProperty.set(false);
                     showError("Nome de fornecedor já existe.");
                 }
             });
-            new Thread(duplicateCheckTask).start();
+            Thread checkThread = new Thread(duplicateCheckTask);
+            checkThread.setDaemon(true);
+            checkThread.start();
         }
     }
 
@@ -143,7 +155,7 @@ public class SupplierFormController extends BaseFormController {
         if (editingSupplier == null || editingSupplier.getId() == null) return;
 
         Alert alert = new Alert(Alert.AlertType.CONFIRMATION,
-                "Tem certeza que deseja apagar este fornecedor?", ButtonType.YES, ButtonType.NO);
+                "Tem certeza que deseja apagar o fornecedor \"" + editingSupplier.getName() + "\"?", ButtonType.YES, ButtonType.NO);
         alert.setHeaderText(null);
         alert.setTitle("Confirmar Eliminação");
         Optional<ButtonType> result = alert.showAndWait();
@@ -156,17 +168,20 @@ public class SupplierFormController extends BaseFormController {
                 return null;
             }
         };
-        deleteTask.setOnSucceeded(e -> { systemLogService.logUserAction(currentUser != null ? currentUser.getUsername() : "Sistema", "FORNECEDOR_ELIMINADO", "Fornecedor eliminado: " + (supplier != null ? supplier.getName() : ""));
+        deleteTask.setOnSucceeded(e -> {
+            systemLogService.logUserAction(currentUser != null ? currentUser.getUsername() : "Sistema", "FORNECEDOR_ELIMINADO", "Fornecedor eliminado: " + (editingSupplier != null ? editingSupplier.getName() : ""));
             if (onSave != null) onSave.run();
             doCancel();
         });
         deleteTask.setOnFailed(e -> {
             Throwable ex = deleteTask.getException();
-            String msg = ex.getMessage() != null ? ex.getMessage() : "Erro desconhecido";
+            String msg = ex != null && ex.getMessage() != null ? ex.getMessage() : "Erro desconhecido";
             systemLogService.logError("SUPPLIER_DELETE_FAILED", "Erro ao apagar fornecedor: " + msg, ex);
             showError("Erro ao apagar: " + msg);
         });
-        new Thread(deleteTask).start();
+        Thread delThread = new Thread(deleteTask);
+        delThread.setDaemon(true);
+        delThread.start();
     }
 
     @Override
@@ -193,14 +208,20 @@ public class SupplierFormController extends BaseFormController {
                 return null;
             }
         };
-        saveTask.setOnSucceeded(e -> { systemLogService.logUserAction(currentUser != null ? currentUser.getUsername() : "Sistema", "FORNECEDOR_GRAVADO", "Fornecedor gravado: " + nameField.getText()); if (onSave != null) onSave.run(); doCancel(); });
+        saveTask.setOnSucceeded(e -> {
+            systemLogService.logUserAction(currentUser != null ? currentUser.getUsername() : "Sistema", "FORNECEDOR_GRAVADO", "Fornecedor gravado: " + nameField.getText());
+            if (onSave != null) onSave.run();
+            doCancel();
+        });
         saveTask.setOnFailed(e -> {
             Throwable ex = saveTask.getException();
-            String msg = ex.getMessage() != null ? ex.getMessage() : "Erro desconhecido";
+            String msg = ex != null && ex.getMessage() != null ? ex.getMessage() : "Erro desconhecido";
             systemLogService.logError("SUPPLIER_SAVE_FAILED", "Erro ao salvar fornecedor: " + msg, ex);
             showError("Erro ao guardar: " + msg);
             hideSaveSpinner();
         });
-        new Thread(saveTask).start();
+        Thread saveThread = new Thread(saveTask);
+        saveThread.setDaemon(true);
+        saveThread.start();
     }
 }
