@@ -14,9 +14,9 @@ public interface StockBranchRepository extends JpaRepository<StockBranch, Long> 
 	@org.springframework.data.jpa.repository.Query("SELECT sb FROM StockBranch sb WHERE sb.branch.id = :branchId AND sb.product.id IN :productIds")
 	java.util.List<StockBranch> findByBranchIdAndProductIdIn(@org.springframework.data.repository.query.Param("branchId") Long branchId, @org.springframework.data.repository.query.Param("productIds") java.util.List<Long> productIds);
 
-	@org.springframework.data.jpa.repository.Query("SELECT COUNT(sb) FROM StockBranch sb WHERE (:branchId IS NULL OR sb.branch.id = :branchId) AND sb.stockCurrent <= sb.stockMin AND sb.stockCurrent > 0")
+	@org.springframework.data.jpa.repository.Query("SELECT COUNT(sb) FROM StockBranch sb WHERE (:branchId IS NULL OR sb.branch.id = :branchId) AND sb.stockCurrent <= sb.stockMin AND sb.stockCurrent > 0.0")
 	long countLowStockByBranch(@org.springframework.data.repository.query.Param("branchId") Long branchId);
 
-	@org.springframework.data.jpa.repository.Query("SELECT COUNT(sb) FROM StockBranch sb WHERE (:branchId IS NULL OR sb.branch.id = :branchId) AND sb.stockCurrent <= 0")
+	@org.springframework.data.jpa.repository.Query("SELECT COUNT(sb) FROM StockBranch sb WHERE (:branchId IS NULL OR sb.branch.id = :branchId) AND sb.stockCurrent <= 0.0")
 	long countZeroStockByBranch(@org.springframework.data.repository.query.Param("branchId") Long branchId);
 }

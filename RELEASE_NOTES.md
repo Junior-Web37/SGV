@@ -1,19 +1,27 @@
-# SGV Desktop 1.0.3 — Notas de Lançamento
+# SGV Desktop 1.0.4 — Notas de Lançamento
 
 **Data:** 22 de Agosto de 2026  
-**Tag:** `v1.0.3`
+**Tag:** `v1.0.4`
 
 ## Pacote de download
 
-- **ZIP oficial:** [SGV-Desktop 1.0.3.zip](https://github.com/Junior-Web37/SGV/archive/refs/tags/v1.0.3.zip)
-- **Página da release:** https://github.com/Junior-Web37/SGV/releases/tag/v1.0.3
+- **ZIP oficial:** [SGV-Desktop 1.0.4.zip](https://github.com/Junior-Web37/SGV/archive/refs/tags/v1.0.4.zip)
+- **Página da release:** https://github.com/Junior-Web37/SGV/releases/tag/v1.0.4
 
-## Correcção desta versão
+## Diagnóstico
 
-O arranque falhava com:
-`Could not resolve attribute 'total' of 'com.sgv.entity.SaleItem'`
+O ecrã vermelho vinha sempre do Spring a validar queries JPQL no arranque.
+Na v1.0.2 a query `SaleItemRepository.findTopSellingProductsToday` usava `si.total`
+— o campo JPA de `SaleItem` é `lineTotal`. Sem isso o bean `saleItemRepository`
+não nasce e o dashboard não inicia.
 
-A query `findTopSellingProductsToday` usava `si.total`. O campo correcto é `si.lineTotal`.
+Auditoria completa de **todas** as `@Query` e métodos derivados dos repositórios:
+nenhum outro atributo inexistente. Foram endurecidos os riscos do Hibernate 6
+que rebentariam a seguir (mesmo tipo de erro em cadeia):
+
+- `COALESCE(campo BigDecimal, 0)` → `0.0` (Sale, Purchase, Expense, Stock)
+- `Warehouse.findByIsActiveTrue` passou a `@Query` explícita (`w.isActive`)
+- `!=` JPQL → `<>` nas comparações de estado
 
 ## Correcção crítica desta versão
 

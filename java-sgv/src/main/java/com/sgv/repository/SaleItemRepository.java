@@ -21,7 +21,7 @@ public interface SaleItemRepository extends JpaRepository<SaleItem, Long> {
     @Query("SELECT si.productCode, si.description, SUM(si.qty), SUM(si.lineTotal) " +
            "FROM SaleItem si JOIN si.sale s " +
            "WHERE s.createdAt >= :start AND s.createdAt <= :end " +
-           "AND s.state != 'ANULADA' AND s.state != 'CANCELLED' " +
+           "AND s.state <> 'ANULADA' AND s.state <> 'CANCELLED' " +
            "AND (:branchId IS NULL OR s.branch.id = :branchId) " +
            "GROUP BY si.productCode, si.description " +
            "ORDER BY SUM(si.qty) DESC")
