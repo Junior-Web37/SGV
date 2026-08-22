@@ -1,33 +1,30 @@
-# SGV Desktop 1.0.8 — Notas de Lançamento
+# SGV Desktop 1.0.9 — Notas de Lançamento
 
 **Data:** 22 de Agosto de 2026  
-**Tag:** `v1.0.8`
+**Tag:** `v1.0.9`
 
 ## Pacote de download
 
-- **ZIP oficial:** [SGV-Desktop 1.0.8.zip](https://github.com/Junior-Web37/SGV/archive/refs/tags/v1.0.8.zip)
-- **Página da release:** https://github.com/Junior-Web37/SGV/releases/tag/v1.0.8
+- **ZIP oficial:** [SGV-Desktop 1.0.9.zip](https://github.com/Junior-Web37/SGV/archive/refs/tags/v1.0.9.zip)
+- **Página da release:** https://github.com/Junior-Web37/SGV/releases/tag/v1.0.9
 
 ## O que mudou nesta versão
 
-Vender o serviço **SRV-003** (Consultoria) rebentava:
+No arranque o JavaFX 21 escrevia avisos CSS (não eram “barulho”):
 
-`Stock da filial não encontrado para o produto: SRV-003`
+1. `-fx-text-fill: linear-gradient(...)` no título do splash — só aceita cor
+2. `-fx-letter-spacing` no splash — propriedade que o JavaFX não tem
+3. `linear-gradient(to bottom right, ...)` no fundo do splash — dois sentidos inválidos
+4. `-fx-accent: linear-gradient(...)` na barra de progresso — só aceita cor
+5. O mesmo `to bottom right` no ecrã de login
+6. `-fx-text-fill: linear-gradient(...)` + `-fx-letter-spacing` no título do login
 
-O serviço está marcado `is_service = 1` e **não tem** ficha de stock (é correcto).
-A validação já ignorava serviços; o abate de stock **não**. A venda falhava
-depois de tentar creditar o caixa.
-
-Nesta versão:
-
-- Serviços não abatem stock
-- O movimento de caixa só corre depois do stock
-- Inclui a correcção da guia de transferência (v1.0.7)
+Também corrigido: o mapa de pagamentos a fornecedores rebentava ao converter o saldo (`Double` vs `BigDecimal`).
 
 ## Como actualizar
 
 1. Feche o SGV.
-2. Apague a pasta `SGV-1.0.6` / `SGV-1.0.7` (o MySQL/XAMPP fica).
+2. Apague a pasta `SGV-1.0.6` / `SGV-1.0.7` / `SGV-1.0.8` (o MySQL/XAMPP fica).
 3. Extraia este ZIP.
 4. XAMPP → MySQL **Start**.
 5. Duplo clique em `SGV-Launcher.bat`.

@@ -1265,7 +1265,12 @@ public class ReportsController {
 
         BigDecimal debt = BigDecimal.ZERO;
         for (Object[] row : purchaseRepository.findOutstandingBalanceBySupplier()) {
-            if (row[1] != null) debt = debt.add((BigDecimal) row[1]);
+            if (row == null || row.length < 2 || row[1] == null) continue;
+            if (row[1] instanceof BigDecimal bd) {
+                debt = debt.add(bd);
+            } else if (row[1] instanceof Number n) {
+                debt = debt.add(BigDecimal.valueOf(n.doubleValue()));
+            }
         }
         pagKpiDebtLabel.setText(fmt(debt) + " MZN");
 
