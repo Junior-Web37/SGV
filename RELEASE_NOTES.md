@@ -1,16 +1,19 @@
-# SGV Desktop 1.0.2 — Notas de Lançamento
+# SGV Desktop 1.0.3 — Notas de Lançamento
 
 **Data:** 22 de Agosto de 2026  
-**Tag:** `v1.0.2`
+**Tag:** `v1.0.3`
 
 ## Pacote de download
 
-- **ZIP oficial:** [SGV-Desktop 1.0.2.zip](https://github.com/Junior-Web37/SGV/archive/refs/tags/v1.0.2.zip)
-- **Página da release:** https://github.com/Junior-Web37/SGV/releases/tag/v1.0.2
+- **ZIP oficial:** [SGV-Desktop 1.0.3.zip](https://github.com/Junior-Web37/SGV/archive/refs/tags/v1.0.3.zip)
+- **Página da release:** https://github.com/Junior-Web37/SGV/releases/tag/v1.0.3
 
 ## Correcção desta versão
 
-- `DashboardNavigationManager.showStockDetails` usava `stockMovementRepository` sem o campo existir — agora obtém o repositório via Spring (`applicationContext.getBean`).
+O arranque falhava com:
+`Could not resolve attribute 'total' of 'com.sgv.entity.SaleItem'`
+
+A query `findTopSellingProductsToday` usava `si.total`. O campo correcto é `si.lineTotal`.
 
 ## Correcção crítica desta versão
 

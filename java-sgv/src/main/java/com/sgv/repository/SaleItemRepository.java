@@ -18,7 +18,7 @@ public interface SaleItemRepository extends JpaRepository<SaleItem, Long> {
 
     long countByProductId(Long productId);
 
-    @Query("SELECT si.productCode, si.description, SUM(si.qty), SUM(si.total) " +
+    @Query("SELECT si.productCode, si.description, SUM(si.qty), SUM(si.lineTotal) " +
            "FROM SaleItem si JOIN si.sale s " +
            "WHERE s.createdAt >= :start AND s.createdAt <= :end " +
            "AND s.state != 'ANULADA' AND s.state != 'CANCELLED' " +
