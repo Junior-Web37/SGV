@@ -6,11 +6,11 @@ O sistema opera **100% offline** e está em total conformidade com a legislaçã
 
 ---
 
-## 📥 Download — SGV Desktop 1.0.5
+## 📥 Download — SGV Desktop 1.0.6
 
-**[⬇ Descarregar SGV Desktop 1.0.5 (ZIP)](https://github.com/Junior-Web37/SGV/archive/refs/tags/v1.0.5.zip)**
+**[⬇ Descarregar SGV Desktop 1.0.6 (ZIP)](https://github.com/Junior-Web37/SGV/archive/refs/tags/v1.0.6.zip)**
 
-Também disponível na [página de Releases](https://github.com/Junior-Web37/SGV/releases/tag/v1.0.5).
+Também disponível na [página de Releases](https://github.com/Junior-Web37/SGV/releases/tag/v1.0.6).
 
 ### Instalação em 3 passos (Windows)
 1. Extraia o ZIP para uma pasta (ex.: `C:\SGV`).

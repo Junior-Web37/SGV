@@ -1,54 +1,40 @@
-# SGV Desktop 1.0.5 — Notas de Lançamento
+# SGV Desktop 1.0.6 — Notas de Lançamento
 
 **Data:** 22 de Agosto de 2026  
-**Tag:** `v1.0.5`
+**Tag:** `v1.0.6`
 
 ## Pacote de download
 
-- **ZIP oficial:** [SGV-Desktop 1.0.5.zip](https://github.com/Junior-Web37/SGV/archive/refs/tags/v1.0.5.zip)
-- **Página da release:** https://github.com/Junior-Web37/SGV/releases/tag/v1.0.5
+- **ZIP oficial:** [SGV-Desktop 1.0.6.zip](https://github.com/Junior-Web37/SGV/archive/refs/tags/v1.0.6.zip)
+- **Página da release:** https://github.com/Junior-Web37/SGV/releases/tag/v1.0.6
 
 ## O que mudou nesta versão
 
-O SGV já arranca, autentica e vende (v1.0.4). Restavam crashes de ComboBox do JavaFX 21
-ao abrir Transferência / Compra com lista vazia ou ao apagar texto no editor:
-
-- `IndexOutOfBoundsException: fromIndex 0, toIndex 1, size 0`
-- `IllegalArgumentException: The start must be <= the end`
+A v1.0.5 já arranca, autentica e vende. O log do utilizador mostrou o dashboard a
+abrir em ~4 s e cada pesquisa a bloquear a interface: a thread do JavaFX fazia
+SQL a cada tecla e carregava os 9 relatórios no login.
 
 Nesta versão:
 
-- Todos os ComboBox da aplicação (transferência, compra, venda, produção, filtros, relatórios e restantes formulários) foram protegidos
-- O popup vazio deixa de ser clicável; o editor corrige o cursor antes do JavaFX rebentar
-- Os bugs internos do JavaFX 21 deixam de mostrar o alerta vermelho — a aplicação continua a trabalhar
+- Pesquisa de produto (venda, compra, transferência) com debounce — deixa de
+  disparar uma query por letra
+- Stock da filial em cache (1 query), em vez de 1 SELECT por artigo
+- Lista de vendas filtra na base, sem `JOIN FETCH` de itens, máximo 200 linhas
+- Relatórios já não carregam no login — só quando abre o módulo
+- Coluna Stock dos artigos sem N+1
+- Popularidade de produtos por agregação SQL, não 90 dias de itens em memória
 
-## Diagnóstico (versões anteriores)
+A v1.0.5 (ComboBox JavaFX 21) continua incluída: o `fromIndex/toIndex` no log
+é ignorado e o ecrã não fica vermelho.
 
-O ecrã vermelho no arranque vinha do Spring a validar queries JPQL.
-Na v1.0.2 a query `SaleItemRepository.findTopSellingProductsToday` usava `si.total`
-— o campo JPA de `SaleItem` é `lineTotal`. Sem isso o bean `saleItemRepository`
-não nasce e o dashboard não inicia.
+## Como actualizar
 
-Auditoria completa de **todas** as `@Query` e métodos derivados dos repositórios:
-nenhum outro atributo inexistente. Foram endurecidos os riscos do Hibernate 6
-que rebentariam a seguir (mesmo tipo de erro em cadeia):
+1. Apague a pasta `SGV-1.0.5` (a base de dados no XAMPP fica).
+2. Extraia este ZIP.
+3. MySQL do XAMPP em **Start**, porta `3306`.
+4. Duplo clique em `SGV-Launcher.bat`.
 
-- `COALESCE(campo BigDecimal, 0)` → `0.0` (Sale, Purchase, Expense, Stock)
-- `Warehouse.findByIsActiveTrue` passou a `@Query` explícita (`w.isActive`)
-- `!=` JPQL → `<>` nas comparações de estado
-
-A v1.0.0 **não compilava** (`36 erros` no `mvn javafx:run`). Isso já está corrigido
-desde a v1.0.1 (imports, métodos de caixa, `findByName`, `valorField`, `ordersTable`,
-`stockMovementRepository`, variável `ex` duplicada, `AuditLog`).
-
-## O que está incluído
-
-- Código-fonte completo do SGV Desktop (Java 21 / JavaFX 21 / Spring Boot 3.1.4)
-- Instalador em 1 clique (`INSTALAR-SGV.bat`) e desinstalador
-- Launchers Windows (`SGV.vbs`, `SGV-Launcher.bat`) com atalho no Ambiente de Trabalho
-- Script Inno Setup (`installer/sgv-setup.iss`) para gerar o assistente gráfico `.exe`
-- 25+ migrações Flyway (schema `sgv` criado automaticamente no arranque)
-- Conformidade fiscal Moçambique: CIVA 16%, NUIT Módulo 11, SAF-T MZ 1.01
+**Login:** `admin` / `admin`
 
 ## Requisitos
 
@@ -57,13 +43,3 @@ desde a v1.0.1 (imports, métodos de caixa, `findByName`, `valorField`, `ordersT
 | Windows | 10 / 11 (64-bit) |
 | Java JDK | 21 LTS ou 25 (Adoptium Temurin) |
 | Base de dados | MariaDB / MySQL 8 via XAMPP, porta 3306 |
-
-## Credenciais iniciais
-
-| Perfil | Utilizador | Palavra-passe |
-| :--- | :--- | :--- |
-| Administrador | `admin` | `admin` |
-| Gerente | `gerente.maputo` | `admin` |
-| Operador de caixa | `caixa1.maputo` | `admin` |
-
-Altere a palavra-passe do administrador no primeiro login (Configurações → Alterar Palavra-passe).
