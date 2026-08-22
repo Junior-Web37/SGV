@@ -398,6 +398,7 @@ public class DashboardCrudManager {
             stage.initModality(Modality.APPLICATION_MODAL);
             stage.initOwner(owner);
             stage.setTitle(existing != null ? "Editar Armazém" : "Novo Armazém");
+            UiUtils.hardenAllComboBoxes(root);
             stage.setScene(new Scene(root));
             stage.showAndWait();
         } catch (Exception ex) {
@@ -422,6 +423,7 @@ public class DashboardCrudManager {
             stage.initModality(Modality.APPLICATION_MODAL);
             stage.initOwner(owner);
             stage.setTitle("Transferência Armazém → Loja");
+            UiUtils.hardenAllComboBoxes(root);
             stage.setScene(new Scene(root));
             stage.setWidth(900);
             stage.setHeight(620);
@@ -462,6 +464,7 @@ public class DashboardCrudManager {
             scroll.setFitToWidth(true);
             scroll.setFitToHeight(true);
             scroll.setStyle("-fx-background: transparent; -fx-background-color: transparent; -fx-padding: 0;");
+            UiUtils.hardenAllComboBoxes(root);
             Scene scene = new Scene(scroll);
             stage.setScene(scene);
             javafx.geometry.Rectangle2D bounds = javafx.stage.Screen.getPrimary().getVisualBounds();
@@ -1311,6 +1314,7 @@ public class DashboardCrudManager {
         Label lblMetodo = new Label("Método:");
         lblMetodo.setStyle("-fx-font-weight:700; -fx-text-fill:#0F172A;");
         ComboBox<String> metodoCombo = new ComboBox<>();
+        UiUtils.hardenComboBox(metodoCombo);
         metodoCombo.getItems().addAll("Numerário", "M-Pesa", "e-Mola", "mKesh", "Cartão (POS)", "Transferência Bancária", "Cheque");
         metodoCombo.setValue("Numerário");
         metodoCombo.setPrefWidth(180);
@@ -1925,6 +1929,7 @@ public class DashboardCrudManager {
             scroll.setFitToWidth(true);
             scroll.setFitToHeight(true);
             scroll.setStyle("-fx-background: transparent; -fx-background-color: transparent; -fx-padding: 0;");
+            UiUtils.hardenAllComboBoxes(root);
             Scene scene = new Scene(scroll);
             stage.setScene(scene);
             javafx.geometry.Rectangle2D bounds = javafx.stage.Screen.getPrimary().getVisualBounds();

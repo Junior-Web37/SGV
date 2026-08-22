@@ -33,6 +33,7 @@ public class FilterPanelBuilder {
         searchField.setPrefWidth(300);
 
         ComboBox<String> categoryCombo = new ComboBox<>();
+        UiUtils.hardenComboBox(categoryCombo);
         categoryCombo.setId("productCategoryCombo");
         categoryCombo.setPromptText("Categoria");
         categoryCombo.setPrefWidth(150);
@@ -67,6 +68,7 @@ public class FilterPanelBuilder {
         searchField.setPrefWidth(300);
 
         ComboBox<String> typeCombo = new ComboBox<>();
+        UiUtils.hardenComboBox(typeCombo);
         typeCombo.setId("customerTypeCombo");
         typeCombo.getItems().addAll("PESSOA_FISICA", "PESSOA_JURIDICA", "EMPRESA");
         typeCombo.setPromptText("Tipo");
@@ -98,6 +100,7 @@ public class FilterPanelBuilder {
                                        ComboBox<String> stateCombo, ComboBox<String> docTypeCombo,
                                        Runnable applyAndFilter) {
         ComboBox<String> presetCombo = new ComboBox<>();
+        UiUtils.hardenComboBox(presetCombo);
         presetCombo.setPromptText("Presets");
         presetCombo.setPrefWidth(200);
 

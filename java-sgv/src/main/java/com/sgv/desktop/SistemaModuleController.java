@@ -164,6 +164,8 @@ public class SistemaModuleController {
     // ─── Init ───────────────────────────────────────────────────────────────
     @FXML
     public void initialize() {
+        UiUtils.hardenComboBox(cfgPrintFormat);
+        UiUtils.hardenComboBox(backupFrequency);
         setupConfigTab();
         setupUsersTab();
         setupProfilesSection();

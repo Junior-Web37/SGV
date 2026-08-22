@@ -207,6 +207,13 @@ public class SaleFormController extends BaseFormController {
         if (itemsTable != null) itemsTable.getItems().clear();
         categories.clear();
         initCommonFields();
+        UiUtils.hardenComboBox(documentTypeCombo);
+        UiUtils.hardenComboBox(branchCombo);
+        UiUtils.hardenComboBox(customerCombo);
+        UiUtils.hardenComboBox(productCategoryCombo);
+        UiUtils.hardenComboBox(productSearchCombo);
+        UiUtils.hardenComboBox(paymentMethodCombo);
+        UiUtils.hardenComboBox(currencyCombo);
         
         UiUtils.applyNumericFormatter(quantityField);
         

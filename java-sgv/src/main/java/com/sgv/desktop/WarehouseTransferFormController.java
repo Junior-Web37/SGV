@@ -81,6 +81,9 @@ public class WarehouseTransferFormController extends BaseFormController {
     @FXML
     public void initialize() {
         initCommonFields();
+        UiUtils.hardenComboBox(warehouseCombo);
+        UiUtils.hardenComboBox(branchCombo);
+        UiUtils.hardenComboBox(productCombo);
 
         // 1. Carregar armazéns e filiais
         warehouseCombo.setItems(FXCollections.observableArrayList(warehouseRepository.findByIsActiveTrueOrderByNameAsc()));
@@ -216,6 +219,8 @@ public class WarehouseTransferFormController extends BaseFormController {
 
         isRefreshing = true;
         try {
+            boolean showing = productCombo.isShowing();
+            if (showing) productCombo.hide();
             comboDisplayList.setAll(matches);
         } finally {
             isRefreshing = false;

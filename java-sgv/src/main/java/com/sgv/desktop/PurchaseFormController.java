@@ -83,6 +83,9 @@ public class PurchaseFormController extends BaseFormController {
         isRefreshingProducts = false;
         onSave = null;
         initCommonFields();
+        UiUtils.hardenComboBox(supplierCombo);
+        UiUtils.hardenComboBox(warehouseCombo);
+        UiUtils.hardenComboBox(productCombo);
         setupProductSearch();
         productCombo.setOnAction(e -> {
             Product p = productCombo.getValue();

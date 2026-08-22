@@ -170,6 +170,7 @@ public class ReportsController {
         vendasAte.setPrefWidth(130);
 
         ComboBox<String> lojaCombo = new ComboBox<>();
+        UiUtils.hardenComboBox(lojaCombo);
         List<String> lojas = new ArrayList<>();
         lojas.add("Todas as Lojas");
         branchRepository.findAll().forEach(b -> { if (b.getName() != null) lojas.add(b.getName()); });
@@ -419,6 +420,7 @@ public class ReportsController {
         table.getColumns().addAll(List.of(tc1, tc2, tc3, tc4, tc5));
 
         ComboBox<String> periodCombo = new ComboBox<>();
+        UiUtils.hardenComboBox(periodCombo);
         periodCombo.setItems(FXCollections.observableArrayList("Hoje","Esta Semana","Este Mês","Este Ano"));
         periodCombo.getSelectionModel().select("Este Mês");
         periodCombo.setPrefWidth(150);
@@ -932,6 +934,7 @@ public class ReportsController {
 
         // Combo to filter by specific branch
         ComboBox<String> branchFilterCombo = new ComboBox<>();
+        UiUtils.hardenComboBox(branchFilterCombo);
         List<String> filterOpts = new ArrayList<>();
         filterOpts.add("Todas as Filiais");
         filterOpts.addAll(branchNames);
@@ -1144,6 +1147,7 @@ public class ReportsController {
         pagAte.setPrefWidth(130);
 
         pagFornecedorCombo = new ComboBox<>();
+        UiUtils.hardenComboBox(pagFornecedorCombo);
         List<String> fornecedores = new ArrayList<>();
         fornecedores.add("Todos os Fornecedores");
         supplierRepository.findAllByOrderByNameAsc().forEach(s -> {

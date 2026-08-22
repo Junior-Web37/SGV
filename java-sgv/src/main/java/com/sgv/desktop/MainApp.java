@@ -50,7 +50,11 @@ public class MainApp extends Application {
     public void start(Stage primaryStage) {
 
         // ── Configura handler global de excepções não capturadas ──────────────
-        Thread.setDefaultUncaughtExceptionHandler((t, e) -> {
+        Thread.UncaughtExceptionHandler handler = (t, e) -> {
+            if (UiUtils.isHarmlessJavaFxControlBug(e)) {
+                log.debug("Bug interno JavaFX ignorado (ComboBox/ListView): {}", e != null ? e.getMessage() : "");
+                return;
+            }
             try {
                 java.io.PrintWriter pw = new java.io.PrintWriter("app-crash.log");
                 if (e != null) e.printStackTrace(pw);
@@ -68,7 +72,9 @@ public class MainApp extends Application {
             } catch (Exception ignore) {
                 log.warn("Não foi possível mostrar alerta de erro crítico", ignore);
             }
-        });
+        };
+        Thread.setDefaultUncaughtExceptionHandler(handler);
+        Thread.currentThread().setUncaughtExceptionHandler(handler);
 
         // Definir localização padrão para Moçambique em toda a aplicação
         Locale.setDefault(Locale.forLanguageTag("pt-MZ"));

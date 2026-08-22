@@ -617,6 +617,7 @@ public class DashboardNavigationManager {
             filterDate.setStyle("-fx-font-size: 12px;");
 
             ComboBox<String> filterDocType = new ComboBox<>();
+            UiUtils.hardenComboBox(filterDocType);
             filterDocType.getItems().addAll("Todos", "VENDA", "FACTURA", "RECIBO", "COTACAO", "ENCOMENDA", "NC", "ND");
             filterDocType.setValue("Todos");
             filterDocType.setPromptText("Tipo");
@@ -624,6 +625,7 @@ public class DashboardNavigationManager {
             filterDocType.setStyle("-fx-font-size: 12px; -fx-padding: 4 8;");
 
             ComboBox<String> filterState = new ComboBox<>();
+            UiUtils.hardenComboBox(filterState);
             filterState.getItems().addAll("Todos", "EMITIDA", "PAGO", "ANULADA", "COTACAO_ABERTA", "COTACAO_PAGA", "ENCOMENDA_ABERTA");
             filterState.setValue("Todos");
             filterState.setPromptText("Estado");
@@ -1259,6 +1261,7 @@ public class DashboardNavigationManager {
             Button btnAtualizar = makeActionButton("Atualizar", "#475569", "#ffffff");
 
             ComboBox<Warehouse> warehouseFilter = new ComboBox<>();
+            UiUtils.hardenComboBox(warehouseFilter);
             warehouseFilter.setPromptText("Todos os armazéns");
             warehouseFilter.setPrefWidth(220);
             warehouseFilter.setStyle("-fx-font-size: 13px; -fx-font-weight: 600; -fx-background-color: #F8FAFC;");
@@ -2573,16 +2576,19 @@ public void showTurnoCaixaPane(Label pageTitleLabel, Label pageSubtitleLabel,
             UiUtils.applyPressFeedback(btnAtualizar);
 
             ComboBox<Warehouse> whFilter = new ComboBox<>();
+            UiUtils.hardenComboBox(whFilter);
             whFilter.setPromptText("Origem: Todos");
             whFilter.setPrefWidth(180);
             whFilter.setStyle("-fx-font-size: 12px; -fx-font-weight: 600;");
 
             ComboBox<Branch> brFilter = new ComboBox<>();
+            UiUtils.hardenComboBox(brFilter);
             brFilter.setPromptText("Destino: Todas");
             brFilter.setPrefWidth(180);
             brFilter.setStyle("-fx-font-size: 12px; -fx-font-weight: 600;");
 
             ComboBox<String> statusFilter = new ComboBox<>();
+            UiUtils.hardenComboBox(statusFilter);
             statusFilter.getItems().addAll("Todos os Estados", "PENDING", "IN_TRANSIT", "COMPLETED", "CANCELLED");
             statusFilter.setValue("Todos os Estados");
             statusFilter.setPrefWidth(160);

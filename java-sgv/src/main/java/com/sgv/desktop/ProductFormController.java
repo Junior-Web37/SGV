@@ -115,6 +115,10 @@ public class ProductFormController extends BaseFormController {
     @FXML
     public void initialize() {
         initCommonFields();
+        UiUtils.hardenComboBox(categoryCombo);
+        UiUtils.hardenComboBox(supplierCombo);
+        UiUtils.hardenComboBox(unitField);
+        UiUtils.hardenComboBox(unitBulkField);
         loadDefaultRates();
         
         categoryCombo.setItems(javafx.collections.FXCollections.observableArrayList(
