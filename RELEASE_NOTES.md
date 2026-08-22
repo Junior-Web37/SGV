@@ -1,35 +1,31 @@
-# SGV Desktop 1.0.6 — Notas de Lançamento
+# SGV Desktop 1.0.7 — Notas de Lançamento
 
 **Data:** 22 de Agosto de 2026  
-**Tag:** `v1.0.6`
+**Tag:** `v1.0.7`
 
 ## Pacote de download
 
-- **ZIP oficial:** [SGV-Desktop 1.0.6.zip](https://github.com/Junior-Web37/SGV/archive/refs/tags/v1.0.6.zip)
-- **Página da release:** https://github.com/Junior-Web37/SGV/releases/tag/v1.0.6
+- **ZIP oficial:** [SGV-Desktop 1.0.7.zip](https://github.com/Junior-Web37/SGV/archive/refs/tags/v1.0.7.zip)
+- **Página da release:** https://github.com/Junior-Web37/SGV/releases/tag/v1.0.7
 
 ## O que mudou nesta versão
 
-A v1.0.5 já arranca, autentica e vende. O log do utilizador mostrou o dashboard a
-abrir em ~4 s e cada pesquisa a bloquear a interface: a thread do JavaFX fazia
-SQL a cada tecla e carregava os 9 relatórios no login.
+A v1.0.5/1.0.6 **escondiam** o crash do ComboBox na transferência
+(`fromIndex 0, toIndex 1, size 0`) em vez de o resolver. O formulário
+ficava inutilizável: clicar em armazém / produto não escolhia nada.
 
-Nesta versão:
+Nesta versão a guia de transferência deixa de usar ComboBox editável:
 
-- Pesquisa de produto (venda, compra, transferência) com debounce — deixa de
-  disparar uma query por letra
-- Stock da filial em cache (1 query), em vez de 1 SELECT por artigo
-- Lista de vendas filtra na base, sem `JOIN FETCH` de itens, máximo 200 linhas
-- Relatórios já não carregam no login — só quando abre o módulo
-- Coluna Stock dos artigos sem N+1
-- Popularidade de produtos por agregação SQL, não 90 dias de itens em memória
+- Lista visível de artigos (campo de pesquisa + ListView)
+- Armazém e filial com ComboBox simples, sem `selectFirst()` no arranque
+- Número da guia TWA passa a ser `MAX + 1` (a 2.ª guia já não colide)
+- Recepção carrega os itens da guia (não fica vazia)
 
-A v1.0.5 (ComboBox JavaFX 21) continua incluída: o `fromIndex/toIndex` no log
-é ignorado e o ecrã não fica vermelho.
+A v1.0.6 (pesquisas mais rápidas) continua incluída.
 
 ## Como actualizar
 
-1. Apague a pasta `SGV-1.0.5` (a base de dados no XAMPP fica).
+1. Apague a pasta `SGV-1.0.5` ou `SGV-1.0.6` (a base de dados no XAMPP fica).
 2. Extraia este ZIP.
 3. MySQL do XAMPP em **Start**, porta `3306`.
 4. Duplo clique em `SGV-Launcher.bat`.

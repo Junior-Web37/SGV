@@ -142,6 +142,24 @@ public final class UiUtils {
         }
     }
 
+    private static void patchComboPopup(javafx.scene.control.ComboBox<?> combo) {
+        try {
+            if (!(combo.getSkin() instanceof javafx.scene.control.skin.ComboBoxListViewSkin<?> skin)) return;
+            if (!(skin.getPopupContent() instanceof javafx.scene.control.ListView<?> listView)) return;
+            if (Boolean.TRUE.equals(listView.getProperties().get("sgv.list.patched"))) return;
+            listView.getProperties().put("sgv.list.patched", Boolean.TRUE);
+            listView.getSelectionModel().setSelectionMode(javafx.scene.control.SelectionMode.SINGLE);
+            listView.addEventFilter(javafx.scene.input.MouseEvent.MOUSE_PRESSED, ev -> {
+                if (listView.getItems() == null || listView.getItems().isEmpty()) {
+                    ev.consume();
+                    combo.hide();
+                }
+            });
+        } catch (Exception ignored) {
+            log.debug("Não foi possível reforçar o popup do ComboBox");
+        }
+    }
+
     private static void fixComboEditorRange(javafx.scene.control.TextField editor) {
         if (editor == null) return;
         try {
