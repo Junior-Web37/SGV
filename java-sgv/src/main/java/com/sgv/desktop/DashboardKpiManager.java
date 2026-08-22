@@ -359,8 +359,14 @@ public class DashboardKpiManager {
             long totalArtigos = productRepository.count();
             long baixo = stockBranchRepository.countLowStockByBranch(null);
             long zero = stockBranchRepository.countZeroStockByBranch(null);
+            
+            BigDecimal valorTotalStock = stockBranchRepository.findAll().stream()
+                    .filter(sb -> sb.getStockCurrentAmount() != null && sb.getProduct() != null && sb.getProduct().getPriceCost() != null)
+                    .map(sb -> sb.getStockCurrentAmount().multiply(BigDecimal.valueOf(sb.getProduct().getPriceCost())))
+                    .reduce(BigDecimal.ZERO, BigDecimal::add);
+
             updateKPICard(grid, 0, String.valueOf(totalArtigos));
-            updateKPICard(grid, 1, String.format("%d artigos em loja", totalArtigos));
+            updateKPICard(grid, 1, String.format("%,.0f MT", valorTotalStock));
             updateKPICard(grid, 2, String.valueOf(baixo));
             updateKPICard(grid, 3, String.valueOf(zero));
         } catch (Exception ex) { log.error("Erro ao actualizar KPIs de stock", ex); }

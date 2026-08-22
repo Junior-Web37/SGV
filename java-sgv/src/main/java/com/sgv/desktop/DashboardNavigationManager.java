@@ -1737,6 +1737,11 @@ public class DashboardNavigationManager {
         Button deleteBtn = makeActionButton("Eliminar", "#EF4444", "#ffffff");
         Button refreshBtn = makeIconButton("↻", "#475569", "#ffffff");
 
+        for (Button b : List.of(adjustBtn, detalhesBtn, deleteBtn, refreshBtn)) {
+            UiUtils.applyHoverElevation(b);
+            UiUtils.applyPressFeedback(b);
+        }
+
         toolbar.getChildren().addAll(searchField, adjustBtn, detalhesBtn, deleteBtn, refreshBtn);
 
         TableView<StockBranch> stockTable = new TableView<>();
@@ -2286,19 +2291,42 @@ public void showTurnoCaixaPane(Label pageTitleLabel, Label pageSubtitleLabel,
         String stockMin = selected.getStockMinAmount() != null ? String.format("%.2f", selected.getStockMinAmount()) : "0";
         String stockMax = selected.getStockMaxAmount() != null ? String.format("%.2f", selected.getStockMaxAmount()) : "0";
 
-        DetailDialog.create(owner)
-            .title("Detalhes do Stock")
+        var dialog = DetailDialog.create(owner)
+            .title("Ficha de Stock & Kardex")
             .subtitle(productInfo)
-            .section("Produto")
+            .width(740)
+            .height(580)
+            .section("Dados do Artigo")
             .field("Código", selected.getProduct() != null ? selected.getProduct().getCode() : "—")
-            .field("Nome", selected.getProduct() != null ? selected.getProduct().getName() : "—")
-            .section("Filial")
-            .field("Filial", branchInfo)
-            .section("Stock")
-            .field("Stock Actual", stockActual)
-            .field("Stock Mínimo", stockMin)
-            .field("Stock Máximo", stockMax)
-            .show();
+            .field("Nome do Artigo", selected.getProduct() != null ? selected.getProduct().getName() : "—")
+            .field("Estabelecimento / Filial", branchInfo)
+            .section("Posição de Inventário")
+            .field("Stock Actual em Loja", stockActual, "#2563EB")
+            .field("Stock Mínimo (Alerta)", stockMin)
+            .field("Stock Máximo (Capacidade)", stockMax);
+
+        if (selected.getProduct() != null && selected.getProduct().getId() != null) {
+            List<StockMovement> movements = stockMovementRepository.findByProductIdOrderByCreatedAtDesc(selected.getProduct().getId());
+            if (movements != null && !movements.isEmpty()) {
+                String[] cols = {"Data", "Tipo", "Subtipo", "Qtd", "Antes", "Depois", "Referência", "Operador"};
+                List<Map<String, String>> rows = new ArrayList<>();
+                for (StockMovement m : movements.stream().limit(15).toList()) {
+                    Map<String, String> row = new LinkedHashMap<>();
+                    row.put("Data", m.getCreatedAt() != null ? m.getCreatedAt().format(DATE_FORMATTER) : "—");
+                    row.put("Tipo", m.getType() != null ? m.getType() : "—");
+                    row.put("Subtipo", m.getSubtype() != null ? m.getSubtype() : "—");
+                    row.put("Qtd", m.getQtyAmount() != null ? String.format("%.2f", m.getQtyAmount()) : "—");
+                    row.put("Antes", m.getStockBeforeAmount() != null ? String.format("%.2f", m.getStockBeforeAmount()) : "—");
+                    row.put("Depois", m.getStockAfterAmount() != null ? String.format("%.2f", m.getStockAfterAmount()) : "—");
+                    row.put("Referência", m.getReference() != null ? m.getReference() : "—");
+                    row.put("Operador", m.getUser() != null ? m.getUser().getUsername() : "—");
+                    rows.add(row);
+                }
+                dialog.tableSection("Histórico de Movimentações (Kardex)", cols, rows);
+            }
+        }
+
+        dialog.show();
     }
 
     public void showTransfersPane(Button navTransferir, Label pageTitleLabel, Label pageSubtitleLabel,

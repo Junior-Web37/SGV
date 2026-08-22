@@ -1,74 +1,83 @@
 <?xml version="1.0" encoding="UTF-8"?>
-
 <?import javafx.scene.control.*?>
 <?import javafx.scene.layout.*?>
-
-<VBox fx:id="rootPane" spacing="20" style="-fx-padding: 32; -fx-background-color: #ffffff;"
-      xmlns="http://javafx.com/javafx/17" xmlns:fx="http://javafx.com/fxml/1"
+<?import javafx.geometry.Insets?>
+<VBox fx:id="rootPane" xmlns="http://javafx.com/javafx/17" xmlns:fx="http://javafx.com/fxml/1"
       fx:controller="com.sgv.desktop.StockNewFormController"
-      prefWidth="520" stylesheets="@/styles/styles.css">
+      spacing="0" styleClass="card-pane" style="-fx-padding:0; -fx-background-radius:10; -fx-background-color:#ffffff;"
+      prefWidth="560" prefHeight="540" stylesheets="@/styles/styles.css">
 
-    <Label text="Stock Inicial (Configuração)" style="-fx-font-size: 20px; -fx-font-weight: bold; -fx-text-fill: #0F172A;"/>
-
-    <!-- Aviso: apenas para configuração inicial -->
-    <HBox style="-fx-background-color: #EDE9FE; -fx-padding: 10 14; -fx-background-radius: 6;" spacing="8" alignment="CENTER_LEFT">
-        <Label text="ℹ" style="-fx-font-size: 15px; -fx-text-fill: #5B21B6;"/>
-        <Label text="Esta operação é exclusiva para a configuração inicial do sistema (bootstrap). Em operação normal, o stock da loja deve entrar exclusivamente via Transferência Armazém → Filial."
-               style="-fx-font-size: 12px; -fx-text-fill: #5B21B6; -fx-wrap-text: true;" wrapText="true" HBox.hgrow="ALWAYS"/>
+    <!-- HEADER -->
+    <HBox alignment="CENTER_LEFT" spacing="14"
+          style="-fx-background-color:#0F172A; -fx-padding:18 24; -fx-border-color:#1E293B; -fx-border-width:0 0 2 0; -fx-background-radius:10 10 0 0;">
+        <VBox spacing="3">
+            <Label text="📦 Carga de Stock Inicial (Bootstrap)" style="-fx-font-size:18px; -fx-font-weight:800; -fx-text-fill:#ffffff;"/>
+            <Label text="Inicialização de inventário para arranque do sistema ou nova loja" style="-fx-font-size:12px; -fx-text-fill:#94A3B8;"/>
+        </VBox>
     </HBox>
 
-    <VBox spacing="16">
-        <VBox spacing="6">
-            <Label text="Produto *" style="-fx-font-weight: 600; -fx-text-fill: #0F172A; -fx-font-size: 13px;"/>
-            <ComboBox fx:id="productCombo" promptText="Seleccione o produto..."
-                      editable="true"
-                      style="-fx-padding: 8 12; -fx-background-radius: 4; -fx-border-color: #E2E8F0; -fx-border-radius: 4; -fx-background-color: #F8FAFC; -fx-font-size: 13px;"
-                      prefHeight="36"/>
-        </VBox>
-
-        <VBox spacing="6">
-            <Label text="Filial *" style="-fx-font-weight: 600; -fx-text-fill: #0F172A; -fx-font-size: 13px;"/>
-            <ComboBox fx:id="branchCombo" promptText="Seleccione a filial..."
-                      style="-fx-padding: 8 12; -fx-background-radius: 4; -fx-border-color: #E2E8F0; -fx-border-radius: 4; -fx-background-color: #F8FAFC; -fx-font-size: 13px;"
-                      prefHeight="36"/>
-        </VBox>
-
-        <HBox spacing="12">
-            <VBox spacing="6" HBox.hgrow="ALWAYS">
-                <Label text="Stock Actual *" style="-fx-font-weight: 600; -fx-text-fill: #0F172A; -fx-font-size: 13px;"/>
-                <TextField fx:id="currentStockField" promptText="Ex: 50.0"
-                           style="-fx-padding: 8 12; -fx-background-radius: 4; -fx-border-color: #E2E8F0; -fx-border-radius: 4; -fx-background-color: #F8FAFC; -fx-text-fill: #0F172A; -fx-font-size: 13px;"/>
-            </VBox>
-            <VBox spacing="6" HBox.hgrow="ALWAYS">
-                <Label text="Stock Mínimo" style="-fx-font-weight: 600; -fx-text-fill: #0F172A; -fx-font-size: 13px;"/>
-                <TextField fx:id="minStockField" promptText="Ex: 5.0"
-                           style="-fx-padding: 8 12; -fx-background-radius: 4; -fx-border-color: #E2E8F0; -fx-border-radius: 4; -fx-background-color: #F8FAFC; -fx-text-fill: #0F172A; -fx-font-size: 13px;"/>
-            </VBox>
-            <VBox spacing="6" HBox.hgrow="ALWAYS">
-                <Label text="Stock Máximo" style="-fx-font-weight: 600; -fx-text-fill: #0F172A; -fx-font-size: 13px;"/>
-                <TextField fx:id="maxStockField" promptText="Ex: 100.0"
-                           style="-fx-padding: 8 12; -fx-background-radius: 4; -fx-border-color: #E2E8F0; -fx-border-radius: 4; -fx-background-color: #F8FAFC; -fx-text-fill: #0F172A; -fx-font-size: 13px;"/>
-            </VBox>
+    <VBox spacing="16" style="-fx-padding:24; -fx-background-color:#ffffff; -fx-background-radius:0 0 10 10;">
+        <!-- Aviso informativo -->
+        <HBox style="-fx-background-color: #EDE9FE; -fx-padding: 10 14; -fx-background-radius: 6; -fx-border-color: #DDD6FE; -fx-border-width: 1;" spacing="10" alignment="CENTER_LEFT">
+            <Label text="ℹ" style="-fx-font-size: 16px; -fx-text-fill: #5B21B6;"/>
+            <Label text="Esta operação destina-se à configuração inicial de saldos físicos. Em operação comercial normal, o stock da loja entra via Transferências (TWA) ou Compras."
+                   style="-fx-font-size: 11px; -fx-text-fill: #5B21B6; -fx-wrap-text: true;" wrapText="true" HBox.hgrow="ALWAYS"/>
         </HBox>
 
-        <VBox spacing="6">
-            <Label text="Referência / Motivo" style="-fx-font-weight: 600; -fx-text-fill: #0F172A; -fx-font-size: 13px;"/>
-            <TextArea fx:id="referenceArea" promptText="Descreva a referência..."
-                      style="-fx-padding: 8 12; -fx-background-radius: 4; -fx-border-color: #E2E8F0; -fx-border-radius: 4; -fx-background-color: #F8FAFC; -fx-text-fill: #0F172A; -fx-font-size: 13px;"
+        <Label fx:id="errorLabel" textFill="#EF4444" style="-fx-font-size: 12px; -fx-font-weight: 700; -fx-background-color: #FEE2E2; -fx-background-radius: 6; -fx-padding: 8 12; -fx-border-color: #FCA5A5; -fx-border-width: 1; -fx-border-radius: 6;" managed="false" visible="false"/>
+
+        <VBox spacing="4">
+            <Label text="Produto / Artigo *" style="-fx-font-weight: 700; -fx-text-fill: #0F172A; -fx-font-size: 12px;"/>
+            <ComboBox fx:id="productCombo" promptText="Seleccione o artigo..."
+                      style="-fx-pref-width: 1000; -fx-background-radius: 6; -fx-border-color: #CBD5E1; -fx-border-radius: 6; -fx-font-size: 13px; -fx-padding: 4; -fx-background-color: #FFFFFF;"/>
+        </VBox>
+
+        <VBox spacing="4">
+            <Label text="Estabelecimento / Filial *" style="-fx-font-weight: 700; -fx-text-fill: #0F172A; -fx-font-size: 12px;"/>
+            <ComboBox fx:id="branchCombo" promptText="Seleccione a filial..."
+                      style="-fx-pref-width: 1000; -fx-background-radius: 6; -fx-border-color: #CBD5E1; -fx-border-radius: 6; -fx-font-size: 13px; -fx-padding: 4; -fx-background-color: #FFFFFF;"/>
+        </VBox>
+
+        <GridPane hgap="14" vgap="12">
+            <columnConstraints>
+                <ColumnConstraints percentWidth="33.3"/>
+                <ColumnConstraints percentWidth="33.3"/>
+                <ColumnConstraints percentWidth="33.3"/>
+            </columnConstraints>
+            <children>
+                <VBox spacing="4" GridPane.columnIndex="0" GridPane.rowIndex="0">
+                    <Label text="Stock Inicial *" style="-fx-font-weight: 700; -fx-text-fill: #0F172A; -fx-font-size: 12px;"/>
+                    <TextField fx:id="currentStockField" promptText="0.0"
+                               style="-fx-padding: 8 12; -fx-background-radius: 6; -fx-border-color: #10B981; -fx-border-radius: 6; -fx-background-color: #FFFFFF; -fx-text-fill: #15803D; -fx-font-size: 14px; -fx-font-weight: 800;"/>
+                </VBox>
+                <VBox spacing="4" GridPane.columnIndex="1" GridPane.rowIndex="0">
+                    <Label text="Stock Mínimo" style="-fx-font-weight: 700; -fx-text-fill: #0F172A; -fx-font-size: 12px;"/>
+                    <TextField fx:id="minStockField" promptText="0.0"
+                               style="-fx-padding: 8 12; -fx-background-radius: 6; -fx-border-color: #CBD5E1; -fx-border-radius: 6; -fx-background-color: #FFFFFF; -fx-text-fill: #0F172A; -fx-font-size: 13px;"/>
+                </VBox>
+                <VBox spacing="4" GridPane.columnIndex="2" GridPane.rowIndex="0">
+                    <Label text="Stock Máximo" style="-fx-font-weight: 700; -fx-text-fill: #0F172A; -fx-font-size: 12px;"/>
+                    <TextField fx:id="maxStockField" promptText="0.0"
+                               style="-fx-padding: 8 12; -fx-background-radius: 6; -fx-border-color: #CBD5E1; -fx-border-radius: 6; -fx-background-color: #FFFFFF; -fx-text-fill: #0F172A; -fx-font-size: 13px;"/>
+                </VBox>
+            </children>
+        </GridPane>
+
+        <VBox spacing="4">
+            <Label text="Referência / Documento de Suporte" style="-fx-font-weight: 700; -fx-text-fill: #0F172A; -fx-font-size: 12px;"/>
+            <TextArea fx:id="referenceArea" promptText="Ex: Contagem de inventário inicial / Carga de arranque"
+                      style="-fx-padding: 8 12; -fx-background-radius: 6; -fx-border-color: #CBD5E1; -fx-border-radius: 6; -fx-background-color: #FFFFFF; -fx-text-fill: #0F172A; -fx-font-size: 13px;"
                       prefHeight="60" wrapText="true"/>
         </VBox>
+
+        <Separator style="-fx-opacity: 0.2;"/>
+        <HBox spacing="12" alignment="CENTER_RIGHT" style="-fx-padding: 8 0 0 0;">
+            <Button fx:id="cancelButton" text="Cancelar" styleClass="btn-secondary-ux"/>
+            <StackPane>
+                <Button fx:id="saveButton" text="✓ Registar Stock Inicial" styleClass="btn-primary-ux"/>
+                <ProgressIndicator fx:id="saveSpinner" visible="false" managed="false"
+                                   style="-fx-progress-color:white; -fx-max-width:20; -fx-max-height:20;"/>
+            </StackPane>
+        </HBox>
     </VBox>
-
-    <Label fx:id="errorLabel" textFill="#EF4444" style="-fx-font-size: 13px;" managed="false" visible="false"/>
-
-    <HBox spacing="12" alignment="CENTER_RIGHT" style="-fx-padding: 16 0 0 0;">
-        <Button fx:id="cancelButton" text="Cancelar" styleClass="btn-secondary-ux"
-                style="-fx-background-color: transparent; -fx-text-fill: #94A3B8; -fx-border-color: #E2E8F0; -fx-border-radius: 4; -fx-padding: 8 20; -fx-font-weight: 600; -fx-cursor: hand;"/>
-        <StackPane>
-            <Button fx:id="saveButton" text="Registar Stock Inicial" disable="true" styleClass="btn-primary-ux"
-                    style="-fx-background-color: #7C3AED; -fx-text-fill: white; -fx-padding: 8 20; -fx-background-radius: 4; -fx-font-weight: bold; -fx-cursor: hand;"/>
-            <ProgressIndicator fx:id="saveSpinner" visible="false" managed="false"
-                               style="-fx-progress-color:white; -fx-max-width:20; -fx-max-height:20;"/>
-        </StackPane>
-    </HBox>
 </VBox>

@@ -1,72 +1,90 @@
 <?xml version="1.0" encoding="UTF-8"?>
-
 <?import javafx.scene.control.*?>
 <?import javafx.scene.layout.*?>
-
-<VBox fx:id="rootPane" spacing="20" style="-fx-padding: 32; -fx-background-color: #ffffff;"
-      xmlns="http://javafx.com/javafx/17" xmlns:fx="http://javafx.com/fxml/1"
+<?import javafx.geometry.Insets?>
+<VBox fx:id="rootPane" xmlns="http://javafx.com/javafx/17" xmlns:fx="http://javafx.com/fxml/1"
       fx:controller="com.sgv.desktop.StockAdjustFormController"
-      prefWidth="500" stylesheets="@/styles/styles.css">
+      spacing="0" styleClass="card-pane" style="-fx-padding:0; -fx-background-radius:10; -fx-background-color:#ffffff;"
+      prefWidth="560" prefHeight="540" stylesheets="@/styles/styles.css">
 
-    <Label text="Registar Perda / Dano" style="-fx-font-size: 20px; -fx-font-weight: bold; -fx-text-fill: #0F172A;"/>
-
-    <!-- Aviso informativo -->
-    <HBox style="-fx-background-color: #FEF3C7; -fx-padding: 10 14; -fx-background-radius: 6;" spacing="8" alignment="CENTER_LEFT">
-        <Label text="⚠" style="-fx-font-size: 15px; -fx-text-fill: #92400E;"/>
-        <Label text="Use este formulário apenas para registar perdas, danos ou erros de inventário. Para adicionar stock à loja, crie uma Transferência Armazém → Filial."
-               style="-fx-font-size: 12px; -fx-text-fill: #92400E; -fx-wrap-text: true;" wrapText="true" HBox.hgrow="ALWAYS"/>
-    </HBox>
-
-    <VBox spacing="16">
-        <HBox spacing="10">
-            <Label text="Produto:" style="-fx-font-weight: 600; -fx-text-fill: #94A3B8; -fx-font-size: 13px;"/>
-            <Label fx:id="productLabel" text="-" style="-fx-font-weight: bold; -fx-text-fill: #0F172A; -fx-font-size: 13px;"/>
-        </HBox>
-        <HBox spacing="10">
-            <Label text="Filial:" style="-fx-font-weight: 600; -fx-text-fill: #94A3B8; -fx-font-size: 13px;"/>
-            <Label fx:id="branchLabel" text="-" style="-fx-font-weight: bold; -fx-text-fill: #0F172A; -fx-font-size: 13px;"/>
-        </HBox>
-        <HBox spacing="10">
-            <Label text="Stock Actual:" style="-fx-font-weight: 600; -fx-text-fill: #94A3B8; -fx-font-size: 13px;"/>
-            <Label fx:id="currentStockInfoLabel" text="-" style="-fx-font-weight: bold; -fx-text-fill: #0F172A; -fx-font-size: 13px;"/>
-        </HBox>
-
-        <HBox spacing="12">
-            <VBox spacing="6" HBox.hgrow="ALWAYS">
-                <Label text="Novo Stock (deve ser menor ou igual ao actual) *" style="-fx-font-weight: 600; -fx-text-fill: #0F172A; -fx-font-size: 13px;"/>
-                <TextField fx:id="currentStockField" promptText="Ex: 45.0"
-                           style="-fx-padding: 8 12; -fx-background-radius: 4; -fx-border-color: #E2E8F0; -fx-border-radius: 4; -fx-background-color: #F8FAFC; -fx-text-fill: #0F172A; -fx-font-size: 13px;"/>
-            </VBox>
-            <VBox spacing="6" HBox.hgrow="ALWAYS">
-                <Label text="Stock Mínimo *" style="-fx-font-weight: 600; -fx-text-fill: #0F172A; -fx-font-size: 13px;"/>
-                <TextField fx:id="minStockField" promptText="Ex: 5.0"
-                           style="-fx-padding: 8 12; -fx-background-radius: 4; -fx-border-color: #E2E8F0; -fx-border-radius: 4; -fx-background-color: #F8FAFC; -fx-text-fill: #0F172A; -fx-font-size: 13px;"/>
-            </VBox>
-            <VBox spacing="6" HBox.hgrow="ALWAYS">
-                <Label text="Stock Máximo *" style="-fx-font-weight: 600; -fx-text-fill: #0F172A; -fx-font-size: 13px;"/>
-                <TextField fx:id="maxStockField" promptText="Ex: 100.0"
-                           style="-fx-padding: 8 12; -fx-background-radius: 4; -fx-border-color: #E2E8F0; -fx-border-radius: 4; -fx-background-color: #F8FAFC; -fx-text-fill: #0F172A; -fx-font-size: 13px;"/>
-            </VBox>
-        </HBox>
-
-        <VBox spacing="6">
-            <Label text="Motivo da Perda/Dano *" style="-fx-font-weight: 600; -fx-text-fill: #0F172A; -fx-font-size: 13px;"/>
-            <TextArea fx:id="reasonArea" promptText="Ex: Produto danificado, roubo, erro de contagem..."
-                      style="-fx-padding: 8 12; -fx-background-radius: 4; -fx-border-color: #E2E8F0; -fx-border-radius: 4; -fx-background-color: #F8FAFC; -fx-text-fill: #0F172A; -fx-font-size: 13px;"
-                      prefHeight="70" wrapText="true"/>
+    <!-- HEADER -->
+    <HBox alignment="CENTER_LEFT" spacing="14"
+          style="-fx-background-color:#0F172A; -fx-padding:18 24; -fx-border-color:#1E293B; -fx-border-width:0 0 2 0; -fx-background-radius:10 10 0 0;">
+        <VBox spacing="3">
+            <Label text="⚠ Registo de Perda / Dano / Ajuste de Stock" style="-fx-font-size:18px; -fx-font-weight:800; -fx-text-fill:#ffffff;"/>
+            <Label text="Retificação física de inventário por quebra, avaria ou extravio" style="-fx-font-size:12px; -fx-text-fill:#94A3B8;"/>
         </VBox>
-    </VBox>
-
-    <Label fx:id="errorLabel" textFill="#EF4444" style="-fx-font-size: 13px;" managed="false" visible="false"/>
-
-    <HBox spacing="12" alignment="CENTER_RIGHT" style="-fx-padding: 16 0 0 0;">
-        <Button fx:id="cancelButton" text="Cancelar" styleClass="btn-secondary-ux"
-                style="-fx-background-color: transparent; -fx-text-fill: #94A3B8; -fx-border-color: #E2E8F0; -fx-border-radius: 4; -fx-padding: 8 20; -fx-font-weight: 600; -fx-cursor: hand;"/>
-        <StackPane>
-            <Button fx:id="saveButton" text="Registar Perda/Dano" disable="true" styleClass="btn-primary-ux"
-                    style="-fx-background-color: #EF4444; -fx-text-fill: white; -fx-padding: 8 20; -fx-background-radius: 4; -fx-font-weight: bold; -fx-cursor: hand;"/>
-            <ProgressIndicator fx:id="saveSpinner" visible="false" managed="false"
-                               style="-fx-progress-color:white; -fx-max-width:20; -fx-max-height:20;"/>
-        </StackPane>
     </HBox>
+
+    <VBox spacing="16" style="-fx-padding:24; -fx-background-color:#ffffff; -fx-background-radius:0 0 10 10;">
+        <!-- Aviso informativo -->
+        <HBox style="-fx-background-color: #FEF3C7; -fx-padding: 10 14; -fx-background-radius: 6; -fx-border-color: #FDE68A; -fx-border-width: 1;" spacing="10" alignment="CENTER_LEFT">
+            <Label text="⚠" style="-fx-font-size: 16px; -fx-text-fill: #92400E;"/>
+            <Label text="Este formulário deduz perdas e quebras da loja. Para transferir mercadoria do armazém central, use Transferências (TWA)."
+                   style="-fx-font-size: 11px; -fx-text-fill: #92400E; -fx-wrap-text: true;" wrapText="true" HBox.hgrow="ALWAYS"/>
+        </HBox>
+
+        <!-- Informações do Artigo -->
+        <HBox spacing="14" alignment="CENTER_LEFT"
+              style="-fx-background-color:#F8FAFC; -fx-padding:12 16; -fx-background-radius:8; -fx-border-color:#E2E8F0; -fx-border-width:1; -fx-border-radius:8;">
+            <VBox spacing="2" HBox.hgrow="ALWAYS">
+                <Label text="ARTIGO" style="-fx-font-size:10px; -fx-font-weight:800; -fx-text-fill:#64748B;"/>
+                <Label fx:id="productLabel" text="—" style="-fx-font-size:14px; -fx-font-weight:800; -fx-text-fill:#0F172A;"/>
+            </VBox>
+            <Separator orientation="VERTICAL"/>
+            <VBox spacing="2">
+                <Label text="FILIAL" style="-fx-font-size:10px; -fx-font-weight:800; -fx-text-fill:#64748B;"/>
+                <Label fx:id="branchLabel" text="—" style="-fx-font-size:13px; -fx-font-weight:700; -fx-text-fill:#0F172A;"/>
+            </VBox>
+            <Separator orientation="VERTICAL"/>
+            <VBox spacing="2">
+                <Label text="STOCK ACTUAL" style="-fx-font-size:10px; -fx-font-weight:800; -fx-text-fill:#64748B;"/>
+                <Label fx:id="currentStockInfoLabel" text="0 un" style="-fx-font-size:14px; -fx-font-weight:900; -fx-text-fill:#2563EB;"/>
+            </VBox>
+        </HBox>
+
+        <Label fx:id="errorLabel" textFill="#EF4444" style="-fx-font-size: 12px; -fx-font-weight: 700; -fx-background-color: #FEE2E2; -fx-background-radius: 6; -fx-padding: 8 12; -fx-border-color: #FCA5A5; -fx-border-width: 1; -fx-border-radius: 6;" managed="false" visible="false"/>
+
+        <GridPane hgap="14" vgap="12">
+            <columnConstraints>
+                <ColumnConstraints percentWidth="33.3"/>
+                <ColumnConstraints percentWidth="33.3"/>
+                <ColumnConstraints percentWidth="33.3"/>
+            </columnConstraints>
+            <children>
+                <VBox spacing="4" GridPane.columnIndex="0" GridPane.rowIndex="0">
+                    <Label text="Novo Stock *" style="-fx-font-weight: 700; -fx-text-fill: #0F172A; -fx-font-size: 12px;"/>
+                    <TextField fx:id="currentStockField" promptText="0.0"
+                               style="-fx-padding: 8 12; -fx-background-radius: 6; -fx-border-color: #EF4444; -fx-border-radius: 6; -fx-background-color: #FFFFFF; -fx-text-fill: #EF4444; -fx-font-size: 14px; -fx-font-weight: 800;"/>
+                </VBox>
+                <VBox spacing="4" GridPane.columnIndex="1" GridPane.rowIndex="0">
+                    <Label text="Stock Mínimo *" style="-fx-font-weight: 700; -fx-text-fill: #0F172A; -fx-font-size: 12px;"/>
+                    <TextField fx:id="minStockField" promptText="0.0"
+                               style="-fx-padding: 8 12; -fx-background-radius: 6; -fx-border-color: #CBD5E1; -fx-border-radius: 6; -fx-background-color: #FFFFFF; -fx-text-fill: #0F172A; -fx-font-size: 13px;"/>
+                </VBox>
+                <VBox spacing="4" GridPane.columnIndex="2" GridPane.rowIndex="0">
+                    <Label text="Stock Máximo *" style="-fx-font-weight: 700; -fx-text-fill: #0F172A; -fx-font-size: 12px;"/>
+                    <TextField fx:id="maxStockField" promptText="0.0"
+                               style="-fx-padding: 8 12; -fx-background-radius: 6; -fx-border-color: #CBD5E1; -fx-border-radius: 6; -fx-background-color: #FFFFFF; -fx-text-fill: #0F172A; -fx-font-size: 13px;"/>
+                </VBox>
+            </children>
+        </GridPane>
+
+        <VBox spacing="4">
+            <Label text="Motivo / Justificação da Quebra *" style="-fx-font-weight: 700; -fx-text-fill: #0F172A; -fx-font-size: 12px;"/>
+            <TextArea fx:id="reasonArea" promptText="Ex: Garrafa partida durante reposição / Produto fora de prazo..."
+                      style="-fx-padding: 8 12; -fx-background-radius: 6; -fx-border-color: #CBD5E1; -fx-border-radius: 6; -fx-background-color: #FFFFFF; -fx-text-fill: #0F172A; -fx-font-size: 13px;"
+                      prefHeight="65" wrapText="true"/>
+        </VBox>
+
+        <Separator style="-fx-opacity: 0.2;"/>
+        <HBox spacing="12" alignment="CENTER_RIGHT" style="-fx-padding: 8 0 0 0;">
+            <Button fx:id="cancelButton" text="Cancelar" styleClass="btn-secondary-ux"/>
+            <StackPane>
+                <Button fx:id="saveButton" text="✓ Registar Perda/Dano" styleClass="btn-danger-ux"/>
+                <ProgressIndicator fx:id="saveSpinner" visible="false" managed="false"
+                                   style="-fx-progress-color:white; -fx-max-width:20; -fx-max-height:20;"/>
+            </StackPane>
+        </HBox>
+    </VBox>
 </VBox>
