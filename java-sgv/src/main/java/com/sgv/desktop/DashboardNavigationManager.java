@@ -2495,7 +2495,8 @@ public void showTurnoCaixaPane(Label pageTitleLabel, Label pageSubtitleLabel,
             .field("Stock Máximo (Capacidade)", stockMax);
 
         if (selected.getProduct() != null && selected.getProduct().getId() != null) {
-            List<StockMovement> movements = stockMovementRepository.findByProductIdOrderByCreatedAtDesc(selected.getProduct().getId());
+            List<StockMovement> movements = applicationContext.getBean(StockMovementRepository.class)
+                    .findByProductIdOrderByCreatedAtDesc(selected.getProduct().getId());
             if (movements != null && !movements.isEmpty()) {
                 String[] cols = {"Data", "Tipo", "Subtipo", "Qtd", "Antes", "Depois", "Referência", "Operador"};
                 List<Map<String, String>> rows = new ArrayList<>();
