@@ -5,7 +5,7 @@
 
 ## Pacote de download
 
-- **ZIP oficial:** [SGV-Desktop-1.0.0.zip](https://github.com/Junior-Web37/SGV/releases/latest/download/SGV-Desktop-1.0.0.zip)
+- **ZIP oficial:** [SGV-Desktop 1.0.0.zip](https://github.com/Junior-Web37/SGV/archive/refs/tags/v1.0.0.zip)
 - **Página da release:** https://github.com/Junior-Web37/SGV/releases/tag/v1.0.0
 
 ## O que está incluído
