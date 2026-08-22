@@ -28,6 +28,14 @@ public interface ProductRepository extends JpaRepository<Product, Long> {
     @Query("SELECT p FROM Product p WHERE p.isActive = true AND p.name IS NOT NULL AND p.name <> ''")
     List<Product> findAllActive();
 
+    List<Product> findByCategoryId(Long categoryId);
+
+    long countByCategoryId(Long categoryId);
+
+    List<Product> findByUnitIdOrUnitBulkId(Long unitId, Long unitBulkId);
+
+    long countByUnitIdOrUnitBulkId(Long unitId, Long unitBulkId);
+
     @Query("SELECT COALESCE(MAX(p.id), 0) FROM Product p")
     Long findMaxId();
 }

@@ -458,10 +458,14 @@ public class DashboardKpiManager {
         try {
             long cats = categoryRepository.count();
             long units = metricUnitRepository.count();
+            List<Product> allProds = productRepository.findAll();
+            long bulkProds = allProds.stream().filter(p -> p.getUnitBulk() != null || (p.getBulkQuantity() != null && p.getBulkQuantity() > 1.0)).count();
+            long categorizedProds = allProds.stream().filter(p -> p.getCategory() != null).count();
+
             updateKPICard(grid, 0, String.valueOf(cats));
             updateKPICard(grid, 1, String.valueOf(units));
-            updateKPICard(grid, 2, String.valueOf(units));
-            updateKPICard(grid, 3, "—");
+            updateKPICard(grid, 2, String.valueOf(bulkProds));
+            updateKPICard(grid, 3, String.valueOf(categorizedProds));
         } catch (Exception ex) { log.error("Erro ao actualizar KPIs de catálogos", ex); }
     }
 

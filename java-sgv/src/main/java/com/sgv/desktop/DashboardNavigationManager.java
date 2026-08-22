@@ -1688,9 +1688,9 @@ public class DashboardNavigationManager {
             main.setStyle("-fx-background-color: #F8FAFC;");
 
             GridPane kpiGrid = buildKPIGrid(
-                new String[]{"Categorias", "Unidades Métricas", "Activas", "—"},
-                new String[]{"Total de categorias", "Tipos de unidade", "Unidades activas", "—"},
-                new String[]{"blue", "purple", "green", "gray"}
+                new String[]{"Categorias", "Unidades Métricas", "Granel / Fardo", "Artigos c/ Família"},
+                new String[]{"Total de categorias", "Tipos de unidade", "Produtos c/ fardo activo", "Artigos categorizados"},
+                new String[]{"blue", "purple", "green", "orange"}
             );
             kpiGrid.setId("catalogsKPI");
 
@@ -1703,22 +1703,56 @@ public class DashboardNavigationManager {
             half.setHgrow(Priority.ALWAYS);
             splitGrid.getColumnConstraints().addAll(half, half);
 
+            // ─── PAINEL ESQUERDO: CATEGORIAS ─────────────────────────
             VBox leftPane = new VBox(0);
-            leftPane.setStyle("-fx-background-color: #ffffff; -fx-border-color: #E2E8F0; -fx-border-width: 1; -fx-border-radius: 3;");
+            leftPane.setStyle("-fx-background-color: #ffffff; -fx-border-color: #E2E8F0; -fx-border-width: 1; -fx-border-radius: 6;");
 
             HBox catHeader = new HBox(8);
             catHeader.setStyle("-fx-padding: 10 12; -fx-background-color: #F8FAFC; -fx-border-color: #E2E8F0; -fx-border-width: 0 0 1 0;");
             catHeader.setAlignment(Pos.CENTER_LEFT);
-            Label leftTitle = new Label("Categorias");
+            Label leftTitle = new Label("Categorias / Famílias");
             leftTitle.setStyle("-fx-font-size: 13px; -fx-font-weight: 700; -fx-text-fill: #0F172A;");
             Region catSpacer = new Region();
             HBox.setHgrow(catSpacer, Priority.ALWAYS);
             TextField searchCatField = new TextField();
             searchCatField.setPromptText("Pesquisar...");
-            searchCatField.setStyle("-fx-font-size: 12px; -fx-padding: 4 8; -fx-background-radius: 4; -fx-border-color: #E2E8F0; -fx-border-radius: 4; -fx-min-width: 120;");
+            searchCatField.setStyle("-fx-font-size: 12px; -fx-padding: 6 10; -fx-background-radius: 4; -fx-border-color: #E2E8F0; -fx-border-radius: 4; -fx-min-width: 120;");
             Button catNewBtn = new Button("+ Nova");
-            catNewBtn.setStyle("-fx-background-color: #2563EB; -fx-text-fill: #ffffff; -fx-font-weight: 700; -fx-padding: 6 12; -fx-background-radius: 3; -fx-cursor: hand; -fx-font-size: 12px;");
-            catHeader.getChildren().addAll(leftTitle, catSpacer, searchCatField, catNewBtn);
+            catNewBtn.setStyle("-fx-background-color: #2563EB; -fx-text-fill: #ffffff; -fx-font-weight: 700; -fx-padding: 6 12; -fx-background-radius: 4; -fx-cursor: hand; -fx-font-size: 12px;");
+            Button catDelBtn = new Button("Eliminar");
+            catDelBtn.setStyle("-fx-background-color: #EF4444; -fx-text-fill: #ffffff; -fx-font-weight: 700; -fx-padding: 6 12; -fx-background-radius: 4; -fx-cursor: hand; -fx-font-size: 12px;");
+
+            UiUtils.applyHoverElevation(catNewBtn);
+            UiUtils.applyPressFeedback(catNewBtn);
+            UiUtils.applyHoverElevation(catDelBtn);
+            UiUtils.applyPressFeedback(catDelBtn);
+
+            catNewBtn.setOnAction(e -> crudManager.openCategoryForm(null, catalogsPane.getScene().getWindow(), loadCategories));
+            catDelBtn.setOnAction(e -> {
+                Category sel = categoriesTable.getSelectionModel().getSelectedItem();
+                if (sel != null) {
+                    Alert confirm = new Alert(Alert.AlertType.CONFIRMATION, "Tem a certeza que deseja eliminar a categoria \"" + sel.getName() + "\"?", ButtonType.YES, ButtonType.NO);
+                    confirm.setHeaderText(null);
+                    confirm.showAndWait().ifPresent(res -> {
+                        if (res == ButtonType.YES) {
+                            try {
+                                applicationContext.getBean(com.sgv.service.CategoryService.class).deleteById(sel.getId());
+                                loadCategories.run();
+                            } catch (Exception ex) {
+                                Alert err = new Alert(Alert.AlertType.ERROR, "Erro ao eliminar categoria: " + ex.getMessage());
+                                err.setHeaderText(null);
+                                err.showAndWait();
+                            }
+                        }
+                    });
+                } else {
+                    Alert a = new Alert(Alert.AlertType.WARNING, "Selecione uma categoria na lista.");
+                    a.setHeaderText(null);
+                    a.showAndWait();
+                }
+            });
+
+            catHeader.getChildren().addAll(leftTitle, catSpacer, searchCatField, catNewBtn, catDelBtn);
             
             Runnable doSearchCat = () -> {
                 String q = searchCatField.getText() == null ? "" : searchCatField.getText().trim().toLowerCase();
@@ -1736,12 +1770,15 @@ public class DashboardNavigationManager {
                 catIdCol.setPrefWidth(60);
                 catIdCol.setCellValueFactory(d -> new SimpleStringProperty(d.getValue().getId() != null ? String.valueOf(d.getValue().getId()) : "—"));
 
-                TableColumn<Category, String> catNomeCol = new TableColumn<>("Nome");
-                catNomeCol.setPrefWidth(260);
+                TableColumn<Category, String> catNomeCol = new TableColumn<>("Nome da Família / Categoria");
+                catNomeCol.setPrefWidth(280);
                 catNomeCol.setCellValueFactory(d -> new SimpleStringProperty(d.getValue().getName() != null ? d.getValue().getName() : "—"));
 
                 categoriesTable.getColumns().addAll(List.of(catIdCol, catNomeCol));
-                categoriesTable.setRowFactory(makeTableRowFactory());
+                categoriesTable.setRowFactory(makeTableRowFactory(() -> {
+                    Category sel = categoriesTable.getSelectionModel().getSelectedItem();
+                    if (sel != null) showCategoryDetails(sel, catalogsPane.getScene().getWindow());
+                }));
             }
 
             if (categoriesTable != null) {
@@ -1751,22 +1788,56 @@ public class DashboardNavigationManager {
                 leftPane.getChildren().add(catHeader);
             }
 
+            // ─── PAINEL DIREITO: UNIDADES DE MEDIDA ───────────────────
             VBox rightPane = new VBox(0);
-            rightPane.setStyle("-fx-background-color: #ffffff; -fx-border-color: #E2E8F0; -fx-border-width: 1; -fx-border-radius: 3;");
+            rightPane.setStyle("-fx-background-color: #ffffff; -fx-border-color: #E2E8F0; -fx-border-width: 1; -fx-border-radius: 6;");
 
             HBox unitHeader = new HBox(8);
             unitHeader.setStyle("-fx-padding: 10 12; -fx-background-color: #F8FAFC; -fx-border-color: #E2E8F0; -fx-border-width: 0 0 1 0;");
             unitHeader.setAlignment(Pos.CENTER_LEFT);
-            Label rightTitle = new Label("Unidades Métricas");
+            Label rightTitle = new Label("Unidades Métricas / SAF-T");
             rightTitle.setStyle("-fx-font-size: 13px; -fx-font-weight: 700; -fx-text-fill: #0F172A;");
             Region unitSpacer = new Region();
             HBox.setHgrow(unitSpacer, Priority.ALWAYS);
             TextField searchUnitField = new TextField();
             searchUnitField.setPromptText("Pesquisar...");
-            searchUnitField.setStyle("-fx-font-size: 12px; -fx-padding: 4 8; -fx-background-radius: 4; -fx-border-color: #E2E8F0; -fx-border-radius: 4; -fx-min-width: 120;");
+            searchUnitField.setStyle("-fx-font-size: 12px; -fx-padding: 6 10; -fx-background-radius: 4; -fx-border-color: #E2E8F0; -fx-border-radius: 4; -fx-min-width: 120;");
             Button unitNewBtn = new Button("+ Nova");
-            unitNewBtn.setStyle("-fx-background-color: #7C3AED; -fx-text-fill: #ffffff; -fx-font-weight: 700; -fx-padding: 6 12; -fx-background-radius: 3; -fx-cursor: hand; -fx-font-size: 12px;");
-            unitHeader.getChildren().addAll(rightTitle, unitSpacer, searchUnitField, unitNewBtn);
+            unitNewBtn.setStyle("-fx-background-color: #7C3AED; -fx-text-fill: #ffffff; -fx-font-weight: 700; -fx-padding: 6 12; -fx-background-radius: 4; -fx-cursor: hand; -fx-font-size: 12px;");
+            Button unitDelBtn = new Button("Eliminar");
+            unitDelBtn.setStyle("-fx-background-color: #EF4444; -fx-text-fill: #ffffff; -fx-font-weight: 700; -fx-padding: 6 12; -fx-background-radius: 4; -fx-cursor: hand; -fx-font-size: 12px;");
+
+            UiUtils.applyHoverElevation(unitNewBtn);
+            UiUtils.applyPressFeedback(unitNewBtn);
+            UiUtils.applyHoverElevation(unitDelBtn);
+            UiUtils.applyPressFeedback(unitDelBtn);
+
+            unitNewBtn.setOnAction(e -> crudManager.openMetricUnitForm(null, catalogsPane.getScene().getWindow(), loadMetricUnits));
+            unitDelBtn.setOnAction(e -> {
+                MetricUnit sel = unitsTable.getSelectionModel().getSelectedItem();
+                if (sel != null) {
+                    Alert confirm = new Alert(Alert.AlertType.CONFIRMATION, "Tem a certeza que deseja eliminar a unidade \"" + sel.getAbbreviation() + "\"?", ButtonType.YES, ButtonType.NO);
+                    confirm.setHeaderText(null);
+                    confirm.showAndWait().ifPresent(res -> {
+                        if (res == ButtonType.YES) {
+                            try {
+                                applicationContext.getBean(com.sgv.service.MetricUnitService.class).deleteUnit(sel.getId());
+                                loadMetricUnits.run();
+                            } catch (Exception ex) {
+                                Alert err = new Alert(Alert.AlertType.ERROR, "Erro ao eliminar unidade: " + ex.getMessage());
+                                err.setHeaderText(null);
+                                err.showAndWait();
+                            }
+                        }
+                    });
+                } else {
+                    Alert a = new Alert(Alert.AlertType.WARNING, "Selecione uma unidade na lista.");
+                    a.setHeaderText(null);
+                    a.showAndWait();
+                }
+            });
+
+            unitHeader.getChildren().addAll(rightTitle, unitSpacer, searchUnitField, unitNewBtn, unitDelBtn);
             
             Runnable doSearchUnit = () -> {
                 String q = searchUnitField.getText() == null ? "" : searchUnitField.getText().trim().toLowerCase();
@@ -1792,7 +1863,10 @@ public class DashboardNavigationManager {
                 uDescCol.setCellValueFactory(d -> new SimpleStringProperty(d.getValue().getDescription() != null ? d.getValue().getDescription() : "—"));
 
                 unitsTable.getColumns().addAll(List.of(uAbbrCol, uDescCol));
-                unitsTable.setRowFactory(makeTableRowFactory());
+                unitsTable.setRowFactory(makeTableRowFactory(() -> {
+                    MetricUnit sel = unitsTable.getSelectionModel().getSelectedItem();
+                    if (sel != null) showMetricUnitDetails(sel, catalogsPane.getScene().getWindow());
+                }));
             }
 
             if (unitsTable != null) {
@@ -2869,6 +2943,71 @@ public void showTurnoCaixaPane(Label pageTitleLabel, Label pageSubtitleLabel,
                 .field("Data de Vencimento", expense.getDueDate() != null ? expense.getDueDate().format(DateTimeFormatter.ofPattern("dd/MM/yyyy")) : "—")
                 .field("Data de Pagamento", expense.getPaidAt() != null ? expense.getPaidAt().format(DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm")) : "—")
                 .field("Estado Contabilístico", expense.getState() != null ? expense.getState() : "—");
+
+        dialog.show();
+    }
+
+    public void showCategoryDetails(Category category, Window owner) {
+        if (category == null) return;
+        List<Product> products = productRepository.findByCategoryId(category.getId());
+        long totalArticles = products.size();
+        long activeArticles = products.stream().filter(p -> Boolean.TRUE.equals(p.getIsActive())).count();
+
+        var dialog = DetailDialog.create(owner)
+                .title("Ficha de Categoria / Família")
+                .subtitle(category.getName())
+                .statusBadge(activeArticles > 0 ? "COM ARTIGOS" : "SEM ARTIGOS", activeArticles > 0 ? "#10B981" : "#64748B")
+                .width(680)
+                .height(520)
+                .section("Identificação da Categoria")
+                .field("ID da Categoria", String.valueOf(category.getId()))
+                .field("Nome da Família / Categoria", category.getName())
+                .field("Total de Artigos Cadastrados", String.valueOf(totalArticles))
+                .field("Artigos Activos para Venda", String.valueOf(activeArticles));
+
+        if (!products.isEmpty()) {
+            List<Map<String, String>> pRows = products.stream().limit(15).map(p -> {
+                Map<String, String> m = new LinkedHashMap<>();
+                m.put("Código", p.getCode() != null ? p.getCode() : "—");
+                m.put("Nome", p.getName() != null ? p.getName() : "—");
+                m.put("Preço Venda", p.getPriceSale() != null ? String.format("%.2f MT", p.getPriceSale()) : "—");
+                m.put("Unidade", p.getUnit() != null ? p.getUnit().getAbbreviation() : "UN");
+                m.put("Estado", Boolean.TRUE.equals(p.getIsActive()) ? "Activo" : "Inactivo");
+                return m;
+            }).toList();
+            dialog.tableSection("Artigos desta Categoria (Primeiros 15)", new String[]{"Código", "Nome", "Preço Venda", "Unidade", "Estado"}, pRows);
+        }
+
+        dialog.show();
+    }
+
+    public void showMetricUnitDetails(MetricUnit unit, Window owner) {
+        if (unit == null) return;
+        List<Product> products = productRepository.findByUnitIdOrUnitBulkId(unit.getId(), unit.getId());
+        long totalArticles = products.size();
+
+        var dialog = DetailDialog.create(owner)
+                .title("Ficha de Unidade de Medida")
+                .subtitle(unit.getAbbreviation() + " — " + (unit.getDescription() != null ? unit.getDescription() : ""))
+                .statusBadge("OFICIAL SAF-T", "#2563EB")
+                .width(680)
+                .height(520)
+                .section("Identificação da Unidade")
+                .field("Abreviação / Símbolo", unit.getAbbreviation())
+                .field("Descrição Completa", unit.getDescription() != null ? unit.getDescription() : "—")
+                .field("Artigos que utilizam esta Unidade", String.valueOf(totalArticles));
+
+        if (!products.isEmpty()) {
+            List<Map<String, String>> pRows = products.stream().limit(15).map(p -> {
+                Map<String, String> m = new LinkedHashMap<>();
+                m.put("Código", p.getCode() != null ? p.getCode() : "—");
+                m.put("Nome", p.getName() != null ? p.getName() : "—");
+                m.put("Preço Venda", p.getPriceSale() != null ? String.format("%.2f MT", p.getPriceSale()) : "—");
+                m.put("Categoria", p.getCategory() != null ? p.getCategory().getName() : "—");
+                return m;
+            }).toList();
+            dialog.tableSection("Artigos que utilizam esta Unidade (Primeiros 15)", new String[]{"Código", "Nome", "Preço Venda", "Categoria"}, pRows);
+        }
 
         dialog.show();
     }
