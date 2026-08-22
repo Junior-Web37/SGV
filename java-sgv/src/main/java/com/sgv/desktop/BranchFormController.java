@@ -36,8 +36,17 @@ public class BranchFormController extends BaseFormController {
         initCommonFields();
         UiUtils.attachSafe(saveButton, this::doSave, systemLogService, "BRANCH_SAVE");
         UiUtils.attachSafe(cancelButton, this::doCancel, systemLogService, "BRANCH_CANCEL");
+
+        UiUtils.applyHoverElevation(saveButton);
+        UiUtils.applyPressFeedback(saveButton);
+        UiUtils.applyHoverElevation(cancelButton);
+        UiUtils.applyPressFeedback(cancelButton);
+
         nameField.textProperty().addListener((obs, o, n) -> validateRealTime());
         nuitField.textProperty().addListener((obs, o, n) -> validateRealTime());
+        contactField.textProperty().addListener((obs, o, n) -> validateRealTime());
+        addressField.textProperty().addListener((obs, o, n) -> validateRealTime());
+
         javafx.application.Platform.runLater(this::validateRealTime);
     }
 
@@ -47,8 +56,13 @@ public class BranchFormController extends BaseFormController {
         boolean valid = true;
 
         String name = nameField.getText();
-        if (name == null || name.isBlank()) { errors.append("Nome é obrigatório. "); valid = false; }
-        else if (name.trim().length() < 3) { errors.append("Nome muito curto (mín. 3 caracteres). "); valid = false; }
+        if (name == null || name.isBlank()) {
+            errors.append("Nome é obrigatório. ");
+            valid = false;
+        } else if (name.trim().length() < 3) {
+            errors.append("Nome muito curto (mín. 3 caracteres). ");
+            valid = false;
+        }
 
         if (nuitField.getText() != null && !nuitField.getText().isBlank()) {
             String digits = nuitField.getText().replaceAll("\\D", "");
@@ -56,14 +70,18 @@ public class BranchFormController extends BaseFormController {
                 errors.append("NUIT deve ter 9 dígitos. ");
                 valid = false;
             } else if (!NuitValidator.isValid(digits)) {
-                errors.append("NUIT inválido — dígito de controlo incorrecto. ");
+                errors.append("NUIT inválido — dígito de controlo incorrecto (Módulo 11). ");
                 valid = false;
             }
         }
 
         formValidProperty.set(valid);
-        if (!valid) { showError(errors.length() > 0 ? errors.toString().trim() : "Preencha todos os campos obrigatórios."); return; }
-        else hideError();
+        if (!valid) {
+            showError(errors.length() > 0 ? errors.toString().trim() : "Preencha todos os campos obrigatórios.");
+            return;
+        } else {
+            hideError();
+        }
 
         if (name != null && !name.isBlank()) {
             String trimmedName = name.trim();
@@ -77,12 +95,14 @@ public class BranchFormController extends BaseFormController {
                 }
             };
             duplicateCheckTask.setOnSucceeded(e -> {
-                if (duplicateCheckTask.getValue()) {
+                if (Boolean.TRUE.equals(duplicateCheckTask.getValue())) {
                     formValidProperty.set(false);
-                    showError("Nome de filial já existe.");
+                    showError("Nome de filial '" + trimmedName + "' já existe.");
                 }
             });
-            new Thread(duplicateCheckTask).start();
+            Thread dupThread = new Thread(duplicateCheckTask);
+            dupThread.setDaemon(true);
+            dupThread.start();
         }
     }
 
@@ -117,9 +137,9 @@ public class BranchFormController extends BaseFormController {
                         .filter(b -> branch == null || branch.getId() == null || !branch.getId().equals(b.getId()))
                         .ifPresent(b -> { throw new RuntimeException("Nome de filial '" + trimmedName + "' já existe."); });
                 branch.setName(trimmedName);
-                branch.setNuit(nuitField.getText());
-                branch.setAddress(addressField.getText());
-                branch.setContact(contactField.getText());
+                branch.setNuit(nuitField.getText() != null ? nuitField.getText().trim() : null);
+                branch.setAddress(addressField.getText() != null ? addressField.getText().trim() : null);
+                branch.setContact(contactField.getText() != null ? contactField.getText().trim() : null);
                 branch.setHead(isHeadCheckbox.isSelected());
                 branch.setSoftwareCertNumber(softwareCertField.getText() != null ? softwareCertField.getText().trim() : "");
                 branch.setLicenseNumber(licenseField.getText() != null ? licenseField.getText().trim() : "");
@@ -127,14 +147,20 @@ public class BranchFormController extends BaseFormController {
                 return null;
             }
         };
-        saveTask.setOnSucceeded(e -> { systemLogService.logUserAction(currentUser != null ? currentUser.getUsername() : "Sistema", "FILIAL_GRAVADA", "Filial gravada com sucesso: " + nameField.getText()); if (onSave != null) onSave.run(); doCancel(); });
+        saveTask.setOnSucceeded(e -> {
+            systemLogService.logUserAction(currentUser != null ? currentUser.getUsername() : "Sistema", "FILIAL_GRAVADA", "Filial gravada com sucesso: " + nameField.getText());
+            if (onSave != null) onSave.run();
+            doCancel();
+        });
         saveTask.setOnFailed(e -> {
             Throwable ex = saveTask.getException();
-            String msg = ex.getMessage() != null ? ex.getMessage() : "Erro desconhecido";
+            String msg = ex != null && ex.getMessage() != null ? ex.getMessage() : "Erro desconhecido";
             systemLogService.logError("BRANCH_SAVE_FAILED", "Erro ao salvar filial: " + msg, ex);
             showError("Erro ao salvar: " + msg);
             hideSaveSpinner();
         });
-        new Thread(saveTask).start();
+        Thread saveThread = new Thread(saveTask);
+        saveThread.setDaemon(true);
+        saveThread.start();
     }
 }

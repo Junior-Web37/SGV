@@ -59,6 +59,11 @@ public class UserFormController extends BaseFormController {
         UiUtils.attachSafe(saveButton, this::doSave, systemLogService, "USER_SAVE");
         UiUtils.attachSafe(cancelButton, this::doCancel, systemLogService, "USER_CANCEL");
 
+        UiUtils.applyHoverElevation(saveButton);
+        UiUtils.applyPressFeedback(saveButton);
+        UiUtils.applyHoverElevation(cancelButton);
+        UiUtils.applyPressFeedback(cancelButton);
+
         setupRealTimeValidation();
     }
 
@@ -86,7 +91,7 @@ public class UserFormController extends BaseFormController {
             errors.append("Username muito curto (mín. 4 caracteres). ");
             valid = false;
         } else if (!username.matches("\\w+")) {
-            errors.append("Username só pode ter letras e números. ");
+            errors.append("Username só pode conter letras e números. ");
             valid = false;
         }
 
@@ -166,12 +171,14 @@ public class UserFormController extends BaseFormController {
                 }
             };
             duplicateCheckTask.setOnSucceeded(e -> {
-                if (duplicateCheckTask.getValue()) {
+                if (Boolean.TRUE.equals(duplicateCheckTask.getValue())) {
                     formValidProperty.set(false);
-                    showError("Username já existe.");
+                    showError("Nome de utilizador '" + trimmedUsername + "' já existe.");
                 }
             });
-            new Thread(duplicateCheckTask).start();
+            Thread dupThread = new Thread(duplicateCheckTask);
+            dupThread.setDaemon(true);
+            dupThread.start();
         }
     }
 
@@ -257,7 +264,8 @@ public class UserFormController extends BaseFormController {
             }
         };
 
-        saveTask.setOnSucceeded(e -> { systemLogService.logUserAction(currentUser != null ? currentUser.getUsername() : "Sistema", "UTILIZADOR_GRAVADO", "Utilizador gravado com sucesso: " + usernameField.getText());
+        saveTask.setOnSucceeded(e -> {
+            systemLogService.logUserAction(currentUser != null ? currentUser.getUsername() : "Sistema", "UTILIZADOR_GRAVADO", "Utilizador gravado com sucesso: " + usernameField.getText());
             if (onSave != null) onSave.run();
             Stage stage = (Stage) saveButton.getScene().getWindow();
             stage.close();
@@ -270,7 +278,9 @@ public class UserFormController extends BaseFormController {
             hideSaveSpinner();
         });
 
-        new Thread(saveTask).start();
+        Thread saveThread = new Thread(saveTask);
+        saveThread.setDaemon(true);
+        saveThread.start();
     }
 
     private double parseDoubleSafe(String text) {
