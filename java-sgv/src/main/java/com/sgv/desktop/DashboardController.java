@@ -397,7 +397,6 @@ public class DashboardController {
 
         if (notificationBellButton != null) notificationBellButton.setOnAction(e -> kpiManager.showNotificationPopup(notificationBellButton));
 
-        navManager.loadReportsPane(reportsPane);
         showSummaryPane();
     }
 
@@ -553,13 +552,10 @@ public class DashboardController {
     public void setUser(User user) {
         this.currentUser = user;
         loadProfile();
-        loadStats();
-        loadSales();
-        loadProducts();
-        loadCustomers();
         setupFilterPanels();
         applyPermissions();
         updateTrainingBanner();
+        loadStats();
         systemLogService.logSystem("DASHBOARD_LOADED", "Painel carregado para o utilizador: " + (user != null ? user.getUsername() : "?"));
     }
 

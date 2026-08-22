@@ -18,6 +18,28 @@ public interface SaleRepository extends JpaRepository<Sale, Long> {
     @Query("SELECT DISTINCT s FROM Sale s LEFT JOIN FETCH s.customer LEFT JOIN FETCH s.items ORDER BY s.createdAt DESC")
     List<Sale> findAllWithCustomerAndItems();
 
+    @Query("SELECT s FROM Sale s LEFT JOIN FETCH s.customer LEFT JOIN FETCH s.branch WHERE "
+            + "(:branchId IS NULL OR s.branch.id = :branchId) AND "
+            + "(:state IS NULL OR :state = 'TODOS' OR s.state = :state) AND "
+            + "(:docType IS NULL OR :docType = 'TODOS' OR s.documentType = :docType) AND "
+            + "(:startDate IS NULL OR s.createdAt >= :startDate) AND "
+            + "(:endDate IS NULL OR s.createdAt <= :endDate) AND "
+            + "(:search IS NULL OR :search = '' OR "
+            + " LOWER(COALESCE(s.customerName, '')) LIKE LOWER(CONCAT('%', :search, '%')) OR "
+            + " LOWER(COALESCE(s.customerNuit, '')) LIKE LOWER(CONCAT('%', :search, '%')) OR "
+            + " LOWER(COALESCE(s.series, '')) LIKE LOWER(CONCAT('%', :search, '%')) OR "
+            + " LOWER(COALESCE(s.documentType, '')) LIKE LOWER(CONCAT('%', :search, '%')) OR "
+            + " CAST(s.documentNumber AS string) LIKE CONCAT('%', :search, '%') OR "
+            + " (s.customer IS NOT NULL AND LOWER(s.customer.name) LIKE LOWER(CONCAT('%', :search, '%')))) "
+            + "ORDER BY s.createdAt DESC")
+    List<Sale> searchForList(@Param("search") String search,
+                             @Param("state") String state,
+                             @Param("docType") String docType,
+                             @Param("startDate") LocalDateTime startDate,
+                             @Param("endDate") LocalDateTime endDate,
+                             @Param("branchId") Long branchId,
+                             Pageable pageable);
+
     @Query("select max(s.documentNumber) from Sale s where s.series = :series and s.documentType = :documentType and s.branch.id = :branchId and s.documentYear = :year")
     Long findMaxDocumentNumberBySeriesAndDocumentTypeAndBranchIdAndYear(
             @Param("series") String series,

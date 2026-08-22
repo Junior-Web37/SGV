@@ -30,6 +30,7 @@ import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.function.Consumer;
 
 @Component
@@ -64,6 +65,7 @@ public class DashboardNavigationManager {
 
     private TableView<Product> productsTable;
     private HBox productsStatsCardsBox;
+    private final Map<Long, BigDecimal> productStockById = new HashMap<>();
     private TableView<Sale> salesTable;
     private TableView<Customer> customersTable;
     private TableView<Category> categoriesTable;
@@ -2175,6 +2177,7 @@ public void showTurnoCaixaPane(Label pageTitleLabel, Label pageSubtitleLabel,
 
         Runnable loadProductsAndStats = () -> {
             loadProducts.run();
+            refreshProductStockCache(currentUser);
             if (productsStatsCardsBox != null) {
                 loadProductStats(productsStatsCardsBox, currentUser);
             }
@@ -2182,6 +2185,7 @@ public void showTurnoCaixaPane(Label pageTitleLabel, Label pageSubtitleLabel,
 
         Consumer<String> onSearchAndStats = filter -> {
             if (onSearch != null) onSearch.accept(filter);
+            refreshProductStockCache(currentUser);
             if (productsStatsCardsBox != null) {
                 loadProductStats(productsStatsCardsBox, currentUser);
             }
@@ -2414,41 +2418,34 @@ public void showTurnoCaixaPane(Label pageTitleLabel, Label pageSubtitleLabel,
         return "📦";
     }
 
+    private void refreshProductStockCache(User currentUser) {
+        productStockById.clear();
+        if (currentUser == null || currentUser.getBranch() == null || currentUser.getBranch().getId() == null) return;
+        if (productsTable == null || productsTable.getItems() == null || productsTable.getItems().isEmpty()) return;
+        List<Long> ids = productsTable.getItems().stream()
+                .map(Product::getId)
+                .filter(Objects::nonNull)
+                .toList();
+        if (ids.isEmpty()) return;
+        for (StockBranch sb : stockBranchService.loadStockForBranchAndProducts(currentUser.getBranch().getId(), ids)) {
+            if (sb.getProduct() != null && sb.getProduct().getId() != null) {
+                productStockById.put(sb.getProduct().getId(),
+                        sb.getStockCurrentAmount() != null ? sb.getStockCurrentAmount() : BigDecimal.ZERO);
+            }
+        }
+        productsTable.refresh();
+    }
+
     public void loadProductStats(HBox cardsBox, User currentUser) {
         if (cardsBox == null || cardsBox.getChildren().size() < 4) return;
         try {
             long total = productRepository.count();
-
-            double avgPrice = 0;
-            try {
-                List<Product> all = productRepository.findAll();
-                avgPrice = all.stream()
-                    .filter(p -> p.getPriceSale() != null && p.getPriceSale() > 0)
-                    .mapToDouble(Product::getPriceSale)
-                    .average().orElse(0);
-            } catch (Exception ex) { log.error("Erro ao calcular KPIs: " + ex.getMessage()); }
-
-            long lowStock = 0;
-            double totalValue = 0;
-            try {
-                List<Product> all = productRepository.findAll();
-                for (Product p : all) {
-                    if (currentUser != null && currentUser.getBranch() != null && p.getId() != null) {
-                        var sb = stockBranchService.findByProductIdAndBranchId(p.getId(), currentUser.getBranch().getId()).orElse(null);
-                        if (sb != null) {
-                            BigDecimal stock = sb.getStockCurrentAmount() != null ? sb.getStockCurrentAmount() : BigDecimal.ZERO;
-                            BigDecimal min = sb.getStockMinAmount() != null ? sb.getStockMinAmount() : BigDecimal.ZERO;
-                            if (stock.compareTo(BigDecimal.ZERO) > 0 && stock.compareTo(min) <= 0) lowStock++;
-                            if (p.getPriceSale() != null) totalValue += stock.doubleValue() * p.getPriceSale();
-                        }
-                    }
-                }
-            } catch (Exception ex) { log.error("Erro ao calcular stock/valor: " + ex.getMessage()); }
-
+            Long branchId = currentUser != null && currentUser.getBranch() != null ? currentUser.getBranch().getId() : null;
+            long lowStock = applicationContext.getBean(StockBranchRepository.class).countLowStockByBranch(branchId);
             setKpiCardValue(cardsBox, 0, String.valueOf(total));
-            setKpiCardValue(cardsBox, 1, String.format("%.0f MT", avgPrice));
+            setKpiCardValue(cardsBox, 1, "—");
             setKpiCardValue(cardsBox, 2, String.valueOf(lowStock));
-            setKpiCardValue(cardsBox, 3, String.format("%.0f MT", totalValue));
+            setKpiCardValue(cardsBox, 3, "—");
         } catch (Exception ex) {
             log.error("Erro inesperado", ex);
         }
@@ -2774,7 +2771,7 @@ public void showTurnoCaixaPane(Label pageTitleLabel, Label pageSubtitleLabel,
             whFilter.valueProperty().addListener((o, ov, nv) -> loadTransfers.run());
             brFilter.valueProperty().addListener((o, ov, nv) -> loadTransfers.run());
             statusFilter.valueProperty().addListener((o, ov, nv) -> loadTransfers.run());
-            searchField.textProperty().addListener((o, ov, nv) -> loadTransfers.run());
+            UiUtils.setupDebounce(searchField, loadTransfers, 250);
             btnAtualizar.setOnAction(e -> loadTransfers.run());
 
             main.getChildren().addAll(kpiRow, toolbar, table);

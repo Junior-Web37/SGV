@@ -241,6 +241,7 @@ public class SaleFormController extends BaseFormController {
         if(!branchCombo.getItems().isEmpty()) branchCombo.getSelectionModel().selectFirst();
         branchCombo.valueProperty().addListener((obs, oldVal, newVal) -> {
             refreshCashSessionAvailability();
+            reloadBranchStockCache();
             refreshPopularProducts();
             refreshProductSearchResults();
         });
@@ -528,6 +529,7 @@ public class SaleFormController extends BaseFormController {
     private ObservableList<Product> allProducts = FXCollections.observableArrayList();
     private FilteredList<Product> filteredProducts;
     private final ObservableList<Product> comboDisplayList = FXCollections.observableArrayList();
+    private final Map<Long, BigDecimal> branchStockCache = new HashMap<>();
     private boolean isRefreshingProducts = false;
     private Product lastSelectedProduct = null;
     private volatile boolean enterProcessingGuard = false;
@@ -535,6 +537,7 @@ public class SaleFormController extends BaseFormController {
     private void setupProductSearch() {
         allProducts.setAll(productService.findAllActive());
         filteredProducts = new FilteredList<>(allProducts, p -> true);
+        reloadBranchStockCache();
         
         productSearchCombo.setItems(comboDisplayList);
 
@@ -584,17 +587,16 @@ public class SaleFormController extends BaseFormController {
             }
         });
         
-        productSearchCombo.getEditor().textProperty().addListener((obs, oldVal, newVal) -> {
+        UiUtils.setupDebounce(productSearchCombo.getEditor(), () -> {
             if (isRefreshingProducts) return;
             if (productSearchCombo.isShowing()) return;
-            String currentText = newVal != null ? newVal.trim() : "";
+            String currentText = productSearchCombo.getEditor().getText() != null
+                    ? productSearchCombo.getEditor().getText().trim() : "";
             Product selected = productSearchCombo.getSelectionModel().getSelectedItem();
             if (selected != null && productDisplayText(selected).equals(currentText)) {
                 return;
             }
             if (selected != null && !productDisplayText(selected).equals(currentText)) {
-                // Only clear selection if this is a user-typed change (short text),
-                // NOT a ComboBox-internal reformat (long display text).
                 if (currentText.length() < 60) {
                     productSearchCombo.getSelectionModel().clearSelection();
                 } else {
@@ -605,7 +607,7 @@ public class SaleFormController extends BaseFormController {
             if (!productSearchCombo.isShowing() && productSearchCombo.isFocused()) {
                 productSearchCombo.show();
             }
-        });
+        }, 180);
 
         productSearchCombo.getEditor().addEventFilter(KeyEvent.KEY_PRESSED, e -> {
             if (e.getCode() == KeyCode.ENTER) {
@@ -817,18 +819,36 @@ public class SaleFormController extends BaseFormController {
         return isProductAvailableInBranch(p, branch);
     }
 
+    private void reloadBranchStockCache() {
+        branchStockCache.clear();
+        Branch branch = branchCombo != null ? branchCombo.getValue() : null;
+        if (branch == null || branch.getId() == null || allProducts.isEmpty()) return;
+        List<Long> ids = allProducts.stream().map(Product::getId).filter(Objects::nonNull).toList();
+        if (ids.isEmpty()) return;
+        for (StockBranch sb : stockBranchService.loadStockForBranchAndProducts(branch.getId(), ids)) {
+            if (sb.getProduct() != null && sb.getProduct().getId() != null) {
+                branchStockCache.put(sb.getProduct().getId(),
+                        sb.getStockCurrentAmount() != null ? sb.getStockCurrentAmount() : BigDecimal.ZERO);
+            }
+        }
+    }
+
+    private BigDecimal cachedStock(Product p) {
+        if (p == null || p.getId() == null) return BigDecimal.ZERO;
+        return branchStockCache.getOrDefault(p.getId(), BigDecimal.ZERO);
+    }
+
     private boolean isProductAvailableInBranch(Product p, Branch branch) {
         if (branch == null || p == null) return true;
         if (Boolean.TRUE.equals(p.getService())) return true;
-        Optional<StockBranch> stock = getStockForBranch(p, branch);
-        return stock.map(sb -> sb.getStockCurrentAmount() != null && sb.getStockCurrentAmount().compareTo(BigDecimal.ZERO) > 0).orElse(false);
+        return cachedStock(p).compareTo(BigDecimal.ZERO) > 0;
     }
 
     private Optional<StockBranch> getStockForBranch(Product p, Branch branch) {
         if (p == null || p.getId() == null || branch == null || branch.getId() == null) {
             return Optional.empty();
         }
-        java.math.BigDecimal current = stockBranchService.getCurrentStock(branch, p);
+        BigDecimal current = cachedStock(p);
         if (current.compareTo(BigDecimal.ZERO) <= 0) {
             return Optional.empty();
         }
@@ -907,8 +927,30 @@ public class SaleFormController extends BaseFormController {
         LocalDateTime to = LocalDateTime.now();
         Branch branch = branchCombo != null ? branchCombo.getValue() : null;
 
-        List<SaleItem> items = saleItemRepository.findBySaleDateRange(from, to);
         productPopularity.clear();
+        if (true) {
+            Long branchId = branch != null ? branch.getId() : null;
+            try {
+                List<Object[]> rows = saleItemRepository.findTopSellingProductsToday(
+                        from, to, branchId, org.springframework.data.domain.PageRequest.of(0, 80));
+                Map<String, Product> byCode = allProducts.stream()
+                        .filter(p -> p.getCode() != null)
+                        .collect(Collectors.toMap(Product::getCode, p -> p, (a, b) -> a));
+                for (Object[] row : rows) {
+                    if (row == null || row.length < 3) continue;
+                    String code = row[0] != null ? row[0].toString() : null;
+                    Number qty = row[2] instanceof Number n ? n : null;
+                    Product p = code != null ? byCode.get(code) : null;
+                    if (p != null && p.getId() != null && qty != null) {
+                        productPopularity.merge(p.getId(), qty.doubleValue(), Double::sum);
+                    }
+                }
+            } catch (Exception ex) {
+                log.debug("Popularidade de produtos ignorada: {}", ex.getMessage());
+            }
+            return;
+        }
+        List<SaleItem> items = saleItemRepository.findBySaleDateRange(from, to);
         for (SaleItem item : items) {
             if (item.getProduct() == null || item.getProduct().getId() == null) continue;
             if (item.getSale() == null) continue;

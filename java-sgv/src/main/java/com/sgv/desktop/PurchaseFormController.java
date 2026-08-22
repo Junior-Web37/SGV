@@ -184,10 +184,10 @@ public class PurchaseFormController extends BaseFormController {
             }
         });
 
-        productCombo.getEditor().textProperty().addListener((obs, oldVal, newVal) -> {
+        UiUtils.setupDebounce(productCombo.getEditor(), () -> {
             if (isRefreshingProducts) return;
             if (productCombo.isShowing()) return;
-            String currentText = newVal != null ? newVal.trim() : "";
+            String currentText = productCombo.getEditor().getText() != null ? productCombo.getEditor().getText().trim() : "";
             Product selected = productCombo.getSelectionModel().getSelectedItem();
             if (selected != null && productDisplayText(selected).equals(currentText)) {
                 return;
@@ -201,7 +201,7 @@ public class PurchaseFormController extends BaseFormController {
             }
             refreshProductSearchResults();
             if (!productCombo.isShowing() && productCombo.isFocused()) productCombo.show();
-        });
+        }, 180);
 
         productCombo.getEditor().setOnKeyPressed(e -> {
             if (e.getCode() == KeyCode.ENTER) {

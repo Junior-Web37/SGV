@@ -137,42 +137,12 @@ public class DashboardCrudManager {
         if (salesTable == null) return;
         Long branchId = currentUser != null && !currentUser.isSuperAdmin() && currentUser.getBranch() != null
                 ? currentUser.getBranch().getId() : null;
-
-        List<Sale> allSales = saleRepository.findAllWithCustomerAndItems();
-        List<Sale> filtered = allSales.stream()
-                .filter(s -> {
-                    if (branchId == null) return true;
-                    return s.getBranch() != null && branchId.equals(s.getBranch().getId());
-                })
-                .filter(s -> {
-                    if (filter == null || filter.isBlank()) return true;
-                    String term = filter.toLowerCase();
-                    if (s.getDocumentNumber() != null && s.getDocumentNumber().toString().contains(term)) return true;
-                    if (s.getSeries() != null && s.getSeries().toLowerCase().contains(term)) return true;
-                    if (s.getDocumentType() != null && s.getDocumentType().toLowerCase().contains(term)) return true;
-                    if (s.getCustomer() != null && s.getCustomer().getName() != null && s.getCustomer().getName().toLowerCase().contains(term)) return true;
-                    if (s.getCustomerName() != null && s.getCustomerName().toLowerCase().contains(term)) return true;
-                    if (s.getCustomerNuit() != null && s.getCustomerNuit().toLowerCase().contains(term)) return true;
-                    return false;
-                })
-                .filter(s -> {
-                    if (stateFilter == null || "TODOS".equals(stateFilter)) return true;
-                    return stateFilter.equals(s.getState());
-                })
-                .filter(s -> {
-                    if (docTypeFilter == null || "TODOS".equals(docTypeFilter)) return true;
-                    return docTypeFilter.equals(s.getDocumentType());
-                })
-                .filter(s -> {
-                    if (startDate == null && endDate == null) return true;
-                    LocalDateTime dt = s.getCreatedAt();
-                    if (dt == null) return false;
-                    if (startDate != null && dt.isBefore(startDate)) return false;
-                    if (endDate != null && dt.isAfter(endDate)) return false;
-                    return true;
-                })
-                .sorted(Comparator.comparing(Sale::getCreatedAt, Comparator.nullsLast(Comparator.reverseOrder())))
-                .toList();
+        String search = filter != null ? filter.trim() : "";
+        String state = stateFilter != null && !stateFilter.isBlank() ? stateFilter : "TODOS";
+        String docType = docTypeFilter != null && !docTypeFilter.isBlank() ? docTypeFilter : "TODOS";
+        Pageable limit = PageRequest.of(0, 200);
+        List<Sale> filtered = saleRepository.searchForList(
+                search.isEmpty() ? null : search, state, docType, startDate, endDate, branchId, limit);
         salesTable.setItems(FXCollections.observableArrayList(filtered));
     }
 

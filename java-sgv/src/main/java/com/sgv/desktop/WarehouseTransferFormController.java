@@ -197,10 +197,10 @@ public class WarehouseTransferFormController extends BaseFormController {
         });
 
         // Pesquisa em memória ultra-rápida (sem bloquear a UI)
-        productCombo.getEditor().textProperty().addListener((obs, oldV, newV) -> {
+        UiUtils.setupDebounce(productCombo.getEditor(), () -> {
             if (isRefreshing) return;
-            filterProductsInMemory(newV);
-        });
+            filterProductsInMemory(productCombo.getEditor().getText());
+        }, 150);
     }
 
     private void filterProductsInMemory(String text) {
