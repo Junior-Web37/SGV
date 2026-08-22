@@ -72,10 +72,10 @@ public class DashboardService {
     public List<StockBranch> getLowStock(Long branchId) {
         List<StockBranch> all = stockBranchService.findAll();
         return all.stream()
+            .filter(sb -> sb.getProduct() == null || !Boolean.TRUE.equals(sb.getProduct().getService()))
             .filter(sb -> {
                 BigDecimal current = sb.getStockCurrentAmount() != null ? sb.getStockCurrentAmount() : BigDecimal.ZERO;
                 BigDecimal min = sb.getStockMinAmount() != null ? sb.getStockMinAmount() : BigDecimal.ZERO;
-                // Stock zero = completely out of stock; stock <= min = below reorder point
                 return current.compareTo(min) <= 0;
             })
             .collect(Collectors.toList());

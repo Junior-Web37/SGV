@@ -100,10 +100,11 @@ public class DashboardKpiManager {
         }
 
         // 2. Artigos em Falta / Rutura
-        long lowStockCount = stockBranchRepository.countLowStockByBranch(effectiveBranchId);
-        long zeroStockCount = stockBranchRepository.countZeroStockByBranch(effectiveBranchId);
+        List<StockBranchService.StockAlert> stockAlerts = stockBranchService.listStockAlerts(effectiveBranchId);
+        long zeroStockCount = stockAlerts.stream().filter(a -> "ESGOTADO".equals(a.kind()) || "SEM_FICHA".equals(a.kind())).count();
+        long lowStockCount = stockAlerts.size();
         if (productsLabel != null) {
-            productsLabel.setText(String.format("%d artigos (%d esgotados)", lowStockCount + zeroStockCount, zeroStockCount));
+            productsLabel.setText(String.format("%d artigos (%d esgotados)", lowStockCount, zeroStockCount));
             productsLabel.setStyle(zeroStockCount > 0 ? "-fx-text-fill: #EF4444; -fx-font-weight: 800;" : "-fx-text-fill: #0F172A; -fx-font-weight: 800;");
         }
 
@@ -231,9 +232,7 @@ public class DashboardKpiManager {
     }
 
     public void checkAlerts(Label notificationBadge) {
-        long low = stockBranchRepository.countLowStockByBranch(null);
-        long zero = stockBranchRepository.countZeroStockByBranch(null);
-        long totalAlerts = low + zero;
+        long totalAlerts = stockBranchService.listStockAlerts(null).size();
 
         if (notificationBadge != null) {
             notificationBadge.setText(String.valueOf(totalAlerts));
@@ -276,29 +275,25 @@ public class DashboardKpiManager {
 
     public void showNotificationPopup(Button notificationBellButton) {
         if (notificationBellButton == null) return;
-        List<StockBranch> lowStocks = stockBranchRepository.findAll().stream()
-                .filter(sb -> {
-                    BigDecimal cur = sb.getStockCurrentAmount() != null ? sb.getStockCurrentAmount() : BigDecimal.ZERO;
-                    BigDecimal min = sb.getStockMinAmount() != null ? sb.getStockMinAmount() : BigDecimal.ZERO;
-                    return cur.compareTo(min) <= 0;
-                })
-                .limit(10)
-                .toList();
+        List<StockBranchService.StockAlert> alerts = stockBranchService.listStockAlerts(null);
 
         ContextMenu menu = new ContextMenu();
-        if (lowStocks.isEmpty()) {
-            MenuItem item = new MenuItem("✅ Todos os artigos possuem stock regular");
+        if (alerts.isEmpty()) {
+            MenuItem item = new MenuItem("✅ Todos os artigos físicos possuem stock regular");
             item.setDisable(true);
             menu.getItems().add(item);
         } else {
-            MenuItem header = new MenuItem(String.format("⚠️ Alertas de Reposição (%d artigos):", lowStocks.size()));
+            MenuItem header = new MenuItem(String.format("⚠️ Alertas de Reposição (%d artigos):", alerts.size()));
             header.setStyle("-fx-font-weight: 800; -fx-text-fill: #EF4444;");
             menu.getItems().add(header);
-            for (StockBranch sb : lowStocks) {
-                String prodName = sb.getProduct() != null ? sb.getProduct().getName() : "Artigo";
-                BigDecimal cur = sb.getStockCurrentAmount() != null ? sb.getStockCurrentAmount() : BigDecimal.ZERO;
-                MenuItem item = new MenuItem(String.format("• %s — Stock actual: %.1f", prodName, cur.doubleValue()));
-                menu.getItems().add(item);
+            int shown = 0;
+            for (StockBranchService.StockAlert alert : alerts) {
+                if (shown >= 25) {
+                    menu.getItems().add(new MenuItem("… +" + (alerts.size() - shown) + " artigos"));
+                    break;
+                }
+                menu.getItems().add(new MenuItem("• " + alert.label()));
+                shown++;
             }
         }
         menu.show(notificationBellButton, javafx.geometry.Side.BOTTOM, 0, 0);
@@ -357,8 +352,9 @@ public class DashboardKpiManager {
         if (grid == null) return;
         try {
             long totalArtigos = productRepository.count();
-            long baixo = stockBranchRepository.countLowStockByBranch(null);
-            long zero = stockBranchRepository.countZeroStockByBranch(null);
+            var alerts = stockBranchService.listStockAlerts(null);
+            long zero = alerts.stream().filter(a -> "ESGOTADO".equals(a.kind()) || "SEM_FICHA".equals(a.kind())).count();
+            long baixo = alerts.size() - zero;
             
             BigDecimal valorTotalStock = stockBranchRepository.findAll().stream()
                     .filter(sb -> sb.getStockCurrentAmount() != null && sb.getProduct() != null && sb.getProduct().getPriceCost() != null)
@@ -440,7 +436,9 @@ public class DashboardKpiManager {
 
             BigDecimal totalDivida = BigDecimal.ZERO;
             for (Object[] row : purchaseRepository.findOutstandingBalanceBySupplier()) {
-                BigDecimal bal = (BigDecimal) row[1];
+                if (row == null || row.length < 2 || row[1] == null) continue;
+                BigDecimal bal = row[1] instanceof BigDecimal bd ? bd
+                        : row[1] instanceof Number n ? BigDecimal.valueOf(n.doubleValue()) : null;
                 if (bal != null && bal.compareTo(BigDecimal.ZERO) > 0) {
                     totalDivida = totalDivida.add(bal);
                 }

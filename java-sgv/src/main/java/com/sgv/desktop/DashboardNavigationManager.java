@@ -651,8 +651,8 @@ public class DashboardNavigationManager {
             filterClearBtn.setOnAction(e -> {
                 filterSearch.clear();
                 filterDate.setValue(null);
-                filterDocType.setValue(null);
-                filterState.setValue(null);
+                filterDocType.setValue("Todos");
+                filterState.setValue("Todos");
                 if (onAdvancedFilterClear != null) onAdvancedFilterClear.run();
             });
 
@@ -1144,8 +1144,10 @@ public class DashboardNavigationManager {
                 }
                 Map<Long, BigDecimal> balances = new HashMap<>();
                 for (Object[] row : purchaseRepository.findOutstandingBalanceBySupplier()) {
-                    Long sid = (Long) row[0];
-                    BigDecimal bal = (BigDecimal) row[1];
+                    if (row == null || row.length < 2) continue;
+                    Long sid = row[0] instanceof Number n ? n.longValue() : null;
+                    BigDecimal bal = row[1] instanceof BigDecimal bd ? bd
+                            : row[1] instanceof Number n ? BigDecimal.valueOf(n.doubleValue()) : null;
                     if (sid != null && bal != null && bal.compareTo(BigDecimal.ZERO) != 0) {
                         balances.put(sid, bal);
                     }
@@ -2310,9 +2312,17 @@ public void showTurnoCaixaPane(Label pageTitleLabel, Label pageSubtitleLabel,
         TableColumn<Product, String> productStockColumn = new TableColumn<>("Stock");
         productStockColumn.setPrefWidth(120);
         productStockColumn.setCellValueFactory(data -> {
+            Product product = data.getValue();
+            if (product != null && Boolean.TRUE.equals(product.getService())) {
+                return new SimpleStringProperty("Serviço");
+            }
             try {
-                if (currentUser != null && currentUser.getBranch() != null && data.getValue().getId() != null) {
-                    return stockBranchService.findByProductIdAndBranchId(data.getValue().getId(), currentUser.getBranch().getId())
+                if (currentUser != null && currentUser.getBranch() != null && product != null && product.getId() != null) {
+                    BigDecimal cached = productStockById.get(product.getId());
+                    if (cached != null) {
+                        return new SimpleStringProperty(String.format("%.1f", cached));
+                    }
+                    return stockBranchService.findByProductIdAndBranchId(product.getId(), currentUser.getBranch().getId())
                         .map(sb -> new SimpleStringProperty(String.format("%.1f", sb.getStockCurrentAmount() != null ? sb.getStockCurrentAmount() : BigDecimal.ZERO)))
                         .orElse(new SimpleStringProperty("0.0"));
                 }
@@ -2326,13 +2336,17 @@ public void showTurnoCaixaPane(Label pageTitleLabel, Label pageSubtitleLabel,
                 if (empty || item == null) { setText(null); setGraphic(null); }
                 else {
                     Label lbl = new Label(item);
-                    try {
-                        double val = Double.parseDouble(item);
-                        if (val <= 0) lbl.setStyle("-fx-font-weight: 700; -fx-text-fill: #EF4444; -fx-background-color: #FEE2E2; -fx-padding: 2 6; -fx-background-radius: 4;");
-                        else if (val < 10) lbl.setStyle("-fx-font-weight: 700; -fx-text-fill: #F59E0B; -fx-background-color: #FEF3C7; -fx-padding: 2 6; -fx-background-radius: 4;");
-                        else lbl.setStyle("-fx-font-weight: 700; -fx-text-fill: #10B981;");
-                    } catch (Exception ex) {
-                        lbl.setStyle("-fx-font-weight: 700; -fx-text-fill: #475569;");
+                    if ("Serviço".equals(item)) {
+                        lbl.setStyle("-fx-font-weight: 700; -fx-text-fill: #7C3AED; -fx-font-style: italic;");
+                    } else {
+                        try {
+                            double val = Double.parseDouble(item);
+                            if (val <= 0) lbl.setStyle("-fx-font-weight: 700; -fx-text-fill: #EF4444; -fx-background-color: #FEE2E2; -fx-padding: 2 6; -fx-background-radius: 4;");
+                            else if (val < 10) lbl.setStyle("-fx-font-weight: 700; -fx-text-fill: #F59E0B; -fx-background-color: #FEF3C7; -fx-padding: 2 6; -fx-background-radius: 4;");
+                            else lbl.setStyle("-fx-font-weight: 700; -fx-text-fill: #10B981;");
+                        } catch (Exception ex) {
+                            lbl.setStyle("-fx-font-weight: 700; -fx-text-fill: #475569;");
+                        }
                     }
                     setGraphic(lbl);
                     setText(null);
@@ -2441,7 +2455,7 @@ public void showTurnoCaixaPane(Label pageTitleLabel, Label pageSubtitleLabel,
         try {
             long total = productRepository.count();
             Long branchId = currentUser != null && currentUser.getBranch() != null ? currentUser.getBranch().getId() : null;
-            long lowStock = applicationContext.getBean(StockBranchRepository.class).countLowStockByBranch(branchId);
+            long lowStock = stockBranchService.listStockAlerts(branchId).size();
             setKpiCardValue(cardsBox, 0, String.valueOf(total));
             setKpiCardValue(cardsBox, 1, "—");
             setKpiCardValue(cardsBox, 2, String.valueOf(lowStock));

@@ -1,30 +1,30 @@
-# SGV Desktop 1.0.9 — Notas de Lançamento
+# SGV Desktop 1.0.10 — Notas de Lançamento
 
 **Data:** 22 de Agosto de 2026  
-**Tag:** `v1.0.9`
+**Tag:** `v1.0.10`
 
 ## Pacote de download
 
-- **ZIP oficial:** [SGV-Desktop 1.0.9.zip](https://github.com/Junior-Web37/SGV/archive/refs/tags/v1.0.9.zip)
-- **Página da release:** https://github.com/Junior-Web37/SGV/releases/tag/v1.0.9
+- **ZIP oficial:** [SGV-Desktop 1.0.10.zip](https://github.com/Junior-Web37/SGV/archive/refs/tags/v1.0.10.zip)
+- **Página da release:** https://github.com/Junior-Web37/SGV/releases/tag/v1.0.10
 
 ## O que mudou nesta versão
 
-No arranque o JavaFX 21 escrevia avisos CSS (não eram “barulho”):
+A pesquisa em tempo real nos formulários só actualizava quando o popup estava fechado. Ao apagar o texto e escrever outro nome, a lista antiga ficava presa.
 
-1. `-fx-text-fill: linear-gradient(...)` no título do splash — só aceita cor
-2. `-fx-letter-spacing` no splash — propriedade que o JavaFX não tem
-3. `linear-gradient(to bottom right, ...)` no fundo do splash — dois sentidos inválidos
-4. `-fx-accent: linear-gradient(...)` na barra de progresso — só aceita cor
-5. O mesmo `to bottom right` no ecrã de login
-6. `-fx-text-fill: linear-gradient(...)` + `-fx-letter-spacing` no título do login
+- Venda e compra voltam a filtrar a cada letra — inclusive com o dropdown aberto
+- Apagar o texto restaura a lista completa; um nome novo substitui o anterior
+- Serviços (ex.: SRV-003) deixam de parecer «com stock»: texto roxo + «· Serviço»
+- Artigos físicos sem stock ficam pálidos + «· Sem stock»
+- O sino de notificações, o KPI e o mapa de reposição usam a mesma regra: esgotado, abaixo do mínimo ou sem ficha — serviços não entram
+- No catálogo, um serviço já não aparece como stock 0,0 (vermelho)
 
-Também corrigido: o mapa de pagamentos a fornecedores rebentava ao converter o saldo (`Double` vs `BigDecimal`).
+A venda de serviços continua sem exigir ficha de stock.
 
 ## Como actualizar
 
 1. Feche o SGV.
-2. Apague a pasta `SGV-1.0.6` / `SGV-1.0.7` / `SGV-1.0.8` (o MySQL/XAMPP fica).
+2. Apague a pasta `SGV-1.0.8` / `SGV-1.0.9` (o MySQL/XAMPP fica).
 3. Extraia este ZIP.
 4. XAMPP → MySQL **Start**.
 5. Duplo clique em `SGV-Launcher.bat`.

@@ -368,21 +368,22 @@ public class ReportsController {
         return tab;
     }
 
-    /** Builds LowStockRow items from stock_branch where stockCurrent <= stockMin */
+    /** Builds LowStockRow items: artigos físicos esgotados, abaixo do mínimo ou sem ficha. */
     private List<LowStockRow> buildLowStockRows() {
-        return stockBranchService.findAll().stream()
-                .filter(sb -> sb.getStockCurrentAmount() != null && sb.getProduct() != null
-                        && !Boolean.TRUE.equals(sb.getProduct().getService())
-                        && sb.getStockCurrentAmount().compareTo(sb.getStockMinAmount() != null ? sb.getStockMinAmount() : BigDecimal.valueOf(5)) <= 0)
-                .map(sb -> new LowStockRow(
-                        sb.getProduct().getCode(),
-                        sb.getProduct().getName(),
-                        sb.getProduct().getCategory() != null ? sb.getProduct().getCategory().getName() : "—",
-                        fmtD(sb.getStockCurrentAmount()),
-                        fmtD(sb.getStockMinAmount()),
-                        sb.getBranch() != null ? sb.getBranch().getName() : "—"
-                ))
-                .collect(Collectors.toList());
+        List<LowStockRow> rows = new ArrayList<>();
+        for (com.sgv.service.StockBranchService.StockAlert alert : stockBranchService.listStockAlerts(null)) {
+            Product p = alert.product();
+            if (p == null) continue;
+            rows.add(new LowStockRow(
+                    p.getCode(),
+                    p.getName(),
+                    p.getCategory() != null ? p.getCategory().getName() : "—",
+                    fmtD(alert.current()),
+                    fmtD(alert.min()),
+                    alert.branch() != null ? alert.branch().getName() : "—"
+            ));
+        }
+        return rows;
     }
 
     // ── TAB 3: MAIS VENDIDOS ────────────────────────────

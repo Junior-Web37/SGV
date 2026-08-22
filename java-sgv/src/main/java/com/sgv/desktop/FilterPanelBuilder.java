@@ -50,6 +50,10 @@ public class FilterPanelBuilder {
         }, null, "FILTER_PRODUCT_CLEAR"));
 
         filterRow.getChildren().addAll(searchField, categoryCombo, filterButton, clearButton);
+        UiUtils.setupDebounce(searchField, () -> onFilter.accept(new ProductFilterCriteria(
+                searchField.getText(), categoryCombo.getValue())), 220);
+        categoryCombo.valueProperty().addListener((obs, o, n) -> onFilter.accept(
+                new ProductFilterCriteria(searchField.getText(), categoryCombo.getValue())));
 
         HBox presetRow = buildPresetRow(presetService, userId, "PRODUCT", searchField, categoryCombo, null, null,
             () -> onFilter.accept(new ProductFilterCriteria(searchField.getText(), categoryCombo.getValue())));
@@ -86,6 +90,10 @@ public class FilterPanelBuilder {
         }, null, "FILTER_CUSTOMER_CLEAR"));
 
         filterRow.getChildren().addAll(searchField, typeCombo, filterButton, clearButton);
+        UiUtils.setupDebounce(searchField, () -> onFilter.accept(new CustomerFilterCriteria(
+                searchField.getText(), typeCombo.getValue())), 220);
+        typeCombo.valueProperty().addListener((obs, o, n) -> onFilter.accept(
+                new CustomerFilterCriteria(searchField.getText(), typeCombo.getValue())));
 
         HBox presetRow = buildPresetRow(presetService, userId, "CUSTOMER", searchField, typeCombo, null, null,
             () -> onFilter.accept(new CustomerFilterCriteria(searchField.getText(), typeCombo.getValue())));

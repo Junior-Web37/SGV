@@ -569,11 +569,7 @@ public class SaleFormController extends BaseFormController {
                     return;
                 }
                 setText(productDisplayText(p));
-                if (!isProductAvailableInBranch(p, branchCombo != null ? branchCombo.getValue() : null)) {
-                    setStyle("-fx-text-fill: #9ca3af; -fx-font-style: italic;");
-                } else {
-                    setStyle("");
-                }
+                applyProductRowStyle(this, p);
             }
         });
         productSearchCombo.setButtonCell(new ListCell<>() {
@@ -590,25 +586,22 @@ public class SaleFormController extends BaseFormController {
         
         UiUtils.setupDebounce(productSearchCombo.getEditor(), () -> {
             if (isRefreshingProducts) return;
-            if (productSearchCombo.isShowing()) return;
             String currentText = productSearchCombo.getEditor().getText() != null
                     ? productSearchCombo.getEditor().getText().trim() : "";
             Product selected = productSearchCombo.getSelectionModel().getSelectedItem();
             if (selected != null && productDisplayText(selected).equals(currentText)) {
                 return;
             }
-            if (selected != null && !productDisplayText(selected).equals(currentText)) {
-                if (currentText.length() < 60) {
-                    productSearchCombo.getSelectionModel().clearSelection();
-                } else {
-                    return;
-                }
+            if (selected != null) {
+                productSearchCombo.getSelectionModel().clearSelection();
+                productSearchCombo.setValue(null);
+                lastSelectedProduct = null;
             }
             refreshProductSearchResults();
-            if (!productSearchCombo.isShowing() && productSearchCombo.isFocused()) {
+            if (productSearchCombo.isFocused()) {
                 productSearchCombo.show();
             }
-        }, 180);
+        }, 140);
 
         productSearchCombo.getEditor().addEventFilter(KeyEvent.KEY_PRESSED, e -> {
             if (e.getCode() == KeyCode.ENTER) {
@@ -719,12 +712,15 @@ public class SaleFormController extends BaseFormController {
         return null;
     }
 
+    private int productSortRank(Product p) {
+        if (p == null) return 9;
+        if (Boolean.TRUE.equals(p.getService())) return 1;
+        return hasPhysicalStock(p) ? 0 : 2;
+    }
+
     private int compareProductsForSearch(Product a, Product b) {
         if (a == null || b == null) return a == b ? 0 : a == null ? 1 : -1;
-        Branch branch = branchCombo != null ? branchCombo.getValue() : null;
-        int aAvail = isProductAvailableInBranch(a, branch) ? 1 : 0;
-        int bAvail = isProductAvailableInBranch(b, branch) ? 1 : 0;
-        int cmp = Integer.compare(bAvail, aAvail);
+        int cmp = Integer.compare(productSortRank(a), productSortRank(b));
         if (cmp != 0) return cmp;
         double aScore = productPopularity.getOrDefault(a.getId(), 0.0);
         double bScore = productPopularity.getOrDefault(b.getId(), 0.0);
@@ -738,14 +734,25 @@ public class SaleFormController extends BaseFormController {
     private String productDisplayText(Product p) {
         if (p == null) return "";
         String price = p.getPriceSale() != null ? String.format("%.2f", p.getPriceSale()) : "0.00";
-        String availableText = "";
-        Branch branch = branchCombo != null ? branchCombo.getValue() : null;
-        if (!isProductAvailableInBranch(p, branch)) {
-            Optional<StockBranch> stock = getStockForBranch(p, branch);
-            BigDecimal available = stock.map(sb -> sb.getStockCurrentAmount() != null ? sb.getStockCurrentAmount() : BigDecimal.ZERO).orElse(BigDecimal.ZERO);
-            availableText = " - Fora de estoque (" + String.format("%.2f", available.doubleValue()) + ")";
+        String suffix;
+        if (Boolean.TRUE.equals(p.getService())) {
+            suffix = " · Serviço";
+        } else if (!hasPhysicalStock(p)) {
+            suffix = " · Sem stock";
+        } else {
+            suffix = " · Stock " + String.format("%.1f", cachedStock(p).doubleValue());
         }
-        return p.getCode() + " - " + p.getName() + " (" + price + " MT)" + availableText;
+        return p.getCode() + " - " + p.getName() + " (" + price + " MT)" + suffix;
+    }
+
+    private void applyProductRowStyle(ListCell<Product> cell, Product p) {
+        if (Boolean.TRUE.equals(p.getService())) {
+            cell.setStyle("-fx-text-fill: #7C3AED; -fx-font-style: italic;");
+        } else if (!hasPhysicalStock(p)) {
+            cell.setStyle("-fx-text-fill: #94A3B8; -fx-font-style: italic;");
+        } else {
+            cell.setStyle("-fx-text-fill: #0F172A; -fx-font-weight: 600;");
+        }
     }
 
     private void refreshProductSearchResults() {
@@ -754,13 +761,12 @@ public class SaleFormController extends BaseFormController {
         try {
             String search = productSearchCombo.getEditor() != null ? productSearchCombo.getEditor().getText() : null;
             Category category = productCategoryCombo != null ? productCategoryCombo.getValue() : null;
-            Branch branch = branchCombo != null ? branchCombo.getValue() : null;
 
             boolean emptySearch = search == null || search.isBlank();
             List<Long> topIds = allProducts.stream()
                     .filter(p -> categoryMatches(p, category))
-                    .sorted(Comparator.comparingInt((Product p) -> isProductAvailableInBranch(p, branch) ? 0 : 1)
-                            .thenComparingDouble((Product p) -> productPopularity.getOrDefault(p.getId(), 0.0)).reversed()
+                    .sorted(Comparator.comparingInt(this::productSortRank)
+                            .thenComparing((Product p) -> productPopularity.getOrDefault(p.getId(), 0.0), Comparator.reverseOrder())
                             .thenComparing(Product::getName, Comparator.nullsLast(String.CASE_INSENSITIVE_ORDER)))
                     .limit(POPULAR_PRODUCTS_LIMIT)
                     .map(Product::getId)
@@ -778,6 +784,8 @@ public class SaleFormController extends BaseFormController {
                     .sorted(this::compareProductsForSearch)
                     .collect(Collectors.toList());
 
+            String editorText = productSearchCombo.getEditor() != null
+                    ? productSearchCombo.getEditor().getText() : "";
             Product previousSelection = productSearchCombo.getValue();
 
             if (productSearchCombo.isShowing()) {
@@ -785,15 +793,19 @@ public class SaleFormController extends BaseFormController {
             }
             comboDisplayList.setAll(snapshot);
 
-            if (previousSelection != null) {
-                boolean stillInList = snapshot.stream()
-                        .anyMatch(p -> p.getId().equals(previousSelection.getId()));
-                if (stillInList) {
-                    productSearchCombo.getSelectionModel().select(previousSelection);
-                }
+            boolean keepSelection = previousSelection != null
+                    && editorText != null
+                    && productDisplayText(previousSelection).equals(editorText.trim())
+                    && snapshot.stream().anyMatch(p -> p.getId().equals(previousSelection.getId()));
+            if (keepSelection) {
+                productSearchCombo.getSelectionModel().select(previousSelection);
+            } else if (emptySearch) {
+                productSearchCombo.getSelectionModel().clearSelection();
+                productSearchCombo.setValue(null);
+                lastSelectedProduct = null;
             }
 
-            if (!emptySearch && !productSearchCombo.isShowing() && productSearchCombo.isFocused()) {
+            if (productSearchCombo.isFocused()) {
                 productSearchCombo.show();
             }
         } finally {
@@ -1177,9 +1189,11 @@ public class SaleFormController extends BaseFormController {
         itemsTable.refresh();
         updateTotals();
         
+        lastSelectedProduct = null;
         productSearchCombo.setValue(null);
         productSearchCombo.getEditor().clear();
         quantityField.setText("1");
+        refreshProductSearchResults();
         javafx.application.Platform.runLater(() -> productSearchCombo.requestFocus());
     }
     
@@ -1703,6 +1717,12 @@ public class SaleFormController extends BaseFormController {
                 || "RECIBO".equalsIgnoreCase(type);
         if (isFiscalSale) {
             saveButton.disableProperty().bind(formValidProperty.not().or(cashSessionValidProperty.not()));
+        } else {
+            saveButton.disableProperty().bind(formValidProperty.not());
+        }
+    }
+}
+      saveButton.disableProperty().bind(formValidProperty.not().or(cashSessionValidProperty.not()));
         } else {
             saveButton.disableProperty().bind(formValidProperty.not());
         }

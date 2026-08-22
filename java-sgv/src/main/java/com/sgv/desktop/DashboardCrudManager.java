@@ -153,24 +153,24 @@ public class DashboardCrudManager {
 
     public void loadProducts(TableView<Product> productsTable, String filter, int page) {
         if (productsTable == null) return;
+        String term = filter != null ? filter.trim() : "";
         List<Product> products;
-        if (filter != null && !filter.isEmpty()) {
-            products = productRepository.searchByCodeOrName(filter);
+        if (!term.isEmpty()) {
+            products = productRepository.searchByCodeOrName(term);
         } else {
-            Pageable pageable = PageRequest.of(page, PAGE_SIZE);
-            products = productRepository.findAll(pageable).getContent();
+            products = productRepository.findAllActive();
         }
         productsTable.setItems(FXCollections.observableArrayList(products));
     }
 
     public void loadCustomers(TableView<Customer> customersTable, String filter, int page) {
         if (customersTable == null) return;
+        String term = filter != null ? filter.trim() : "";
         List<Customer> customers;
-        if (filter != null && !filter.isEmpty()) {
-            customers = customerRepository.searchByCodeOrName(filter);
+        if (!term.isEmpty()) {
+            customers = customerRepository.searchByCodeOrName(term);
         } else {
-            Pageable pageable = PageRequest.of(page, PAGE_SIZE);
-            customers = customerRepository.findAll(pageable).getContent();
+            customers = customerRepository.findAll();
         }
         customersTable.setItems(FXCollections.observableArrayList(customers));
     }
