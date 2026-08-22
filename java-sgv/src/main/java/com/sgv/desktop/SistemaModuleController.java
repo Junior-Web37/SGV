@@ -216,6 +216,14 @@ public class SistemaModuleController {
             showAlert(Alert.AlertType.WARNING, "Nome da empresa é obrigatório.");
             return;
         }
+
+        String rawNuit = cfgCompanyNuit.getText() != null ? cfgCompanyNuit.getText().replaceAll("\\D", "") : "";
+        if (!rawNuit.isEmpty()) {
+            if (rawNuit.length() != 9 || !com.sgv.util.NuitValidator.isValid(rawNuit)) {
+                showAlert(Alert.AlertType.WARNING, "NUIT da empresa inválido. Deve conter 9 dígitos válidos segundo as regras da AT (Módulo 11).");
+                return;
+            }
+        }
         
         // Atualiza a configuração real na base de dados
         appConfig.setCompanyName(cfgCompanyName.getText().trim());

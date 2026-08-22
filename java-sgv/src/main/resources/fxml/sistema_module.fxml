@@ -81,8 +81,8 @@
                                                style="-fx-padding:8 12; -fx-background-radius:3; -fx-border-color:#E2E8F0; -fx-border-radius:3; -fx-font-size:13px; -fx-background-color:#F8FAFC;"/>
                                 </VBox>
                                 <VBox spacing="6" GridPane.columnIndex="1" GridPane.rowIndex="0">
-                                    <Label text="Taxa IVA (%)" style="-fx-font-weight:600; -fx-text-fill:#0F172A; -fx-font-size:12px;"/>
-                                    <TextField fx:id="cfgIvaRate" text="17"
+                                    <Label text="Taxa IVA Padrão (%)" style="-fx-font-weight:600; -fx-text-fill:#0F172A; -fx-font-size:12px;"/>
+                                    <TextField fx:id="cfgIvaRate" text="16"
                                                style="-fx-padding:8 12; -fx-background-radius:3; -fx-border-color:#E2E8F0; -fx-border-radius:3; -fx-font-size:13px; -fx-background-color:#F8FAFC;"/>
                                 </VBox>
                                 <VBox spacing="6" GridPane.columnIndex="2" GridPane.rowIndex="0">
