@@ -95,6 +95,7 @@ public class SistemaModuleController {
     @FXML private TableColumn<User, String> userRoleCol;
     @FXML private TableColumn<User, String> userStatusCol;
     @FXML private TableColumn<User, String> userActCol;
+    @FXML private Button btnNewUser;
     @FXML private Button btnNewProfile;
     @FXML private TableView<Role> profilesTable;
     @FXML private TableColumn<Role, String> profileNameCol;
@@ -106,6 +107,10 @@ public class SistemaModuleController {
     @FXML private Label lastBackupSizeLabel;
     @FXML private Label nextBackupLabel;
     @FXML private Label backupCountLabel;
+    @FXML private Button btnBackupNow;
+    @FXML private Button btnRestoreBackup;
+    @FXML private Button btnOpenBackupFolder;
+    @FXML private Button btnSaveBackupSettings;
     @FXML private TableView<BackupEntry> backupHistoryTable;
     @FXML private TableColumn<BackupEntry, String> bkDateCol;
     @FXML private TableColumn<BackupEntry, String> bkFileCol;
@@ -118,6 +123,8 @@ public class SistemaModuleController {
 
     // ─── FXML: Modo Treinamento ────────────────────────────────────────────
     @FXML private Label trainingModeStatusLabel;
+    @FXML private Button btnActivateTraining;
+    @FXML private Button btnDeactivateTraining;
     @FXML private TableView<User> trainingUsersTable;
     @FXML private TableColumn<User, String> tuNameCol;
     @FXML private TableColumn<User, String> tuLoginCol;
@@ -132,6 +139,7 @@ public class SistemaModuleController {
     @FXML private Label licDaysLeftLabel;
     @FXML private Label licCompanyLabel;
     @FXML private TextField licKeyField;
+    @FXML private Button btnActivateLic;
     @FXML private TextField machineIdField;
     @FXML private TextField installIdField;
 

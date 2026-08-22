@@ -1234,18 +1234,6 @@ public class DashboardNavigationManager {
         updateCashBadge.run();
     }
 
-            main.getChildren().addAll(kpiGrid, toolbar, table, paymentsCard);
-            fornecedoresPane.getChildren().add(main);
-        }
-
-        GridPane kpi = (GridPane) fornecedoresPane.lookup("#suppliersKPI");
-        if (kpi != null) {
-            kpiManager.updateSuppliersKPIs(kpi);
-        }
-
-        updateCashBadge.run();
-    }
-
     public void showStockWarehousePane(Button navStockArmazem, Label pageTitleLabel, Label pageSubtitleLabel,
                                        VBox stockArmazemPane, User currentUser,
                                        VBox[] allPanes, Button[] allNavButtons,
