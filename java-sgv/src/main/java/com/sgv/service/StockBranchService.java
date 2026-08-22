@@ -2,26 +2,32 @@ package com.sgv.service;
 
 import com.sgv.entity.Branch;
 import com.sgv.entity.Product;
+import com.sgv.entity.ProductRecipe;
 import com.sgv.entity.StockBranch;
 import com.sgv.entity.StockMovement;
 import com.sgv.entity.User;
+import com.sgv.repository.ProductRecipeRepository;
 import com.sgv.repository.StockBranchRepository;
 import com.sgv.repository.StockMovementRepository;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
+import java.util.List;
 
 @Service
 public class StockBranchService {
 
     private final StockBranchRepository stockBranchRepository;
     private final StockMovementRepository stockMovementRepository;
+    private final ProductRecipeRepository productRecipeRepository;
 
     public StockBranchService(StockBranchRepository stockBranchRepository,
-                              StockMovementRepository stockMovementRepository) {
+                              StockMovementRepository stockMovementRepository,
+                              ProductRecipeRepository productRecipeRepository) {
         this.stockBranchRepository = stockBranchRepository;
         this.stockMovementRepository = stockMovementRepository;
+        this.productRecipeRepository = productRecipeRepository;
     }
 
     public boolean isAdmin(User user) {
@@ -102,6 +108,43 @@ public class StockBranchService {
         saveMovement(saved, quantity, before, after, "ENTRADA", subtype, reference, user,
                 "Entrada de stock na filial.");
         return saved;
+    }
+
+    /**
+     * Abate automático de matérias-primas e ingredientes com base na Ficha Técnica (BOM / Receitas).
+     */
+    @Transactional
+    public void consumeIngredientsForProduction(Branch branch, Product finishedProduct, BigDecimal producedQty, String reference, User user) {
+        if (branch == null || finishedProduct == null || producedQty == null || producedQty.compareTo(BigDecimal.ZERO) <= 0) return;
+        List<ProductRecipe> recipes = productRecipeRepository.findByParentProductId(finishedProduct.getId());
+        if (recipes == null || recipes.isEmpty()) return;
+
+        for (ProductRecipe recipe : recipes) {
+            Product ingredient = recipe.getIngredientProduct();
+            if (ingredient == null) continue;
+            BigDecimal requiredPerUnit = recipe.getQuantityRequired() != null ? recipe.getQuantityRequired() : BigDecimal.ONE;
+            BigDecimal totalConsumption = requiredPerUnit.multiply(producedQty);
+
+            try {
+                StockBranch sb = stockBranchRepository.findByProductAndBranch(ingredient, branch)
+                        .orElseGet(() -> {
+                            StockBranch newSb = new StockBranch();
+                            newSb.setProduct(ingredient);
+                            newSb.setBranch(branch);
+                            newSb.setStockCurrentAmount(BigDecimal.ZERO);
+                            newSb.setStockMinAmount(BigDecimal.ZERO);
+                            return newSb;
+                        });
+                BigDecimal before = sb.getStockCurrentAmount() != null ? sb.getStockCurrentAmount() : BigDecimal.ZERO;
+                BigDecimal after = before.subtract(totalConsumption);
+                sb.setStockCurrentAmount(after);
+                StockBranch saved = stockBranchRepository.save(sb);
+                saveMovement(saved, totalConsumption.negate(), before, after, "SAIDA", "PROD_CONSUMO", reference, user,
+                        "Consumo de matéria-prima para produção de " + finishedProduct.getName());
+            } catch (Exception e) {
+                // Log and continue
+            }
+        }
     }
 
     @Transactional

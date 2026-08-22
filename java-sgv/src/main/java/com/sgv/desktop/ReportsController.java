@@ -61,12 +61,15 @@ public class ReportsController {
 
     // IVA tab pagination state
     private int ivaPage = 0;
+    private DatePicker ivaDe;
+    private DatePicker ivaAte;
     private TableView<Sale> ivaTable;
     private Label ivaPageLabel;
     private Button ivaPrevBtn;
     private Button ivaNextBtn;
     private Label ivaCountLabel;
     private Label ivaBaseVal;
+    private Label ivaIsentoVal;
     private Label ivaIvaVal;
     private Label ivaTotVal;
 
@@ -150,7 +153,7 @@ public class ReportsController {
     // ── TAB 1: VENDAS CONSOLIDADAS ─────────────────────
 
     private Tab buildVendasTab() {
-        Tab tab = new Tab("📊  Vendas Consolidadas");
+        Tab tab = new Tab("📊  Mapa Geral de Vendas");
 
         ScrollPane sp = new ScrollPane();
         sp.setFitToWidth(true);
@@ -305,7 +308,7 @@ public class ReportsController {
     // ── TAB 2: PRODUTOS EM FALTA ─────────────────────
 
     private Tab buildProdutosEmFaltaTab() {
-        Tab tab = new Tab("⚠  Produtos em Falta");
+        Tab tab = new Tab("⚠️  Artigos para Reposição");
 
         ScrollPane sp = new ScrollPane();
         sp.setFitToWidth(true);
@@ -384,7 +387,7 @@ public class ReportsController {
     // ── TAB 3: MAIS VENDIDOS ────────────────────────────
 
     private Tab buildMaisVendidosTab() {
-        Tab tab = new Tab("🏆  Mais Vendidos");
+        Tab tab = new Tab("🔥  Artigos Mais Vendidos");
 
         ScrollPane sp = new ScrollPane();
         sp.setFitToWidth(true);
@@ -493,7 +496,7 @@ public class ReportsController {
     // ── TAB 4: RELATÓRIO IVA ──────────────────────────
 
     private Tab buildIvaTab() {
-        Tab tab = new Tab("🧾  Relatório de IVA");
+        Tab tab = new Tab("🏛️  Apuramento de IVA (16%)");
 
         ScrollPane sp = new ScrollPane();
         sp.setFitToWidth(true);
@@ -503,14 +506,48 @@ public class ReportsController {
         content.setStyle("-fx-padding:20;");
         content.setMaxWidth(1100);
 
+        ivaDe = new DatePicker(LocalDate.now().withDayOfMonth(1));
+        ivaDe.setPrefWidth(130);
+        ivaAte = new DatePicker(LocalDate.now());
+        ivaAte.setPrefWidth(130);
+
+        Button filtrar = btn("FILTRAR", "#2563EB");
+        Button mes = btn("ESTE MÊS", "#1E40AF");
+        mes.setOnAction(e -> {
+            LocalDate t = LocalDate.now();
+            ivaDe.setValue(t.withDayOfMonth(1));
+            ivaAte.setValue(t.withDayOfMonth(t.lengthOfMonth()));
+            loadIvaData();
+        });
+        Button ano = btn("ESTE ANO", "#0F172A");
+        ano.setOnAction(e -> {
+            LocalDate t = LocalDate.now();
+            ivaDe.setValue(t.withDayOfYear(1));
+            ivaAte.setValue(t.withDayOfYear(t.lengthOfYear()));
+            loadIvaData();
+        });
+
+        Region spacerFilter = new Region();
+        HBox.setHgrow(spacerFilter, Priority.ALWAYS);
+        HBox filterBar = new HBox(10);
+        filterBar.setAlignment(javafx.geometry.Pos.CENTER_LEFT);
+        filterBar.getChildren().addAll(
+                label("De:", "12px"), ivaDe,
+                label("Até:", "12px"), ivaAte,
+                filtrar, spacerFilter, mes, ano
+        );
+        filtrar.setOnAction(e -> { ivaPage = 0; loadIvaData(); });
+
         HBox kpiH = new HBox(12);
-        ivaBaseVal = new Label("0,00");
-        ivaIvaVal  = new Label("0,00");
-        ivaTotVal  = new Label("0,00");
+        ivaBaseVal = new Label("0,00 MZN");
+        ivaIsentoVal = new Label("0,00 MZN");
+        ivaIvaVal  = new Label("0,00 MZN");
+        ivaTotVal  = new Label("0,00 MZN");
         kpiH.getChildren().addAll(
-            kpiCard("Base Tributável",           ivaBaseVal, "#2563EB"),
-            kpiCard("IVA Cobrado (" + String.format("%.0f", appConfigService.get().getDefaultTaxRate()) + "%)", ivaIvaVal, "#2563EB"),
-            kpiCard("Total c/ IVA",       ivaTotVal,  "#0F172A")
+            kpiCard("Base Tributável (16%)",     ivaBaseVal,   "#2563EB"),
+            kpiCard("Base Isenta (Art. 9 CIVA)", ivaIsentoVal, "#64748B"),
+            kpiCard("IVA Liquidado (16%)",       ivaIvaVal,    "#F59E0B"),
+            kpiCard("Total c/ IVA",              ivaTotVal,    "#10B981")
         );
 
         ivaTable = new TableView<>();
@@ -518,38 +555,42 @@ public class ReportsController {
         ivaTable.setColumnResizePolicy(TableView.UNCONSTRAINED_RESIZE_POLICY);
         ivaTable.setPlaceholder(new Label("Nenhum documento neste período"));
 
-        TableColumn<Sale, String> col1 = col("Documento", 110);
+        TableColumn<Sale, String> col1 = col("Documento", 120);
         TableColumn<Sale, String> col2 = col("Data", 100);
-        TableColumn<Sale, String> col3 = col("Cliente", 200);
-        TableColumn<Sale, String> col4 = col("Base", 120);
-        TableColumn<Sale, String> col5 = col("IVA (" + String.format("%.0f", appConfigService.get().getDefaultTaxRate()) + "%)", 110);
-        TableColumn<Sale, String> col6 = col("Total", 110);
-        col1.setCellValueFactory(c -> sv(c.getValue().getSeries() + "/" + c.getValue().getDocumentNumber()));
+        TableColumn<Sale, String> col3 = col("Cliente", 220);
+        TableColumn<Sale, String> col4 = col("Base Incidência", 130);
+        TableColumn<Sale, String> col5 = col("IVA (16%)", 110);
+        TableColumn<Sale, String> col6 = col("Total Factura", 120);
+        col1.setCellValueFactory(c -> sv((c.getValue().getDocumentType() != null ? c.getValue().getDocumentType() : "FT") + " " + c.getValue().getSeries() + "/" + c.getValue().getDocumentNumber()));
         col2.setCellValueFactory(c -> sv(c.getValue().getCreatedAt() != null
                 ? c.getValue().getCreatedAt().format(DateTimeFormatter.ofPattern("dd/MM/yyyy")) : "—"));
         col3.setCellValueFactory(c -> sv(c.getValue().getCustomerName() != null
                 ? c.getValue().getCustomerName() : "Consumidor Final"));
-        col4.setCellValueFactory(c -> sv(fmtD(c.getValue().getSubtotal())));
-        col5.setCellValueFactory(c -> sv(fmtD(c.getValue().getTotalTax())));
-        col6.setCellValueFactory(c -> sv(fmtD(c.getValue().getTotal())));
+        col4.setCellValueFactory(c -> sv(fmtD(c.getValue().getSubtotal()) + " MT"));
+        col5.setCellValueFactory(c -> sv(fmtD(c.getValue().getTotalTax()) + " MT"));
+        col6.setCellValueFactory(c -> sv(fmtD(c.getValue().getTotal()) + " MT"));
         ivaTable.getColumns().addAll(List.of(col1, col2, col3, col4, col5, col6));
 
         HBox toolbar = new HBox(8);
-        Label title = new Label("DOCUMENTOS DO MÊS CORRENTE");
-        title.setStyle("-fx-font-size:11px; -fx-font-weight:700; -fx-text-fill:#475569;");
+        Label title = new Label("DOCUMENTOS FISCAIS EMITIDOS");
+        title.setStyle("-fx-font-size:11px; -fx-font-weight:700; -fx-text-fill:#475569; -fx-font-family:monospace;");
         Region spacer = new Region();
         HBox.setHgrow(spacer, Priority.ALWAYS);
-        Button export = btn("Exportar SAF-T", "#2563EB");
+        Button export = btn("Exportar SAF-T MZ (XML)", "#2563EB");
         export.setOnAction(e -> {
             try {
-                List<Sale> sales = saleRepository.findAll().stream()
+                LocalDate from = ivaDe.getValue() != null ? ivaDe.getValue() : LocalDate.now().withDayOfMonth(1);
+                LocalDate to = ivaAte.getValue() != null ? ivaAte.getValue() : LocalDate.now();
+                LocalDateTime fromDt = from.atStartOfDay();
+                LocalDateTime toDt = to.atTime(23, 59, 59);
+                List<Sale> sales = saleRepository.findByDateRangeAndState(fromDt, toDt, null).stream()
                         .filter(s -> s.getCreatedAt() != null)
                         .sorted(Comparator.comparing(Sale::getCreatedAt).reversed())
                         .toList();
-                java.nio.file.Path outputPath = java.nio.file.Paths.get("backups", "saf_t_export_" + java.time.LocalDate.now() + ".xml");
+                java.nio.file.Path outputPath = java.nio.file.Paths.get("backups", "saf_t_mz_" + from + "_a_" + to + ".xml");
                 java.nio.file.Files.createDirectories(outputPath.toAbsolutePath().getParent());
                 safTExportService.exportSalesToXml(sales, outputPath);
-                showAlert("Exportação SAF-T criada em: " + outputPath.toAbsolutePath());
+                showAlert("Ficheiro SAF-T MZ 1.01 gerado com sucesso em:\n" + outputPath.toAbsolutePath());
             } catch (Exception ex) {
                 showAlert("Não foi possível exportar SAF-T: " + ex.getMessage());
             }
@@ -570,33 +611,69 @@ public class ReportsController {
 
         loadIvaData();
 
-        VBox card1 = card("RESUMO FISCAL", kpiH);
+        VBox card0 = card("FILTRO DE PERÍODO FISCAL", filterBar);
+        VBox card1 = card("RESUMO DO APURAMENTO DE IVA (MODELO 19)", kpiH);
         VBox card2 = card("", new VBox(toolbar, ivaTable, ivaPagination));
 
-        content.getChildren().addAll(card1, card2);
+        content.getChildren().addAll(card0, card1, card2);
         sp.setContent(content);
         tab.setContent(sp);
         return tab;
     }
 
     private void loadIvaData() {
-        Pageable pageable = PageRequest.of(ivaPage, PAGE_SIZE, Sort.by(Sort.Direction.DESC, "createdAt"));
-        Page<Sale> page = saleRepository.findAll(pageable);
+        LocalDate from = ivaDe != null && ivaDe.getValue() != null ? ivaDe.getValue() : LocalDate.now().withDayOfMonth(1);
+        LocalDate to = ivaAte != null && ivaAte.getValue() != null ? ivaAte.getValue() : LocalDate.now();
+        LocalDateTime fromDt = from.atStartOfDay();
+        LocalDateTime toDt = to.atTime(23, 59, 59);
 
-        ivaBaseVal.setText(fmt(saleRepository.sumSubtotalAll()) + " MZN");
-        ivaIvaVal.setText(fmt(saleRepository.sumTotalTaxAll()) + " MZN");
-        ivaTotVal.setText(fmt(saleRepository.sumTotalAll()) + " MZN");
+        List<Sale> allPeriodSales = saleRepository.findByDateRangeAndState(fromDt, toDt, null).stream()
+                .filter(s -> !"ANULADA".equalsIgnoreCase(s.getState()))
+                .toList();
 
-        ivaTable.setItems(FXCollections.observableArrayList(page.getContent()));
-        ivaCountLabel.setText(page.getTotalElements() + " documentos");
+        double baseTributavel = 0.0;
+        double baseIsenta = 0.0;
+        double ivaCobrado = 0.0;
+        double totalFacturado = 0.0;
 
-        updatePaginationButtons(ivaPageLabel, ivaPrevBtn, ivaNextBtn, ivaPage, page.getTotalPages());
+        for (Sale s : allPeriodSales) {
+            double sTotal = s.getTotal() != null ? s.getTotal() : 0.0;
+            double sTax = s.getTotalTax() != null ? s.getTotalTax() : 0.0;
+            double sSub = s.getSubtotal() != null ? s.getSubtotal() : 0.0;
+            totalFacturado += sTotal;
+            ivaCobrado += sTax;
+            if (sTax > 0.001) {
+                baseTributavel += sSub;
+            } else {
+                baseIsenta += sSub;
+            }
+        }
+
+        ivaBaseVal.setText(fmt(baseTributavel) + " MZN");
+        if (ivaIsentoVal != null) ivaIsentoVal.setText(fmt(baseIsenta) + " MZN");
+        ivaIvaVal.setText(fmt(ivaCobrado) + " MZN");
+        ivaTotVal.setText(fmt(totalFacturado) + " MZN");
+
+        int totalSize = allPeriodSales.size();
+        int totalPages = Math.max(1, (totalSize + PAGE_SIZE - 1) / PAGE_SIZE);
+        if (ivaPage < 0) ivaPage = 0;
+        if (ivaPage >= totalPages) ivaPage = totalPages - 1;
+
+        List<Sale> pageSales = allPeriodSales.stream()
+                .skip((long) ivaPage * PAGE_SIZE)
+                .limit(PAGE_SIZE)
+                .toList();
+
+        ivaTable.setItems(FXCollections.observableArrayList(pageSales));
+        ivaCountLabel.setText(totalSize + " documentos");
+
+        updatePaginationButtons(ivaPageLabel, ivaPrevBtn, ivaNextBtn, ivaPage, totalPages);
     }
 
     // ── TAB 5: CONTAS A RECEBER ─────────────────────
 
     private Tab buildAccountsReceivableTab() {
-        Tab tab = new Tab("📑  Contas a Receber");
+        Tab tab = new Tab("👥  Contas Correntes / Devedores");
 
         ScrollPane sp = new ScrollPane();
         sp.setFitToWidth(true);
@@ -726,7 +803,7 @@ public class ReportsController {
     // ── TAB 6: MOVIMENTOS DE ESTOQUE ─────────────────
 
     private Tab buildStockMovimentosTab() {
-        Tab tab = new Tab("📦  Movimentos de Estoque");
+        Tab tab = new Tab("📦  Extrato de Movimentos (Kardex)");
 
         ScrollPane sp = new ScrollPane();
         sp.setFitToWidth(true);
@@ -810,7 +887,7 @@ public class ReportsController {
     // ── TAB 6: MATRIZ DE STOCK ──────────────────────
 
     private Tab buildStockMatrixTab() {
-        Tab tab = new Tab("🗃  Matriz de Stock");
+        Tab tab = new Tab("🏢  Stock Central por Armazém");
 
         ScrollPane sp = new ScrollPane();
         sp.setFitToWidth(true);
@@ -949,7 +1026,7 @@ public class ReportsController {
     // ── TAB 7: TRANSFERÊNCIAS ────────────────────────
 
     private Tab buildTransferenciasTab() {
-        Tab tab = new Tab("🔄  Transferências");
+        Tab tab = new Tab("🔁  Guias de Transferência");
 
         ScrollPane sp = new ScrollPane();
         sp.setFitToWidth(true);
@@ -1051,7 +1128,7 @@ public class ReportsController {
     // ── TAB 8: PAGAMENTOS A FORNECEDORES ──────────────
 
     private Tab buildPagamentosFornecedoresTab() {
-        Tab tab = new Tab("💰  Pagamentos a Fornecedores");
+        Tab tab = new Tab("📑  Pagamentos a Fornecedores");
 
         ScrollPane sp = new ScrollPane();
         sp.setFitToWidth(true);
@@ -1223,13 +1300,13 @@ public class ReportsController {
         card.setStyle(
             "-fx-background-color:#ffffff;" +
             "-fx-padding:20;" +
-            "-fx-background-radius:3;" +
+            "-fx-background-radius:10;" +
             "-fx-border-color:#E2E8F0;" +
             "-fx-border-width:1;" +
-            "-fx-border-radius:3;");
+            "-fx-border-radius:10;");
         if (header != null && !header.isEmpty()) {
             Label h = new Label(header);
-            h.setStyle("-fx-font-size:11px; -fx-font-weight:700; -fx-text-fill:#475569;");
+            h.setStyle("-fx-font-size:11px; -fx-font-weight:700; -fx-text-fill:#475569; -fx-font-family:monospace;");
             card.getChildren().add(h);
         }
         if (content instanceof VBox) {
@@ -1243,18 +1320,18 @@ public class ReportsController {
 
     /** Compact KPI card with coloured bottom accent */
     private VBox kpiCard(String title, Label value, String accentColor) {
-        VBox box = new VBox(4);
+        VBox box = new VBox(6);
         box.setStyle(
             "-fx-background-color:#ffffff;" +
             "-fx-padding:16;" +
-            "-fx-background-radius:3;" +
+            "-fx-background-radius:10;" +
             "-fx-border-color:#E2E8F0;" +
             "-fx-border-width:1;" +
-            "-fx-border-radius:3;" +
+            "-fx-border-radius:10;" +
             "-fx-border-insets:0 0 3 0;");
         Label t = new Label(title);
-        t.setStyle("-fx-font-size:11px; -fx-font-weight:600; -fx-text-fill:#475569;");
-        value.setStyle("-fx-font-size:16px; -fx-font-weight:700; -fx-text-fill:#0F172A;");
+        t.setStyle("-fx-font-size:11px; -fx-font-weight:600; -fx-text-fill:#64748B;");
+        value.setStyle("-fx-font-size:16px; -fx-font-weight:800; -fx-text-fill:#0F172A;");
         box.getChildren().addAll(t, value);
         HBox.setHgrow(box, Priority.ALWAYS);
         return box;
@@ -1267,10 +1344,12 @@ public class ReportsController {
             "-fx-background-color:" + bgColor + ";" +
             "-fx-text-fill:#ffffff;" +
             "-fx-font-weight:700;" +
-            "-fx-font-size:11px;" +
-            "-fx-padding:3 10;" +
-            "-fx-background-radius:3;" +
+            "-fx-font-size:12px;" +
+            "-fx-padding:6 14;" +
+            "-fx-background-radius:6;" +
             "-fx-cursor:hand;");
+        UiUtils.applyHoverElevation(b);
+        UiUtils.applyPressFeedback(b);
         return b;
     }
 

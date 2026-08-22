@@ -110,6 +110,11 @@ public class CashSessionController {
         UiUtils.attachSafe(refreshHistoryButton, this::loadHistory, null, "CASH_SESSION_REFRESH_HISTORY");
         UiUtils.attachSafe(viewSessionButton, this::showSelectedHistorySession, null, "CASH_SESSION_VIEW_HISTORY");
 
+        for (Button b : List.of(openSessionButton, addMovementButton, closeSessionButton, refreshMovementsButton, refreshHistoryButton, viewSessionButton)) {
+            UiUtils.applyHoverElevation(b);
+            UiUtils.applyPressFeedback(b);
+        }
+
         setupHistoryTable();
         loadHistory();
     }

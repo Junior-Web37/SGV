@@ -136,13 +136,22 @@ public class ProductFormController extends BaseFormController {
         UiUtils.attachSafe(saveButton, this::doSave, systemLogService, "PRODUCT_SAVE");
         UiUtils.attachSafe(cancelButton, this::doCancel, systemLogService, "PRODUCT_CANCEL");
 
+        UiUtils.applyHoverElevation(saveButton);
+        UiUtils.applyPressFeedback(saveButton);
+        UiUtils.applyHoverElevation(cancelButton);
+        UiUtils.applyPressFeedback(cancelButton);
+
         if (deleteButton != null) {
             deleteButton.setVisible(false);
             deleteButton.setManaged(false);
             UiUtils.attachSafe(deleteButton, this::doDelete, systemLogService, "PRODUCT_DELETE");
+            UiUtils.applyHoverElevation(deleteButton);
+            UiUtils.applyPressFeedback(deleteButton);
         }
 
         setupBarcodeTable();
+        if (addBarcodeButton != null) { UiUtils.applyHoverElevation(addBarcodeButton); UiUtils.applyPressFeedback(addBarcodeButton); }
+        if (removeBarcodeButton != null) { UiUtils.applyHoverElevation(removeBarcodeButton); UiUtils.applyPressFeedback(removeBarcodeButton); }
         setupRealTimeValidation();
         setupMarginCalculation();
         setupServiceToggle();
@@ -264,7 +273,7 @@ public class ProductFormController extends BaseFormController {
                         return null;
                     }
                 };
-                saveTask.setOnSucceeded(e -> {
+                saveTask.setOnSucceeded(e -> { systemLogService.logUserAction(currentUser != null ? currentUser.getUsername() : "Sistema", "PRODUTO_GRAVADO", "Artigo gravado com sucesso: " + nameField.getText());
                     loadBarcodes();
                     barcodeField.clear();
                     hideError();
@@ -273,7 +282,7 @@ public class ProductFormController extends BaseFormController {
                     log.warn("Erro ao adicionar código de barras", saveTask.getException());
                     showError("Erro ao adicionar código de barras.");
                 });
-                new Thread(saveTask).start();
+                UiUtils.runTask(saveTask);
             } else {
                 barcodeList.add(pb);
                 barcodeField.clear();
@@ -285,7 +294,7 @@ public class ProductFormController extends BaseFormController {
             log.warn("Erro ao verificar código de barras", checkTask.getException());
             showError("Erro ao verificar código de barras.");
         });
-        new Thread(checkTask).start();
+        UiUtils.runTask(checkTask);
     }
 
     private void removeBarcode() {
@@ -310,7 +319,7 @@ public class ProductFormController extends BaseFormController {
                 log.warn("Erro ao remover código de barras", task.getException());
                 showError("Erro ao remover código de barras.");
             });
-            new Thread(task).start();
+            UiUtils.runTask(task);
         } else {
             // Apenas em memória — remove da lista
             barcodeList.remove(selected);
@@ -432,7 +441,7 @@ public class ProductFormController extends BaseFormController {
     }
 
     private void checkDuplicateCode(String code) {
-        new Thread(() -> {
+        UiUtils.runAsync(() -> {
             try {
                 Optional<Product> existing = productService.findByCode(code.trim().toUpperCase());
                 if (existing.isPresent() && (product == null || product.getId() == null || !existing.get().getId().equals(product.getId()))) {
@@ -445,11 +454,11 @@ public class ProductFormController extends BaseFormController {
                 codeAlreadyExists = false;
             }
             javafx.application.Platform.runLater(this::validateRealTime);
-        }).start();
+        });
     }
 
     private void checkDuplicateName(String name) {
-        new Thread(() -> {
+        UiUtils.runAsync(() -> {
             try {
                 Optional<Product> existing = productService.findByNameIgnoreCase(name.trim());
                 if (existing.isPresent() && (product == null || product.getId() == null || !existing.get().getId().equals(product.getId()))) {
@@ -462,7 +471,7 @@ public class ProductFormController extends BaseFormController {
                 nameAlreadyExists = false;
             }
             javafx.application.Platform.runLater(this::validateRealTime);
-        }).start();
+        });
     }
 
     @Override
@@ -690,10 +699,10 @@ public class ProductFormController extends BaseFormController {
                     systemLogService.logError("PRODUCT_DELETE_FAILED", "Erro ao apagar produto: " + ex.getMessage(), ex);
                     showError("Erro ao apagar: " + ex.getMessage());
                 });
-                new Thread(deleteTask).start();
+                UiUtils.runTask(deleteTask);
             });
         });
-        new Thread(checkTask).start();
+        UiUtils.runTask(checkTask);
     }
 
     @Override
@@ -762,7 +771,7 @@ public class ProductFormController extends BaseFormController {
             }
         };
 
-        saveTask.setOnSucceeded(e -> {
+        saveTask.setOnSucceeded(e -> { systemLogService.logUserAction(currentUser != null ? currentUser.getUsername() : "Sistema", "PRODUTO_GRAVADO", "Artigo gravado com sucesso: " + nameField.getText());
             if (onSave != null) onSave.run();
             Stage stage = (Stage) saveButton.getScene().getWindow();
             stage.close();
@@ -781,7 +790,7 @@ public class ProductFormController extends BaseFormController {
             hideSaveSpinner();
         });
 
-        new Thread(saveTask).start();
+        UiUtils.runTask(saveTask);
     }
 
     private BigDecimal parseBigDecimalOrZero(String text) {

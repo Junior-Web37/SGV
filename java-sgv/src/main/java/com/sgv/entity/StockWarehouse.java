@@ -29,8 +29,14 @@ public class StockWarehouse {
     private BigDecimal stockMin = BigDecimal.ZERO;
     private BigDecimal stockMax = BigDecimal.ZERO;
 
+    @Version
+    @Column(name = "version", nullable = false)
+    private Long version = 0L;
+
     public Long getId() { return id; }
     public void setId(Long id) { this.id = id; }
+    public Long getVersion() { return version; }
+    public void setVersion(Long version) { this.version = version; }
     public Warehouse getWarehouse() { return warehouse; }
     public void setWarehouse(Warehouse warehouse) { this.warehouse = warehouse; }
     public Product getProduct() { return product; }

@@ -26,10 +26,12 @@ public class StockNewFormController extends BaseFormController {
     private final StockBranchService stockBranchService;
     private final ProductRepository productRepository;
     private final BranchRepository branchRepository;
+    private final com.sgv.service.SystemLogService systemLogService;
 
     public StockNewFormController(StockBranchService stockBranchService,
                                   ProductRepository productRepository,
-                                  BranchRepository branchRepository) {
+                                  BranchRepository branchRepository, com.sgv.service.SystemLogService systemLogService) {
+        this.systemLogService = systemLogService;
         this.stockBranchService = stockBranchService;
         this.productRepository = productRepository;
         this.branchRepository = branchRepository;
@@ -60,7 +62,14 @@ public class StockNewFormController extends BaseFormController {
         UiUtils.attachSafe(saveButton, this::doSave, null, "STOCK_NEW_SAVE");
         UiUtils.attachSafe(cancelButton, this::doCancel, null, "STOCK_NEW_CANCEL");
 
+        UiUtils.applyHoverElevation(saveButton);
+        UiUtils.applyPressFeedback(saveButton);
+        UiUtils.applyHoverElevation(cancelButton);
+        UiUtils.applyPressFeedback(cancelButton);
+
         UiUtils.applyNumericFormatter(currentStockField);
+        UiUtils.applyNumericFormatter(minStockField);
+        UiUtils.applyNumericFormatter(maxStockField);
 
         productCombo.valueProperty().addListener((obs, o, n) -> {
             validateRealTime();
@@ -155,13 +164,14 @@ public class StockNewFormController extends BaseFormController {
                 return null;
             }
         };
-        saveTask.setOnSucceeded(e -> { if (onSave != null) onSave.run(); doCancel(); });
+        saveTask.setOnSucceeded(e -> { systemLogService.logUserAction(currentUser != null ? currentUser.getUsername() : "Sistema", "STOCK_INICIAL_GRAVADO", "Stock inicial registado para o artigo"); if (onSave != null) onSave.run(); doCancel(); });
         saveTask.setOnFailed(e -> {
             Throwable ex = saveTask.getException();
+            systemLogService.logError("STOCK_INIT_FAILED", "Erro ao inicializar stock: " + (ex != null ? ex.getMessage() : ""), ex);
             String msg = ex != null && ex.getMessage() != null ? ex.getMessage() : "Erro desconhecido";
             showError("Erro ao salvar: " + msg);
             hideSaveSpinner();
         });
-        new Thread(saveTask).start();
+        UiUtils.runTask(saveTask);
     }
 }

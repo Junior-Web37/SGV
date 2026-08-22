@@ -22,25 +22,26 @@ public class DesktopAuthService {
     }
 
     public User authenticate(String username, String rawPassword) {
-        var userOpt = userRepository.findByUsername(username);
+        if (username == null || rawPassword == null) {
+            return null;
+        }
+        var userOpt = userRepository.findByUsername(username.trim());
         if (userOpt.isEmpty()) {
-            log.warn("[AUTH] User '{}' nao encontrado na BD", username);
+            log.warn("[AUTH] Tentativa de login falhada: utilizador '{}' não registado", username);
             return null;
         }
         User user = userOpt.get();
         if (!user.isActive()) {
-            log.warn("[AUTH] User '{}' esta inativo (active=false)", username);
+            log.warn("[AUTH] Tentativa de login recusada: utilizador '{}' encontra-se inativo", username);
             return null;
         }
         String hash = user.getPasswordHash();
-        log.debug("[AUTH] User '{}' encontrado (id={}, active=true, hash_prefix={})", username, user.getId(), hash != null ? hash.substring(0, Math.min(10, hash.length())) : "null");
         boolean matches = passwordEncoder.matches(rawPassword, hash);
         if (!matches) {
-            log.warn("[AUTH] Password nao corresponde para user '{}' (hash_prefix={})", username, hash != null ? hash.substring(0, Math.min(20, hash.length())) : "null");
+            log.warn("[AUTH] Falha de autenticação: credenciais inválidas para o utilizador '{}'", username);
             return null;
         }
-        log.info("[AUTH] Autenticacao bem-sucedida para user '{}'", username);
+        log.info("[AUTH] Autenticação bem-sucedida para o utilizador '{}' (id={})", username, user.getId());
         return user;
     }
 }
-

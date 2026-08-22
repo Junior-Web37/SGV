@@ -63,6 +63,7 @@ public class DashboardController {
     @FXML private Button navModOperacoes;
     @FXML private Button navModAdministracao;
     @FXML private Button navModArmazens;
+    @FXML private Button navModRelatorios;
     @FXML private Button navModLogs;
 
     @FXML private HBox navComercialItems;
@@ -70,6 +71,10 @@ public class DashboardController {
     @FXML private HBox navOperacoesItems;
     @FXML private HBox navAdminItems;
     @FXML private HBox navArmazensItems;
+    @FXML private HBox navRelatoriosItems;
+
+    @FXML private Button navMenuLogs;
+    @FXML private Button navMenuUsers;
 
     @FXML private Button navMenuNovaVenda;
     @FXML private Button navMenuVendas;
@@ -100,6 +105,7 @@ public class DashboardController {
     @FXML private VBox comprasPane;
     @FXML private VBox fornecedoresPane;
     @FXML private VBox stockArmazemPane;
+    @FXML private VBox transfersPane;
     @FXML private VBox financeiroPane;
     @FXML private VBox pagamentosPane;
     @FXML private VBox despesasPane;
@@ -348,7 +354,7 @@ public class DashboardController {
         if (navModArmazens != null) UiUtils.attachSafe(navModArmazens, () -> showSubNav("Armazém", navArmazensItems), systemLogService, "NAV_MOD_ARMAZENS");
         if (navMenuArmazens != null) UiUtils.attachSafe(navMenuArmazens, () -> { if (ensurePermission("ARMAZENS", "VIEW", "Armazéns")) showWarehousesPane(); }, systemLogService, "NAV_ARMAZENS");
         if (navMenuStockArmazem != null) UiUtils.attachSafe(navMenuStockArmazem, () -> { if (ensurePermission("ARMAZENS", "VIEW", "Stock por Armazém")) showStockWarehousePane(); }, systemLogService, "NAV_STOCK_ARMAZEM");
-        if (navMenuTransferir != null) UiUtils.attachSafe(navMenuTransferir, () -> { if (ensurePermission("TRANSFERENCIAS", "VIEW", "Transferências")) openWarehouseTransferForm(); }, systemLogService, "NAV_TRANSFERIR");
+        if (navMenuTransferir != null) UiUtils.attachSafe(navMenuTransferir, () -> { if (ensurePermission("TRANSFERENCIAS", "VIEW", "Transferências")) showTransfersPane(); }, systemLogService, "NAV_TRANSFERIR");
         if (navMenuCatalogos != null) UiUtils.attachSafe(navMenuCatalogos, () -> { if (ensurePermission("CATALOGOS", "VIEW", "Catálogos")) showCatalogsPane(); }, systemLogService, "NAV_CATALOGOS");
 
         if (navMenuCaixa != null) UiUtils.attachSafe(navMenuCaixa, () -> { if (ensurePermission("CAIXA", "VIEW", "Caixa")) showTurnoCaixaPane(); }, systemLogService, "NAV_CAIXA");
@@ -362,22 +368,31 @@ public class DashboardController {
         if (navMenuDespesas != null) UiUtils.attachSafe(navMenuDespesas, this::showDespesasPane, systemLogService, "NAV_DESPESAS");
         if (navMenuPagamentos != null) UiUtils.attachSafe(navMenuPagamentos, this::showPagamentosPane, systemLogService, "NAV_PAGAMENTOS");
 
-        if (navModComercial != null) UiUtils.attachSafe(navModComercial, () -> showSubNav("Comercial", navComercialItems), systemLogService, "NAV_MOD_COMERCIAL");
-        if (navModOperacoes != null) UiUtils.attachSafe(navModOperacoes, () -> showSubNav("Operações", navOperacoesItems), systemLogService, "NAV_MOD_OPERACOES");
-        if (navModFinanceiro != null) UiUtils.attachSafe(navModFinanceiro, () -> showSubNav("Financeiro", navFinanceiroItems), systemLogService, "NAV_MOD_FINANCEIRO");
-        if (navModAdministracao != null) UiUtils.attachSafe(navModAdministracao, () -> showSubNav("Admin", navAdminItems), systemLogService, "NAV_MOD_ADMIN");
-        if (navModLogs != null) UiUtils.attachSafe(navModLogs, () -> showLogsPane(), systemLogService, "NAV_MOD_LOGS");
+        if (navModComercial != null) UiUtils.attachSafe(navModComercial, () -> showSubNav("Vendas & Facturação", navComercialItems), systemLogService, "NAV_MOD_COMERCIAL");
+        if (navModOperacoes != null) UiUtils.attachSafe(navModOperacoes, () -> showSubNav("Stock & Artigos", navOperacoesItems), systemLogService, "NAV_MOD_OPERACOES");
+        if (navModFinanceiro != null) UiUtils.attachSafe(navModFinanceiro, () -> showSubNav("Caixa & Tesouraria", navFinanceiroItems), systemLogService, "NAV_MOD_FINANCEIRO");
+        if (navModArmazens != null) UiUtils.attachSafe(navModArmazens, () -> showSubNav("Armazém & Compras", navArmazensItems), systemLogService, "NAV_MOD_ARMAZENS");
+        if (navModRelatorios != null) UiUtils.attachSafe(navModRelatorios, () -> showSubNav("Mapas & Relatórios", navRelatoriosItems), systemLogService, "NAV_MOD_RELATORIOS");
+        if (navModAdministracao != null) UiUtils.attachSafe(navModAdministracao, () -> showSubNav("Configurações", navAdminItems), systemLogService, "NAV_MOD_ADMIN");
+        if (navMenuLogs != null) UiUtils.attachSafe(navMenuLogs, this::showLogsPane, systemLogService, "NAV_LOGS");
+        if (navMenuUsers != null) UiUtils.attachSafe(navMenuUsers, this::showUsersPane, systemLogService, "NAV_USERS");
         if (navBackButton != null) UiUtils.attachSafe(navBackButton, () -> navManager.drillBack(navRootPane, navSubPane), systemLogService, "NAV_BACK");
 
         setupCrudButtons();
 
         if (paymentsTable != null) {
-            paymentsTable.setRowFactory(navManager.makeTableRowFactory());
-            paymentsTable.setPlaceholder(new Label("Nenhum pagamento encontrado."));
+            paymentsTable.setRowFactory(navManager.makeTableRowFactory(() -> {
+                Payment sel = paymentsTable.getSelectionModel().getSelectedItem();
+                if (sel != null) navManager.showPaymentDetails(sel, getOwner());
+            }));
+            paymentsTable.setPlaceholder(new Label("Nenhum pagamento registado."));
         }
         if (expensesTable != null) {
-            expensesTable.setRowFactory(navManager.makeTableRowFactory());
-            expensesTable.setPlaceholder(new Label("Nenhuma despesa encontrada."));
+            expensesTable.setRowFactory(navManager.makeTableRowFactory(() -> {
+                Expense sel = expensesTable.getSelectionModel().getSelectedItem();
+                if (sel != null) navManager.showExpenseDetails(sel, getOwner());
+            }));
+            expensesTable.setPlaceholder(new Label("Nenhuma despesa registada."));
         }
 
         if (notificationBellButton != null) notificationBellButton.setOnAction(e -> kpiManager.showNotificationPopup(notificationBellButton));
@@ -432,8 +447,21 @@ public class DashboardController {
             deleteExpenseButton.setOnAction(e -> {
                 Expense sel = expensesTable != null ? expensesTable.getSelectionModel().getSelectedItem() : null;
                 if (sel != null) {
-                    Alert confirm = new Alert(Alert.AlertType.CONFIRMATION, "Tem certeza que deseja apagar esta despesa?", ButtonType.OK, ButtonType.CANCEL);
-                    confirm.showAndWait().ifPresent(res -> { if (res == ButtonType.OK) crudManager.safeDelete(() -> dashboardCrudService.deleteExpense(sel.getId()), this::loadExpenses, "Despesa", currentUser); });
+                    Alert confirm = new Alert(Alert.AlertType.CONFIRMATION, "Tem a certeza que deseja anular a despesa \"" + sel.getDescription() + "\"?", ButtonType.OK, ButtonType.CANCEL);
+                    confirm.setHeaderText(null);
+                    confirm.setTitle("Confirmar Anulação de Despesa");
+                    confirm.showAndWait().ifPresent(res -> {
+                        if (res == ButtonType.OK) {
+                            try {
+                                applicationContext.getBean(com.sgv.service.ExpenseService.class).annulExpense(sel.getId(), currentUser);
+                                loadExpenses();
+                            } catch (Exception ex) {
+                                Alert err = new Alert(Alert.AlertType.ERROR, "Erro ao anular despesa: " + ex.getMessage());
+                                err.setHeaderText(null);
+                                err.showAndWait();
+                            }
+                        }
+                    });
                 }
             });
         }
@@ -586,7 +614,7 @@ public class DashboardController {
     private VBox[] allPanes() {
         return new VBox[]{summaryPane, salesStatsPane, salesPane, productsPane, customersPane, stockPane,
             turnoCaixaPane, comprasPane, fornecedoresPane, stockArmazemPane, financeiroPane, pagamentosPane, despesasPane, catalogsPane, reportsPane, producaoPane,
-            sistemaPane, usersPane, warehousesPane, logsPane};
+            sistemaPane, usersPane, warehousesPane, transfersPane, logsPane};
     }
 
     private Button[] allNavButtons() {
@@ -598,15 +626,16 @@ public class DashboardController {
 
     private void showSubNav(String moduleLabel, HBox targetItems) {
         navManager.showSubNav(moduleLabel, targetItems, navRootPane, navSubPane, navSubModuleLabel,
-            navComercialItems, navOperacoesItems, navFinanceiroItems, navAdminItems, navArmazensItems);
+            navComercialItems, navOperacoesItems, navFinanceiroItems, navAdminItems, navArmazensItems, navRelatoriosItems);
     }
 
     private void showSummaryPane() {
         navManager.setActiveNav(navResumo, allNavButtons());
         navManager.setPaneVisibility(summaryPane, allPanes());
-        pageTitleLabel.setText("Dashboard");
-        pageSubtitleLabel.setText("Visão geral do sistema");
-        kpiManager.loadStats(salesLabel, productsLabel, customersLabel, branchesLabel, salesLineChart, salesPieChart,
+        pageTitleLabel.setText("Painel Geral");
+        pageSubtitleLabel.setText("Visão geral das operações, vendas e tesouraria");
+        Long branchId = currentUser != null && !currentUser.isSuperAdmin() && currentUser.getBranch() != null ? currentUser.getBranch().getId() : null;
+        kpiManager.loadStats(currentUser, branchId, salesLabel, productsLabel, customersLabel, branchesLabel, salesLineChart, salesPieChart,
             () -> kpiManager.checkAlerts(notificationBadge), this::animateEntrance);
         updateCashBadge();
     }
@@ -636,7 +665,10 @@ public class DashboardController {
             this::clearSaleFilter,
             this::loadSales,
             () -> kpiManager.loadSalesStats(salesStatsRevenueTodayLabel, salesStatsCountTodayLabel, salesStatsAvgTicketLabel, salesStatsPendingLabel, salesStatsBarChart, salesStatsPieChart),
-            () -> kpiManager.loadStats(salesLabel, productsLabel, customersLabel, branchesLabel, salesLineChart, salesPieChart, null, null),
+            () -> {
+                Long bId = currentUser != null && !currentUser.isSuperAdmin() && currentUser.getBranch() != null ? currentUser.getBranch().getId() : null;
+                kpiManager.loadStats(currentUser, bId, salesLabel, productsLabel, customersLabel, branchesLabel, salesLineChart, salesPieChart, null, null);
+            },
             this::updateCashBadge,
             () -> openSaleFormWithType(null, null),
             this::printSelectedSale,
@@ -697,6 +729,10 @@ public class DashboardController {
             });
     }
 
+        private void showTransfersPane() {
+        navManager.showTransfersPane(navMenuTransferir, pageTitleLabel, pageSubtitleLabel, transfersPane, currentUser, allPanes(), allNavButtons(), this::updateCashBadge, this::openWarehouseTransferForm);
+    }
+
     private void showStockWarehousePane() {
         navManager.showStockWarehousePane(navMenuStockArmazem, pageTitleLabel, pageSubtitleLabel,
             stockArmazemPane, currentUser, allPanes(), allNavButtons(), this::updateCashBadge,
@@ -710,7 +746,56 @@ public class DashboardController {
 
     private void showComprasPane() {
         navManager.showComprasPane(navMenuCompras, pageTitleLabel, pageSubtitleLabel,
-            comprasPane, currentUser, allPanes(), allNavButtons(), this::updateCashBadge);
+            comprasPane, currentUser, allPanes(), allNavButtons(), this::updateCashBadge,
+            () -> crudManager.openPurchaseForm(null, getOwner(), currentUser, () -> navManager.reloadPurchases()),
+            () -> {
+                TableView<Purchase> tbl = navManager.getPurchasesTable();
+                Purchase sel = tbl != null ? tbl.getSelectionModel().getSelectedItem() : null;
+                if (sel != null) {
+                    navManager.showPurchaseDetails(sel, getOwner());
+                } else {
+                    Alert a = new Alert(Alert.AlertType.WARNING, "Selecione uma compra na lista.");
+                    a.setHeaderText(null);
+                    a.showAndWait();
+                }
+            },
+            () -> {
+                TableView<Purchase> tbl = navManager.getPurchasesTable();
+                Purchase sel = tbl != null ? tbl.getSelectionModel().getSelectedItem() : null;
+                if (sel != null && sel.getSupplier() != null) {
+                    crudManager.openSupplierPaymentForm(sel.getSupplier(), getOwner(), () -> navManager.reloadPurchases());
+                } else {
+                    crudManager.openSupplierPaymentForm(null, getOwner(), () -> navManager.reloadPurchases());
+                }
+            },
+            () -> {
+                TableView<Purchase> tbl = navManager.getPurchasesTable();
+                Purchase sel = tbl != null ? tbl.getSelectionModel().getSelectedItem() : null;
+                if (sel != null) {
+                    Alert confirm = new Alert(Alert.AlertType.CONFIRMATION,
+                            "Tem a certeza que deseja anular a Factura de Compra " + (sel.getInvoiceNumber() != null ? sel.getInvoiceNumber() : "#" + sel.getId()) + "?\nO stock correspondente será revertido do armazém.",
+                            ButtonType.YES, ButtonType.NO);
+                    confirm.setHeaderText(null);
+                    confirm.setTitle("Confirmar Anulação de Compra");
+                    confirm.showAndWait().ifPresent(r -> {
+                        if (r == ButtonType.YES) {
+                            try {
+                                applicationContext.getBean(com.sgv.service.PurchaseService.class).annulPurchase(sel.getId(), currentUser);
+                                navManager.reloadPurchases();
+                            } catch (Exception ex) {
+                                Alert err = new Alert(Alert.AlertType.ERROR, "Erro ao anular compra: " + ex.getMessage());
+                                err.setHeaderText(null);
+                                err.showAndWait();
+                            }
+                        }
+                    });
+                } else {
+                    Alert a = new Alert(Alert.AlertType.WARNING, "Selecione uma compra na lista.");
+                    a.setHeaderText(null);
+                    a.showAndWait();
+                }
+            },
+            () -> navManager.reloadPurchases());
     }
 
     private void showFornecedoresPane() {
@@ -722,6 +807,17 @@ public class DashboardController {
                 Supplier sel = tbl != null ? tbl.getSelectionModel().getSelectedItem() : null;
                 if (sel != null) {
                     crudManager.openSupplierForm(sel, getOwner(), () -> navManager.reloadSuppliers());
+                } else {
+                    Alert a = new Alert(Alert.AlertType.WARNING, "Selecione um fornecedor na lista.");
+                    a.setHeaderText(null);
+                    a.showAndWait();
+                }
+            },
+            () -> {
+                TableView<Supplier> tbl = navManager.getSuppliersTable();
+                Supplier sel = tbl != null ? tbl.getSelectionModel().getSelectedItem() : null;
+                if (sel != null) {
+                    navManager.showSupplierDetails(sel, getOwner());
                 } else {
                     Alert a = new Alert(Alert.AlertType.WARNING, "Selecione um fornecedor na lista.");
                     a.setHeaderText(null);
@@ -748,7 +844,7 @@ public class DashboardController {
                     confirm.showAndWait().ifPresent(r -> {
                         if (r == ButtonType.OK) {
                             crudManager.safeDelete(
-                                () -> applicationContext.getBean(SupplierRepository.class).deleteById(sel.getId()),
+                                () -> applicationContext.getBean(com.sgv.service.SupplierService.class).deleteById(sel.getId()),
                                 () -> navManager.reloadSuppliers(), "Fornecedor", currentUser);
                         }
                     });
@@ -762,7 +858,11 @@ public class DashboardController {
 
     private void showProducaoPane() {
         navManager.showProducaoPane(navMenuProducao, pageTitleLabel, pageSubtitleLabel,
-            producaoPane, currentUser, allPanes(), allNavButtons(), this::updateCashBadge);
+            producaoPane, currentUser, allPanes(), allNavButtons(), this::updateCashBadge,
+            () -> crudManager.openOrderForm(null, getOwner(), currentUser, this::loadProductionOrders),
+            () -> crudManager.viewSelectedProductionOrder(navManager.getOrdersTable(), getOwner()),
+            () -> crudManager.completeSelectedProductionOrder(navManager.getOrdersTable(), currentUser, this::loadProductionOrders),
+            () -> crudManager.deleteSelectedProductionOrder(navManager.getOrdersTable(), currentUser, this::loadProductionOrders));
     }
 
     private void showReportsPane() {
@@ -845,11 +945,12 @@ public class DashboardController {
     // ═══════════════════════════════════════════════════════════════════════════
 
     private void loadStats() {
-        kpiManager.loadStats(salesLabel, productsLabel, customersLabel, branchesLabel, salesLineChart, salesPieChart,
+        Long branchId = currentUser != null && !currentUser.isSuperAdmin() && currentUser.getBranch() != null ? currentUser.getBranch().getId() : null;
+        kpiManager.loadStats(currentUser, branchId, salesLabel, productsLabel, customersLabel, branchesLabel, salesLineChart, salesPieChart,
             () -> kpiManager.checkAlerts(notificationBadge), this::animateEntrance);
     }
 
-    private void loadSales() { crudManager.loadSales(navManager.getSalesTable(), saleFilter, saleStateFilter, saleDocTypeFilter, saleStartDate, saleEndDate); }
+    private void loadSales() { crudManager.loadSales(navManager.getSalesTable(), saleFilter, saleStateFilter, saleDocTypeFilter, saleStartDate, saleEndDate, currentUser); }
     private void loadProducts() { crudManager.loadProducts(navManager.getProductsTable(), productFilter, currentProductsPage); }
     private void loadCustomers() { crudManager.loadCustomers(navManager.getCustomersTable(), customerFilter, currentCustomersPage); }
     private void loadStock() { crudManager.loadStock(stockTable, stockSearchField); }

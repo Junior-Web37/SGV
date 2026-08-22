@@ -63,7 +63,7 @@ public class SaleService {
     }
 
     @Transactional
-    public File processAndSave(Sale sale, User currentUser) throws Exception {
+    public Sale persistSaleTransaction(Sale sale, User currentUser) throws Exception {
         if (sale == null) throw new IllegalArgumentException("Sale is null");
         if (trainingModeService != null && trainingModeService.isTrainingMode()) {
             throw new IllegalStateException("Operação bloqueada: modo treino está activo.");
@@ -237,9 +237,19 @@ public class SaleService {
                 }
             }
         }
+        return saved;
+    }
 
-        // Generate PDF or thermal
-        String fmt = com.sgv.desktop.SaleFormController.atDefaultFormat(persistentSale.getDocumentType());
+    /**
+     * Orquestrador de venda de alta disponibilidade:
+     * A transação do banco é executada e finalizada rapidamente via persistSaleTransaction;
+     * A geração de ficheiro PDF/I/O é realizada fora do lock transacional.
+     */
+    public File processAndSave(Sale sale, User currentUser) throws Exception {
+        Sale saved = persistSaleTransaction(sale, currentUser);
+
+        // Geração de documento/impressão fora da transação do banco
+        String fmt = com.sgv.desktop.SaleFormController.atDefaultFormat(saved.getDocumentType());
         if ("thermal-80mm".equals(fmt)) {
             return thermalPrintService.printReceipt(saved);
         }
@@ -402,6 +412,22 @@ public class SaleService {
                 customerRepository.save(cust);
                 if (entityManager != null) entityManager.flush();
             }
+        } else {
+            // Estorno de tesouraria / saída de caixa para vendas a pronto que movimentaram caixa
+            com.sgv.model.DocumentType docType = com.sgv.model.DocumentType.fromString(saved.getDocumentType());
+            if (docType == com.sgv.model.DocumentType.VENDA || docType == com.sgv.model.DocumentType.FACTURA || docType == com.sgv.model.DocumentType.RECIBO) {
+                if (cashSessionService != null && currentUser != null) {
+                    try {
+                        BigDecimal saleTotal = saved.getTotalAmount() != null ? saved.getTotalAmount() : BigDecimal.ZERO;
+                        String ref = "Estorno " + (saved.getDocumentType() != null ? saved.getDocumentType() : "DOC")
+                                + " #" + (saved.getDocumentNumber() != null ? saved.getDocumentNumber() : saved.getId())
+                                + "/" + (saved.getSeries() != null ? saved.getSeries() : "A");
+                        cashSessionService.registerMovement(currentUser, "OUT", saleTotal, ref, "ANULACAO_VENDA", com.sgv.entity.OperationKind.REFUND, false);
+                    } catch (Exception ignored) {
+                        // Se o operador não tiver sessão aberta no momento da anulação, prossegue sem travar a anulação fiscal
+                    }
+                }
+            }
         }
 
         return saved;
@@ -512,8 +538,26 @@ public class SaleService {
                 throw new IllegalStateException("NUIT do cliente inválido.");
             }
         }
-        if ("CREDITO".equals(sale.getPaymentMethod()) && (sale.getCustomer() == null || sale.getCustomer().getId() == null)) {
-            throw new IllegalStateException("Venda a crédito requer um cliente.");
+        if ("CREDITO".equals(sale.getPaymentMethod())) {
+            if (sale.getCustomer() == null || sale.getCustomer().getId() == null) {
+                throw new IllegalStateException("Venda a crédito requer um cliente registado.");
+            }
+            if (customerRepository != null) {
+                Customer cust = customerRepository.findById(sale.getCustomer().getId()).orElse(null);
+                if (cust != null) {
+                    BigDecimal limit = cust.getCreditLimitAmount();
+                    if (limit != null && limit.compareTo(BigDecimal.ZERO) > 0) {
+                        BigDecimal curBal = cust.getBalanceAmount() != null ? cust.getBalanceAmount() : BigDecimal.ZERO;
+                        BigDecimal saleTot = sale.getTotalAmount() != null ? sale.getTotalAmount() : BigDecimal.ZERO;
+                        if (curBal.add(saleTot).compareTo(limit) > 0) {
+                            throw new IllegalStateException(String.format(
+                                "Limite de crédito excedido para '%s'. Limite Máx: %,.2f MT | Dívida Atual: %,.2f MT | Total Venda: %,.2f MT",
+                                cust.getName(), limit, curBal, saleTot
+                            ));
+                        }
+                    }
+                }
+            }
         }
         if (sale.getItems() == null || sale.getItems().isEmpty()) {
             throw new IllegalStateException("A venda deve conter ao menos um item.");

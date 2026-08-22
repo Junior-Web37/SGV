@@ -26,6 +26,10 @@ public class CategoryFormController extends BaseFormController {
         initCommonFields();
         UiUtils.attachSafe(saveButton, this::doSave, systemLogService, "CATEGORY_SAVE");
         UiUtils.attachSafe(cancelButton, this::doCancel, systemLogService, "CATEGORY_CANCEL");
+        UiUtils.applyHoverElevation(saveButton);
+        UiUtils.applyPressFeedback(saveButton);
+        UiUtils.applyHoverElevation(cancelButton);
+        UiUtils.applyPressFeedback(cancelButton);
         nameField.textProperty().addListener((obs, o, n) -> validateRealTime());
         javafx.application.Platform.runLater(this::validateRealTime);
     }
@@ -79,7 +83,7 @@ public class CategoryFormController extends BaseFormController {
                 return null;
             }
         };
-        saveTask.setOnSucceeded(e -> { if (onSave != null) onSave.run(); doCancel(); });
+        saveTask.setOnSucceeded(e -> { systemLogService.logUserAction(currentUser != null ? currentUser.getUsername() : "Sistema", "CATEGORIA_GRAVADA", "Categoria gravada com sucesso: " + nameField.getText()); if (onSave != null) onSave.run(); doCancel(); });
         saveTask.setOnFailed(e -> {
             Throwable ex = saveTask.getException();
             String msg = ex.getMessage() != null ? ex.getMessage() : "Erro desconhecido";
@@ -87,6 +91,6 @@ public class CategoryFormController extends BaseFormController {
             showError("Erro ao salvar: " + msg);
             hideSaveSpinner();
         });
-        new Thread(saveTask).start();
+        UiUtils.runTask(saveTask);
     }
 }

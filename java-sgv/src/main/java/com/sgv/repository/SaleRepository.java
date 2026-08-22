@@ -77,7 +77,7 @@ public interface SaleRepository extends JpaRepository<Sale, Long> {
     @Query("SELECT s FROM Sale s WHERE s.customer.id = :customerId ORDER BY s.createdAt DESC")
     List<Sale> findAllByCustomerId(@Param("customerId") Long customerId);
 
-    @Query("SELECT s FROM Sale s WHERE s.customer.id = :customerId AND s.state = 'EMITIDA' ORDER BY s.createdAt ASC")
+    @Query("SELECT s FROM Sale s WHERE s.customer.id = :customerId AND s.state != 'ANULADA' AND (COALESCE(s.total, 0) - COALESCE(s.paidAmount, 0)) > 0.01 ORDER BY s.createdAt ASC")
     List<Sale> findPendingByCustomerId(@Param("customerId") Long customerId);
 
     @Query("SELECT COUNT(s) FROM Sale s WHERE s.createdAt >= :start AND s.createdAt <= :end")
@@ -99,6 +99,24 @@ public interface SaleRepository extends JpaRepository<Sale, Long> {
     /** Sequência controlada por filial para o hashHash AT */
     @Query("SELECT MAX(s.hashControl) FROM Sale s WHERE s.branch.id = :branchId")
     Long findMaxHashControlByBranchId(@Param("branchId") Long branchId);
+
+    @Query("SELECT s FROM Sale s WHERE s.state != 'ANULADA' AND (COALESCE(s.total, 0) - COALESCE(s.paidAmount, 0)) > 0.01 ORDER BY s.createdAt DESC")
+    List<Sale> findPendingSales();
+
+    @Query("SELECT COALESCE(SUM(s.total), 0) FROM Sale s WHERE s.createdAt >= :startOfDay AND s.createdAt <= :endOfDay AND (:branchId IS NULL OR s.branch.id = :branchId) AND s.state != 'ANULADA'")
+    BigDecimal sumTotalByDateRangeAndBranch(@Param("startOfDay") LocalDateTime startOfDay, @Param("endOfDay") LocalDateTime endOfDay, @Param("branchId") Long branchId);
+
+    @Query("SELECT COUNT(s) FROM Sale s WHERE s.createdAt >= :startOfDay AND s.createdAt <= :endOfDay AND (:branchId IS NULL OR s.branch.id = :branchId) AND s.state != 'ANULADA'")
+    long countByDateRangeAndBranch(@Param("startOfDay") LocalDateTime startOfDay, @Param("endOfDay") LocalDateTime endOfDay, @Param("branchId") Long branchId);
+
+    @Query("SELECT COALESCE(SUM(s.total - COALESCE(s.paidAmount, 0)), 0) FROM Sale s WHERE s.state != 'ANULADA' AND (s.total - COALESCE(s.paidAmount, 0)) > 0.01 AND (:branchId IS NULL OR s.branch.id = :branchId)")
+    BigDecimal sumTotalPendingCreditsByBranch(@Param("branchId") Long branchId);
+
+    @Query("SELECT s.paymentMethod, COALESCE(SUM(s.total), 0) FROM Sale s WHERE s.createdAt >= :startOfDay AND s.createdAt <= :endOfDay AND (:branchId IS NULL OR s.branch.id = :branchId) AND s.state != 'ANULADA' GROUP BY s.paymentMethod")
+    List<Object[]> sumTotalByPaymentMethodToday(@Param("startOfDay") LocalDateTime startOfDay, @Param("endOfDay") LocalDateTime endOfDay, @Param("branchId") Long branchId);
+
+    @Query("SELECT s FROM Sale s WHERE (:branchId IS NULL OR s.branch.id = :branchId) ORDER BY s.createdAt DESC")
+    Page<Sale> findByBranchIdOrderByCreatedAtDesc(@Param("branchId") Long branchId, Pageable pageable);
 
     /**
      * Detecta possíveis duplicações: mesma filial, tipo, série, NUIT, nº de itens,

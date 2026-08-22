@@ -24,8 +24,14 @@ public class StockBranch {
     private BigDecimal stockMin = BigDecimal.ZERO;
     private BigDecimal stockMax = BigDecimal.ZERO;
 
+    @Version
+    @Column(name = "version", nullable = false)
+    private Long version = 0L;
+
     public Long getId() { return id; }
     public void setId(Long id) { this.id = id; }
+    public Long getVersion() { return version; }
+    public void setVersion(Long version) { this.version = version; }
     public Product getProduct() { return product; }
     public void setProduct(Product product) { this.product = product; }
     public Branch getBranch() { return branch; }

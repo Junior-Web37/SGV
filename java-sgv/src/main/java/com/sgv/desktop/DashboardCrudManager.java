@@ -48,6 +48,7 @@ public class DashboardCrudManager {
     private final CategoryRepository categoryRepository;
     private final PaymentRepository paymentRepository;
     private final ProductionOrderRepository productionOrderRepository;
+    private final ProductRecipeRepository productRecipeRepository;
     private final UserRepository userRepository;
     private final PurchaseRepository purchaseRepository;
     private final ExpenseRepository expenseRepository;
@@ -55,6 +56,7 @@ public class DashboardCrudManager {
     private final CashSessionService cashSessionService;
     private final MetricUnitRepository metricUnitRepository;
     private final SaleDocumentService saleDocumentService;
+    private final ThermalPrintService thermalPrintService;
     private final WarehouseRepository warehouseRepository;
     private final StockWarehouseRepository stockWarehouseRepository;
     private final SystemLogService systemLogService;
@@ -73,6 +75,7 @@ public class DashboardCrudManager {
                                 CategoryRepository categoryRepository,
                                 PaymentRepository paymentRepository,
                                 ProductionOrderRepository productionOrderRepository,
+                                ProductRecipeRepository productRecipeRepository,
                                 UserRepository userRepository,
                                 PurchaseRepository purchaseRepository,
                                 ExpenseRepository expenseRepository,
@@ -80,6 +83,7 @@ public class DashboardCrudManager {
                                 CashSessionService cashSessionService,
                                 MetricUnitRepository metricUnitRepository,
                                 SaleDocumentService saleDocumentService,
+                                ThermalPrintService thermalPrintService,
                                 WarehouseRepository warehouseRepository,
                                 StockWarehouseRepository stockWarehouseRepository,
                                 SystemLogService systemLogService,
@@ -97,6 +101,7 @@ public class DashboardCrudManager {
         this.categoryRepository = categoryRepository;
         this.paymentRepository = paymentRepository;
         this.productionOrderRepository = productionOrderRepository;
+        this.productRecipeRepository = productRecipeRepository;
         this.userRepository = userRepository;
         this.purchaseRepository = purchaseRepository;
         this.expenseRepository = expenseRepository;
@@ -104,6 +109,7 @@ public class DashboardCrudManager {
         this.cashSessionService = cashSessionService;
         this.metricUnitRepository = metricUnitRepository;
         this.saleDocumentService = saleDocumentService;
+        this.thermalPrintService = thermalPrintService;
         this.warehouseRepository = warehouseRepository;
         this.stockWarehouseRepository = stockWarehouseRepository;
         this.systemLogService = systemLogService;
@@ -123,14 +129,21 @@ public class DashboardCrudManager {
     }
 
     public void loadSales(TableView<Sale> salesTable, String filter, String stateFilter) {
-        loadSales(salesTable, filter, stateFilter, "TODOS", null, null);
+        loadSales(salesTable, filter, stateFilter, "TODOS", null, null, null);
     }
 
     public void loadSales(TableView<Sale> salesTable, String filter, String stateFilter,
-                          String docTypeFilter, LocalDateTime startDate, LocalDateTime endDate) {
+                          String docTypeFilter, LocalDateTime startDate, LocalDateTime endDate, User currentUser) {
         if (salesTable == null) return;
+        Long branchId = currentUser != null && !currentUser.isSuperAdmin() && currentUser.getBranch() != null
+                ? currentUser.getBranch().getId() : null;
+
         List<Sale> allSales = saleRepository.findAllWithCustomerAndItems();
         List<Sale> filtered = allSales.stream()
+                .filter(s -> {
+                    if (branchId == null) return true;
+                    return s.getBranch() != null && branchId.equals(s.getBranch().getId());
+                })
                 .filter(s -> {
                     if (filter == null || filter.isBlank()) return true;
                     String term = filter.toLowerCase();
@@ -161,6 +174,11 @@ public class DashboardCrudManager {
                 .sorted(Comparator.comparing(Sale::getCreatedAt, Comparator.nullsLast(Comparator.reverseOrder())))
                 .toList();
         salesTable.setItems(FXCollections.observableArrayList(filtered));
+    }
+
+    public void loadSales(TableView<Sale> salesTable, String filter, String stateFilter,
+                          String docTypeFilter, LocalDateTime startDate, LocalDateTime endDate) {
+        loadSales(salesTable, filter, stateFilter, docTypeFilter, startDate, endDate, null);
     }
 
     public void loadProducts(TableView<Product> productsTable, String filter, int page) {
@@ -574,6 +592,97 @@ public class DashboardCrudManager {
         }
     }
 
+    public void viewSelectedProductionOrder(TableView<ProductionOrder> ordersTable, Window owner) {
+        if (ordersTable == null) return;
+        ProductionOrder selected = ordersTable.getSelectionModel().getSelectedItem();
+        if (selected == null) { showAlert(Alert.AlertType.WARNING, "Selecione uma ordem de produção para ver detalhes."); return; }
+
+        String stateColor = "COMPLETED".equalsIgnoreCase(selected.getState()) ? "#10B981" : "#F59E0B";
+        String prodName = selected.getProduct() != null ? selected.getProduct().getName() : "—";
+        String prodCode = selected.getProduct() != null ? selected.getProduct().getCode() : "—";
+
+        var dialog = DetailDialog.create(owner)
+            .title("Ordem de Produção #" + selected.getOrderNumber())
+            .subtitle(prodCode + " - " + prodName)
+            .statusBadge(selected.getState() != null ? selected.getState() : "—", stateColor)
+            .width(680)
+            .height(540)
+            .section("Dados do Fabrico")
+            .field("Nº Ordem", selected.getOrderNumber())
+            .field("Produto", prodName)
+            .field("Quantidade Produzida", (selected.getQuantity() != null ? selected.getQuantity().toString() : "0") + " " + (selected.getUnit() != null ? selected.getUnit() : "UN"), "#2563EB")
+            .field("Data de Registo", selected.getCreatedAt() != null ? selected.getCreatedAt().format(DATE_FORMATTER) : "—")
+            .field("Responsável", selected.getCreatedBy() != null ? selected.getCreatedBy().getFullName() : "—");
+
+        if (selected.getNotes() != null && !selected.getNotes().isBlank()) {
+            dialog.section("Observações").field("Notas / Quebras", selected.getNotes());
+        }
+
+        if (selected.getProduct() != null && selected.getProduct().getId() != null) {
+            var recipes = productRecipeRepository.findByParentProductId(selected.getProduct().getId());
+            if (recipes != null && !recipes.isEmpty()) {
+                String[] cols = {"Matéria-Prima", "Qtd. Requerida", "Total Abatido", "Unidade"};
+                List<Map<String, String>> rows = new ArrayList<>();
+                BigDecimal qty = selected.getQuantityAmount() != null ? selected.getQuantityAmount() : BigDecimal.ONE;
+                for (var r : recipes) {
+                    Map<String, String> row = new LinkedHashMap<>();
+                    row.put("Matéria-Prima", r.getIngredientProduct() != null ? r.getIngredientProduct().getName() : "—");
+                    row.put("Qtd. Requerida", String.format("%.4f", r.getQuantityRequired() != null ? r.getQuantityRequired().doubleValue() : 0));
+                    row.put("Total Abatido", String.format("%.4f", (r.getQuantityRequired() != null ? r.getQuantityRequired().multiply(qty).doubleValue() : 0)));
+                    row.put("Unidade", r.getUnit() != null ? r.getUnit() : "UN");
+                    rows.add(row);
+                }
+                dialog.tableSection("Ficha Técnica (BOM) — Matérias-Primas Abatidas", cols, rows);
+            }
+        }
+
+        dialog.show();
+    }
+
+    public void completeSelectedProductionOrder(TableView<ProductionOrder> ordersTable, User currentUser, Runnable onDataChanged) {
+        if (trainingModeService.isTrainingMode()) { showTrainingBlockedAlert(); return; }
+        if (ordersTable == null) return;
+        ProductionOrder selected = ordersTable.getSelectionModel().getSelectedItem();
+        if (selected == null) { showAlert(Alert.AlertType.WARNING, "Selecione uma ordem de produção."); return; }
+        if ("COMPLETED".equalsIgnoreCase(selected.getState())) {
+            showAlert(Alert.AlertType.INFORMATION, "Esta ordem de produção já se encontra concluída.");
+            return;
+        }
+
+        Alert confirm = new Alert(Alert.AlertType.CONFIRMATION, "Deseja marcar como concluída e registar o stock da ordem " + selected.getOrderNumber() + "?", ButtonType.YES, ButtonType.NO);
+        confirm.showAndWait().ifPresent(res -> {
+            if (res == ButtonType.YES) {
+                try {
+                    selected.setState("COMPLETED");
+                    selected.setCompletedAt(LocalDateTime.now());
+                    productionOrderRepository.save(selected);
+
+                    // Entrada em stock e consumo de ingredientes
+                    if (selected.getProduct() != null && currentUser != null && currentUser.getBranch() != null) {
+                        BigDecimal qty = selected.getQuantityAmount() != null ? selected.getQuantityAmount() : BigDecimal.ONE;
+                        stockBranchService.increaseStock(currentUser.getBranch(), selected.getProduct(), qty, "PROD-" + selected.getOrderNumber(), "PRODUCAO", currentUser);
+                        stockBranchService.consumeIngredientsForProduction(currentUser.getBranch(), selected.getProduct(), qty, "PROD-" + selected.getOrderNumber(), currentUser);
+                    }
+
+                    systemLogService.logUserAction(currentUser != null ? currentUser.getUsername() : "Sistema", "COMPLETE_PRODUCTION_ORDER", "Ordem de produção concluída: " + selected.getOrderNumber());
+                    onDataChanged.run();
+                    showAlert(Alert.AlertType.INFORMATION, "Ordem de produção concluída com sucesso!");
+                } catch (Exception ex) {
+                    systemLogService.logError("COMPLETE_ORDER_FAILED", "Erro ao concluir ordem de produção", ex);
+                    showAlert(Alert.AlertType.ERROR, "Erro ao concluir: " + ex.getMessage());
+                }
+            }
+        });
+    }
+
+    public void deleteSelectedProductionOrder(TableView<ProductionOrder> ordersTable, User currentUser, Runnable onDataChanged) {
+        if (trainingModeService.isTrainingMode()) { showTrainingBlockedAlert(); return; }
+        if (ordersTable == null) return;
+        ProductionOrder selected = ordersTable.getSelectionModel().getSelectedItem();
+        if (selected == null) { showAlert(Alert.AlertType.WARNING, "Selecione uma ordem de produção para eliminar."); return; }
+        safeDelete(() -> dashboardCrudService.deleteProductionOrder(selected.getId()), onDataChanged, "Ordem de Produção", currentUser);
+    }
+
     public void openOrderForm(ProductionOrder order, Window owner, User currentUser, Runnable onDataChanged) {
         if (trainingModeService.isTrainingMode()) { showTrainingBlockedAlert(); return; }
         try {
@@ -711,7 +820,16 @@ public class DashboardCrudManager {
                 Sale fullSale = saleRepository.findByIdWithItems(selected.getId());
                 if (fullSale == null) fullSale = selected;
                 File pdf = saleDocumentService.generateDocument(fullSale);
-                DocumentPreviewDialog.show(pdf, fullSale.getDocumentType());
+                DocumentPreviewDialog.show(
+                    pdf,
+                    fullSale.getDocumentType(),
+                    DocumentPreviewDialog.atDefaultFormat(fullSale.getDocumentType()),
+                    fullSale,
+                    s -> { try { return thermalPrintService.printReceipt(s); } catch (Exception ex) { return null; } },
+                    s -> { try { return thermalPrintService.printReceipt58mm(s); } catch (Exception ex) { return null; } },
+                    s -> { try { return saleDocumentService.generateDocument(s); } catch (Exception ex) { return null; } },
+                    s -> { try { return saleDocumentService.generateDocumentA5(s); } catch (Exception ex) { return null; } }
+                );
             } catch (Exception ex) {
                 showAlert(Alert.AlertType.ERROR, "Erro na impressão: " + ex.getMessage());
                 log.error("Erro inesperado", ex);
@@ -757,10 +875,10 @@ public class DashboardCrudManager {
             .field("Nome", custName)
             .field("NUIT", fullSale.getCustomerNuit())
             .section("Totais")
-            .field("Subtotal", String.format("%.2f MZN", fullSale.getSubtotal()))
-            .field("IVA", String.format("%.2f MZN", fullSale.getTotalTax()))
-            .field("Desconto", String.format("%.2f MZN", fullSale.getTotalDiscount()))
-            .field("Total", String.format("%.2f MZN", fullSale.getTotal()), "#2563EB");
+            .field("Subtotal", String.format("%.2f MT", fullSale.getSubtotal()))
+            .field("IVA (16%)", String.format("%.2f MT", fullSale.getTotalTax()))
+            .field("Desconto", String.format("%.2f MT", fullSale.getTotalDiscount()))
+            .field("Total", String.format("%.2f MT", fullSale.getTotal()), "#2563EB");
 
         if ("ANULADA".equals(fullSale.getState()) && fullSale.getAnnulReason() != null) {
             dd.section("Anulação")
@@ -797,24 +915,43 @@ public class DashboardCrudManager {
 
         String typeColor = "B2B".equals(selected.getType()) ? "#3B82F6" : "#10B981";
 
-        DetailDialog.create(owner)
+        var dialog = DetailDialog.create(owner)
             .title(selected.getName() != null ? selected.getName() : "Cliente")
             .subtitle("Código: " + (selected.getCode() != null ? selected.getCode() : "—"))
             .statusBadge(selected.getType() != null ? selected.getType() : "—", typeColor)
-            .section("Dados Pessoais")
+            .width(680)
+            .height(580)
+            .section("Dados do Cliente")
             .field("Nome Completo", selected.getName())
             .field("Código", selected.getCode())
-            .field("Tipo", selected.getType())
+            .field("Tipo de Cliente", selected.getType())
             .field("NUIT", selected.getNuit())
-            .section("Contacto")
+            .section("Contactos & Localização")
             .field("Telefone", selected.getContact())
             .field("Morada", selected.getAddress())
-            .section("Financeiro")
-            .field("Saldo", selected.getBalance() != null ? String.format("%.2f MT", selected.getBalance()) : "0.00 MT", "#2563EB")
+            .section("Posição Financeira")
+            .field("Saldo Devedor Actual", selected.getBalance() != null ? String.format("%.2f MT", selected.getBalance()) : "0.00 MT", "#2563EB")
             .field("Limite de Crédito", selected.getCreditLimit() != null ? String.format("%.2f MT", selected.getCreditLimit()) : "—")
-            .field("Desconto Padrão", selected.getDefaultDiscount() != null ? String.format("%.1f%%", selected.getDefaultDiscount()) : "—")
-            .field("Pontos de Fidelidade", selected.getFidelityPoints() != null ? String.valueOf(selected.getFidelityPoints()) : "0")
-            .show();
+            .field("Desconto Autorizado", selected.getDefaultDiscount() != null ? String.format("%.1f%%", selected.getDefaultDiscount()) : "—");
+
+        var statement = customerAccountService.getCustomerStatement(selected.getId());
+        if (statement != null && !statement.isEmpty()) {
+            String[] cols = {"Data", "Tipo", "Documento", "Débito (MT)", "Crédito (MT)", "Saldo (MT)"};
+            List<Map<String, String>> rows = new ArrayList<>();
+            for (var entry : statement.stream().limit(12).toList()) {
+                Map<String, String> row = new LinkedHashMap<>();
+                row.put("Data", entry.getDate() != null ? entry.getDate().format(java.time.format.DateTimeFormatter.ofPattern("dd/MM/yyyy")) : "");
+                row.put("Tipo", entry.getType() != null ? entry.getType() : "—");
+                row.put("Documento", entry.getDocument() != null ? entry.getDocument() : "—");
+                row.put("Débito (MT)", entry.getDebit() != null && entry.getDebit().compareTo(BigDecimal.ZERO) > 0 ? String.format("%,.2f", entry.getDebit()) : "—");
+                row.put("Crédito (MT)", entry.getCredit() != null && entry.getCredit().compareTo(BigDecimal.ZERO) > 0 ? String.format("%,.2f", entry.getCredit()) : "—");
+                row.put("Saldo (MT)", entry.getRunningBalance() != null ? String.format("%,.2f", entry.getRunningBalance()) : "0.00");
+                rows.add(row);
+            }
+            dialog.tableSection("Extrato de Conta Corrente (Últimos Movimentos)", cols, rows);
+        }
+
+        dialog.show();
     }
 
     public void reconcileSelectedCustomerCredits(TableView<Customer> customersTable, Window owner, User currentUser) {
@@ -835,14 +972,18 @@ public class DashboardCrudManager {
         if (result.isPresent()) {
             String txt = result.get();
             try {
-                java.math.BigDecimal amount = new java.math.BigDecimal(txt.trim());
+                java.math.BigDecimal amount = new java.math.BigDecimal(txt.trim().replace(",", "."));
+                if (amount.compareTo(java.math.BigDecimal.ZERO) <= 0) {
+                    showAlert(Alert.AlertType.WARNING, "O montante a reconciliar deve ser superior a zero.");
+                    return;
+                }
                 ReconciliationResult response = dashboardCrudService.reconcileCustomerCredits(selected, amount, currentUser);
                 java.math.BigDecimal remaining = response != null ? response.getRemaining() : java.math.BigDecimal.ZERO;
                 if (remaining == null) remaining = java.math.BigDecimal.ZERO;
                 if (remaining.compareTo(java.math.BigDecimal.ZERO) == 0) {
-                    showAlert(Alert.AlertType.INFORMATION, "Reconciliação concluída. Não há saldo remanescente.");
+                    showAlert(Alert.AlertType.INFORMATION, "Reconciliação concluída: todo o valor foi aplicado nas faturas em aberto.");
                 } else {
-                    showAlert(Alert.AlertType.INFORMATION, "Reconciliação concluída. Saldo remanescente: " + remaining.toPlainString());
+                    showAlert(Alert.AlertType.INFORMATION, "Reconciliação concluída. Saldo remanescente a favor do cliente: " + String.format("%.2f MT", remaining));
                 }
             } catch (NumberFormatException ex) {
                 showAlert(Alert.AlertType.ERROR, "Montante inválido informado.");
@@ -1012,8 +1153,19 @@ public class DashboardCrudManager {
         String origType = selected.getDocumentType();
         try {
             selected.setDocumentType(DocumentType.RECIBO.name());
-            File pdf = saleDocumentService.generateDocument(selected);
-            if (pdf != null) DocumentPreviewDialog.show(pdf, "RECIBO");
+            File pdf = thermalPrintService.printReceipt(selected);
+            if (pdf != null) {
+                DocumentPreviewDialog.show(
+                    pdf,
+                    "RECIBO",
+                    DocumentPreviewDialog.FMT_THERMAL_80MM,
+                    selected,
+                    s -> { try { return thermalPrintService.printReceipt(s); } catch (Exception ex) { return null; } },
+                    s -> { try { return thermalPrintService.printReceipt58mm(s); } catch (Exception ex) { return null; } },
+                    s -> { try { return saleDocumentService.generateDocument(s); } catch (Exception ex) { return null; } },
+                    s -> { try { return saleDocumentService.generateDocumentA5(s); } catch (Exception ex) { return null; } }
+                );
+            }
         } catch (Exception ex) {
             showAlert(Alert.AlertType.ERROR, "Erro ao gerar recibo: " + ex.getMessage());
         } finally {
@@ -1112,13 +1264,36 @@ public class DashboardCrudManager {
         colDate.setCellValueFactory(d -> new SimpleStringProperty(
                 d.getValue().getCreatedAt() != null ? d.getValue().getCreatedAt().format(DATE_FORMATTER) : "—"));
         TableColumn<Sale, String> colTotal = new TableColumn<>("Total (MT)");
-        colTotal.setPrefWidth(130);
+        colTotal.setPrefWidth(110);
         colTotal.setCellValueFactory(d -> new SimpleStringProperty(
                 d.getValue().getTotal() != null ? String.format("%.2f", d.getValue().getTotal()) : "0.00"));
+
+        TableColumn<Sale, String> colPaid = new TableColumn<>("Já Pago (MT)");
+        colPaid.setPrefWidth(110);
+        colPaid.setCellValueFactory(d -> new SimpleStringProperty(
+                d.getValue().getPaidAmount() != null ? String.format("%.2f", d.getValue().getPaidAmount()) : "0.00"));
+
+        TableColumn<Sale, String> colPend = new TableColumn<>("Pendente (MT)");
+        colPend.setPrefWidth(120);
+        colPend.setCellValueFactory(d -> {
+            double tot = d.getValue().getTotal() != null ? d.getValue().getTotal() : 0.0;
+            double p = d.getValue().getPaidAmount() != null ? d.getValue().getPaidAmount() : 0.0;
+            return new SimpleStringProperty(String.format("%.2f", Math.max(0.0, tot - p)));
+        });
+
         TableColumn<Sale, String> colState = new TableColumn<>("Estado");
         colState.setPrefWidth(100);
         colState.setCellValueFactory(d -> new SimpleStringProperty(d.getValue().getState()));
-        pendingTable.getColumns().addAll(List.of(colDoc, colDate, colTotal, colState));
+        pendingTable.getColumns().addAll(List.of(colDoc, colDate, colTotal, colPaid, colPend, colState));
+
+        pendingTable.getSelectionModel().selectedItemProperty().addListener((obs, oldV, newV) -> {
+            if (newV != null) {
+                double tot = newV.getTotal() != null ? newV.getTotal() : 0.0;
+                double p = newV.getPaidAmount() != null ? newV.getPaidAmount() : 0.0;
+                double pend = Math.max(0.0, tot - p);
+                valorField.setText(String.format(java.util.Locale.US, "%.2f", pend));
+            }
+        });
 
         try {
             List<Sale> pending = saleRepository.findPendingByCustomerId(customer.getId());
@@ -1136,9 +1311,9 @@ public class DashboardCrudManager {
         Label lblMetodo = new Label("Método:");
         lblMetodo.setStyle("-fx-font-weight:700; -fx-text-fill:#0F172A;");
         ComboBox<String> metodoCombo = new ComboBox<>();
-        metodoCombo.getItems().addAll("Dinheiro", "TPA/Multibanco", "Transferência", "M-Pesa", "E-Mola");
-        metodoCombo.setValue("Dinheiro");
-        metodoCombo.setPrefWidth(160);
+        metodoCombo.getItems().addAll("Numerário", "M-Pesa", "e-Mola", "mKesh", "Cartão (POS)", "Transferência Bancária", "Cheque");
+        metodoCombo.setValue("Numerário");
+        metodoCombo.setPrefWidth(180);
         Region spacerPay = new Region();
         HBox.setHgrow(spacerPay, Priority.ALWAYS);
         Button btnConfirmar = new Button("✓ Confirmar");
@@ -1146,6 +1321,9 @@ public class DashboardCrudManager {
         Button btnCancelarPay = new Button("Cancelar");
         btnCancelarPay.setStyle("-fx-padding: 7 14; -fx-background-radius: 6; -fx-font-size: 12px; -fx-font-weight: 700; -fx-background-color: #475569; -fx-text-fill: #ffffff; -fx-cursor: hand;");
         btnCancelarPay.setOnAction(ev -> dialog.close());
+
+        UiUtils.applyPressFeedback(btnConfirmar);
+        UiUtils.applyPressFeedback(btnCancelarPay);
 
         btnConfirmar.setOnAction(ev -> {
             Sale selSale = pendingTable.getSelectionModel().getSelectedItem();

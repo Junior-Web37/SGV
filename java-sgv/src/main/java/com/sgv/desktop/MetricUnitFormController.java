@@ -29,6 +29,10 @@ public class MetricUnitFormController extends BaseFormController {
         initCommonFields();
         UiUtils.attachSafe(saveButton, this::doSave, systemLogService, "METRIC_UNIT_SAVE");
         UiUtils.attachSafe(cancelButton, this::doCancel, systemLogService, "METRIC_UNIT_CANCEL");
+        UiUtils.applyHoverElevation(saveButton);
+        UiUtils.applyPressFeedback(saveButton);
+        UiUtils.applyHoverElevation(cancelButton);
+        UiUtils.applyPressFeedback(cancelButton);
 
         javafx.beans.value.ChangeListener<String> listener = (obs, o, n) -> validateRealTime();
         abbreviationField.textProperty().addListener(listener);
@@ -73,7 +77,7 @@ public class MetricUnitFormController extends BaseFormController {
                     showError("Abreviatura '" + trimmedAbbr + "' já existe.");
                 }
             });
-            new Thread(duplicateCheckTask).start();
+            UiUtils.runTask(duplicateCheckTask);
         }
     }
 
@@ -108,7 +112,7 @@ public class MetricUnitFormController extends BaseFormController {
                 return null;
             }
         };
-        saveTask.setOnSucceeded(e -> { if (onSave != null) onSave.run(); doCancel(); });
+        saveTask.setOnSucceeded(e -> { systemLogService.logUserAction(currentUser != null ? currentUser.getUsername() : "Sistema", "UNIDADE_GRAVADA", "Unidade de medida gravada: " + abbreviationField.getText()); if (onSave != null) onSave.run(); doCancel(); });
         saveTask.setOnFailed(e -> {
             Throwable ex = saveTask.getException();
             String msg = ex.getMessage() != null ? ex.getMessage() : "Erro desconhecido";
@@ -116,6 +120,6 @@ public class MetricUnitFormController extends BaseFormController {
             showError("Erro ao salvar: " + msg);
             hideSaveSpinner();
         });
-        new Thread(saveTask).start();
+        UiUtils.runTask(saveTask);
     }
 }

@@ -2,6 +2,7 @@ package com.sgv.service;
 
 import com.sgv.entity.MetricUnit;
 import com.sgv.repository.MetricUnitRepository;
+import com.sgv.repository.ProductRepository;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -12,9 +13,11 @@ import java.util.Optional;
 public class MetricUnitService {
 
     private final MetricUnitRepository metricUnitRepository;
+    private final ProductRepository productRepository;
 
-    public MetricUnitService(MetricUnitRepository metricUnitRepository) {
+    public MetricUnitService(MetricUnitRepository metricUnitRepository, ProductRepository productRepository) {
         this.metricUnitRepository = metricUnitRepository;
+        this.productRepository = productRepository;
     }
 
     public List<MetricUnit> getAllUnits() {
@@ -32,8 +35,9 @@ public class MetricUnitService {
     public boolean existsByAbbreviation(String abbreviation, Long excludeId) {
         if (abbreviation == null || abbreviation.isBlank()) return false;
         String trimmed = abbreviation.trim();
-        return metricUnitRepository.existsByAbbreviation(trimmed)
-                && (excludeId == null || !excludeId.equals(excludeId));
+        return metricUnitRepository.findByAbbreviation(trimmed)
+                .filter(u -> excludeId == null || !excludeId.equals(u.getId()))
+                .isPresent();
     }
 
     @Transactional
@@ -51,7 +55,7 @@ public class MetricUnitService {
 
     @Transactional
     public MetricUnit saveMetricUnit(MetricUnit unit) {
-        if (unit == null) throw new IllegalArgumentException("MetricUnit is null");
+        if (unit == null) throw new IllegalArgumentException("MetricUnit é obrigatória.");
         String trimmedAbbr = unit.getAbbreviation() == null ? "" : unit.getAbbreviation().trim();
         if (trimmedAbbr.isBlank()) throw new IllegalArgumentException("Abreviatura é obrigatória.");
         if (existsByAbbreviation(trimmedAbbr, unit.getId())) {
@@ -79,8 +83,12 @@ public class MetricUnitService {
 
     @Transactional
     public void deleteUnit(Long id) {
-        if (!metricUnitRepository.existsById(id)) {
+        if (id == null || !metricUnitRepository.existsById(id)) {
             throw new RuntimeException("Unidade não encontrada: " + id);
+        }
+        long productCount = productRepository.countByUnitIdOrUnitBulkId(id, id);
+        if (productCount > 0) {
+            throw new IllegalStateException("Não é possível eliminar a unidade porque existem " + productCount + " artigo(s) associado(s).");
         }
         metricUnitRepository.deleteById(id);
     }

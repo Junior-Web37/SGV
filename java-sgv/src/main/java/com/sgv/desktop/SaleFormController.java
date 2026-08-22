@@ -69,6 +69,33 @@ public class SaleFormController extends BaseFormController {
     @FXML private Label totalLabel;
     @FXML private Label headerTotalLabel;
 
+    @FXML private VBox cashDrawerPane;
+    @FXML private TextField receivedAmountField;
+    @FXML private Label changeAmountLabel;
+    @FXML private Button btnExactAmount;
+    @FXML private Button btnPlus50;
+    @FXML private Button btnPlus100;
+    @FXML private Button btnPlus500;
+    @FXML private Button btnPlus1000;
+    @FXML private Button btnHoldCart;
+    @FXML private Button btnRecallCart;
+
+    @FXML private Button num0;
+    @FXML private Button num1;
+    @FXML private Button num2;
+    @FXML private Button num3;
+    @FXML private Button num4;
+    @FXML private Button num5;
+    @FXML private Button num6;
+    @FXML private Button num7;
+    @FXML private Button num8;
+    @FXML private Button num9;
+    @FXML private Button numClear;
+    @FXML private Button numDot;
+
+    private static final java.util.List<SaleItem> heldCartItems = new java.util.ArrayList<>();
+    private static String heldCustomerName = null;
+
     private final SaleRepository saleRepository;
     private final SaleItemRepository saleItemRepository;
     private final StockBranchService stockBranchService;
@@ -214,11 +241,14 @@ public class SaleFormController extends BaseFormController {
         
         paymentMethodCombo.setItems(FXCollections.observableArrayList(
             com.sgv.model.PaymentMethod.DINHEIRO.name(),
+            com.sgv.model.PaymentMethod.MPESA.name(),
+            com.sgv.model.PaymentMethod.EMOLA.name(),
+            com.sgv.model.PaymentMethod.MKESH.name(),
+            com.sgv.model.PaymentMethod.POS.name(),
             com.sgv.model.PaymentMethod.DEBITO.name(),
-            com.sgv.model.PaymentMethod.CREDITO.name(),
-            com.sgv.model.PaymentMethod.CHEQUE.name(),
             com.sgv.model.PaymentMethod.TRANSFERENCIA.name(),
-            com.sgv.model.PaymentMethod.MULTICAIXA.name()
+            com.sgv.model.PaymentMethod.CREDITO.name(),
+            com.sgv.model.PaymentMethod.CHEQUE.name()
         ));
         paymentMethodCombo.setValue(com.sgv.model.PaymentMethod.DINHEIRO.name());
         
@@ -257,6 +287,12 @@ public class SaleFormController extends BaseFormController {
                 customerCombo.setValue(null);
             }
         });
+        customerCombo.valueProperty().addListener((obs, oldVal, newVal) -> {
+            if (newVal != null && ("GROSSO".equalsIgnoreCase(newVal.getType()) || "ATACADO".equalsIgnoreCase(newVal.getType()))) {
+                wholesaleModeToggle.setSelected(true);
+            }
+            validateRealTime();
+        });
 
         // Table Columns
         codeColumn.setCellValueFactory(new PropertyValueFactory<>("productCode"));
@@ -282,10 +318,14 @@ public class SaleFormController extends BaseFormController {
         // Setup real-time listeners for styles & validation
         setupRealTimeValidation();
         
+        // Setup Cash Drawer & Quick Cash Buttons
+        setupCashDrawerAndShortcuts();
+
         // Auto-foco no campo de pesquisa ao abrir (pronto para venda ou scan)
         Platform.runLater(() -> {
             productSearchCombo.requestFocus();
             refreshCashSessionAvailability();
+            setupGlobalShortcuts();
         });
     }
     
@@ -349,6 +389,27 @@ public class SaleFormController extends BaseFormController {
                     } else if (!com.sgv.util.NuitValidator.isValid(nuit)) {
                         errors.append("NUIT do cliente inválido. ");
                         isValid = false;
+                    }
+                }
+            }
+        }
+
+        // Validação de Venda a Crédito e Limite de Crédito
+        if (paymentMethodCombo != null && "CREDITO".equalsIgnoreCase(paymentMethodCombo.getValue())) {
+            if (diverseCustomerCheck.isSelected()) {
+                errors.append("Venda a crédito requer um cliente registado. ");
+                isValid = false;
+            } else {
+                Customer c = customerCombo.getValue();
+                if (c != null) {
+                    BigDecimal limit = c.getCreditLimitAmount();
+                    if (limit != null && limit.compareTo(BigDecimal.ZERO) > 0) {
+                        double currentTotal = calculateCurrentTotal();
+                        BigDecimal curBal = c.getBalanceAmount() != null ? c.getBalanceAmount() : BigDecimal.ZERO;
+                        if (curBal.add(BigDecimal.valueOf(currentTotal)).compareTo(limit) > 0) {
+                            errors.append(String.format("Limite de crédito excedido (Máx: %,.2f MT | Dívida atual: %,.2f MT). ", limit.doubleValue(), curBal.doubleValue()));
+                            isValid = false;
+                        }
                     }
                 }
             }
@@ -1121,6 +1182,200 @@ public class SaleFormController extends BaseFormController {
         }
     }
 
+    private double calculateCurrentTotal() {
+        if (itemsTable == null || itemsTable.getItems() == null) return 0.0;
+        return itemsTable.getItems().stream()
+                .mapToDouble(i -> (i.getLineBase() != null ? i.getLineBase() : 0.0)
+                        + (i.getLineIce() != null ? i.getLineIce() : 0.0)
+                        + (i.getLineTax() != null ? i.getLineTax() : 0.0))
+                .sum();
+    }
+
+    private void setupNumpad() {
+        Button[] numButtons = {num0, num1, num2, num3, num4, num5, num6, num7, num8, num9};
+        for (int i = 0; i < numButtons.length; i++) {
+            final String digit = String.valueOf(i);
+            if (numButtons[i] != null) {
+                numButtons[i].setOnAction(e -> appendToActiveInput(digit));
+                UiUtils.applyPressFeedback(numButtons[i]);
+            }
+        }
+        if (numDot != null) {
+            numDot.setOnAction(e -> appendToActiveInput("."));
+            UiUtils.applyPressFeedback(numDot);
+        }
+        if (numClear != null) {
+            UiUtils.applyPressFeedback(numClear);
+            numClear.setOnAction(e -> {
+                if (receivedAmountField != null && receivedAmountField.isFocused()) {
+                    receivedAmountField.setText("");
+                } else if (quantityField != null && quantityField.isFocused()) {
+                    quantityField.setText("1");
+                } else if (receivedAmountField != null) {
+                    receivedAmountField.setText("");
+                }
+            });
+        }
+    }
+
+    private void appendToActiveInput(String s) {
+        TextField target = (quantityField != null && quantityField.isFocused()) ? quantityField : receivedAmountField;
+        if (target != null) {
+            String current = target.getText() != null ? target.getText() : "";
+            if (s.equals(".") && current.contains(".")) return;
+            target.setText(current + s);
+            target.positionCaret(target.getText().length());
+        }
+    }
+
+    private void setupCashDrawerAndShortcuts() {
+        if (receivedAmountField != null) {
+            UiUtils.applyNumericFormatter(receivedAmountField);
+            receivedAmountField.textProperty().addListener((obs, o, n) -> updateChangeCalculation(calculateCurrentTotal()));
+        }
+
+        if (btnExactAmount != null) {
+            UiUtils.applyPressFeedback(btnExactAmount);
+            btnExactAmount.setOnAction(e -> {
+                double tot = calculateCurrentTotal();
+                if (receivedAmountField != null) {
+                    receivedAmountField.setText(String.format(java.util.Locale.US, "%.2f", tot));
+                }
+            });
+        }
+        if (btnPlus50 != null) { UiUtils.applyPressFeedback(btnPlus50); btnPlus50.setOnAction(e -> addCashToReceived(50.0)); }
+        if (btnPlus100 != null) { UiUtils.applyPressFeedback(btnPlus100); btnPlus100.setOnAction(e -> addCashToReceived(100.0)); }
+        if (btnPlus500 != null) { UiUtils.applyPressFeedback(btnPlus500); btnPlus500.setOnAction(e -> addCashToReceived(500.0)); }
+        if (btnPlus1000 != null) { UiUtils.applyPressFeedback(btnPlus1000); btnPlus1000.setOnAction(e -> addCashToReceived(1000.0)); }
+
+        if (btnHoldCart != null) {
+            UiUtils.applyPressFeedback(btnHoldCart);
+            btnHoldCart.setOnAction(e -> holdCurrentCart());
+        }
+        if (btnRecallCart != null) {
+            UiUtils.applyPressFeedback(btnRecallCart);
+            btnRecallCart.setOnAction(e -> recallHeldCart());
+        }
+        if (addItemButton != null) UiUtils.applyPressFeedback(addItemButton);
+        if (saveButton != null) UiUtils.applyPressFeedback(saveButton);
+        if (cancelButton != null) UiUtils.applyPressFeedback(cancelButton);
+
+        setupNumpad();
+
+        paymentMethodCombo.valueProperty().addListener((obs, o, n) -> {
+            boolean isCash = "DINHEIRO".equalsIgnoreCase(n) || "NUMERARIO".equalsIgnoreCase(n);
+            if (cashDrawerPane != null) {
+                cashDrawerPane.setOpacity(isCash ? 1.0 : 0.6);
+            }
+            if ("CREDITO".equalsIgnoreCase(n)) {
+                if (diverseCustomerCheck != null && diverseCustomerCheck.isSelected()) {
+                    diverseCustomerCheck.setSelected(false);
+                }
+            }
+            validateRealTime();
+        });
+    }
+
+    private void addCashToReceived(double amount) {
+        double current = 0.0;
+        if (receivedAmountField != null && receivedAmountField.getText() != null && !receivedAmountField.getText().isBlank()) {
+            try {
+                current = Double.parseDouble(receivedAmountField.getText().trim().replace(",", "."));
+            } catch (Exception ignored) {}
+        }
+        double next = current + amount;
+        if (receivedAmountField != null) {
+            receivedAmountField.setText(String.format(java.util.Locale.US, "%.2f", next));
+        }
+    }
+
+    private void updateChangeCalculation(double total) {
+        if (changeAmountLabel == null) return;
+        String text = (receivedAmountField != null) ? receivedAmountField.getText() : null;
+        if (text == null || text.isBlank()) {
+            changeAmountLabel.setText("0.00 MT");
+            changeAmountLabel.setStyle("-fx-font-size:15px; -fx-font-weight:900; -fx-text-fill:#64748B;");
+            return;
+        }
+        try {
+            double received = Double.parseDouble(text.trim().replace(",", "."));
+            double diff = received - total;
+            if (diff >= 0) {
+                changeAmountLabel.setText(String.format(java.util.Locale.US, "%.2f MT", diff));
+                changeAmountLabel.setStyle("-fx-font-size:15px; -fx-font-weight:900; -fx-text-fill:#10B981;");
+            } else {
+                changeAmountLabel.setText(String.format(java.util.Locale.US, "Faltam %.2f MT", Math.abs(diff)));
+                changeAmountLabel.setStyle("-fx-font-size:12px; -fx-font-weight:900; -fx-text-fill:#EF4444;");
+            }
+        } catch (Exception e) {
+            changeAmountLabel.setText("0.00 MT");
+            changeAmountLabel.setStyle("-fx-font-size:15px; -fx-font-weight:900; -fx-text-fill:#64748B;");
+        }
+    }
+
+    private void holdCurrentCart() {
+        if (itemsTable == null || itemsTable.getItems().isEmpty()) {
+            showError("Carrinho está vazio para suspender.");
+            return;
+        }
+        heldCartItems.clear();
+        heldCartItems.addAll(itemsTable.getItems());
+        heldCustomerName = (!diverseCustomerCheck.isSelected() && customerCombo.getValue() != null)
+                ? customerCombo.getValue().getName() : "Cliente Diverso";
+        itemsTable.getItems().clear();
+        updateTotals();
+        if (btnRecallCart != null) {
+            btnRecallCart.setText("▶ Recuperar (" + heldCartItems.size() + ")");
+            btnRecallCart.setStyle("-fx-background-color:#F59E0B; -fx-text-fill:#ffffff; -fx-font-size:11px; -fx-font-weight:800; -fx-background-radius:4; -fx-cursor:hand; -fx-padding:5 10;");
+        }
+        showError("Venda suspensa com sucesso (" + heldCartItems.size() + " itens guardados em espera).");
+    }
+
+    private void recallHeldCart() {
+        if (heldCartItems.isEmpty()) {
+            showError("Não há nenhuma venda em espera.");
+            return;
+        }
+        itemsTable.setItems(FXCollections.observableArrayList(heldCartItems));
+        heldCartItems.clear();
+        if (btnRecallCart != null) {
+            btnRecallCart.setText("▶ Recuperar (F7)");
+            btnRecallCart.setStyle("-fx-background-color:rgba(255,255,255,0.15); -fx-text-fill:#FCD34D; -fx-font-size:11px; -fx-font-weight:700; -fx-background-radius:4; -fx-cursor:hand; -fx-padding:5 10;");
+        }
+        updateTotals();
+        hideError();
+    }
+
+    private void setupGlobalShortcuts() {
+        if (rootPane != null && rootPane.getScene() != null) {
+            rootPane.getScene().setOnKeyPressed(event -> {
+                KeyCode code = event.getCode();
+                if (code == KeyCode.F2) {
+                    if (productSearchCombo != null) { productSearchCombo.requestFocus(); }
+                    event.consume();
+                } else if (code == KeyCode.F4) {
+                    if (quantityField != null) { quantityField.requestFocus(); quantityField.selectAll(); }
+                    event.consume();
+                } else if (code == KeyCode.F6) {
+                    holdCurrentCart();
+                    event.consume();
+                } else if (code == KeyCode.F7) {
+                    recallHeldCart();
+                    event.consume();
+                } else if (code == KeyCode.F8) {
+                    if (diverseCustomerCheck != null) { diverseCustomerCheck.setSelected(!diverseCustomerCheck.isSelected()); }
+                    event.consume();
+                } else if (code == KeyCode.F10) {
+                    if (formValidProperty.get()) { doSave(); }
+                    event.consume();
+                } else if (code == KeyCode.ESCAPE) {
+                    doCancel();
+                    event.consume();
+                }
+            });
+        }
+    }
+
     private void updateTotals() {
         double subtotal = itemsTable.getItems().stream()
                 .mapToDouble(i -> i.getLineBase() != null ? i.getLineBase() : 0.0)
@@ -1144,6 +1399,7 @@ public class SaleFormController extends BaseFormController {
         if (headerTotalLabel != null) {
             headerTotalLabel.setText(String.format("Total: %.2f %s", total, curr));
         }
+        updateChangeCalculation(total);
 
         // Assegurar que a validação corre sempre que os totais mudam (adição/remoção de produtos)
         validateRealTime();
@@ -1245,6 +1501,18 @@ public class SaleFormController extends BaseFormController {
         sale.setPaymentMethod(com.sgv.model.PaymentMethod.fromString(paymentMethodCombo.getValue()).name());
         sale.setCurrency(currencyCombo.getValue());
 
+        // Calcular e definir valor pago e troco
+        double totalVal = calculateCurrentTotal();
+        double receivedVal = totalVal;
+        if (receivedAmountField != null && receivedAmountField.getText() != null && !receivedAmountField.getText().isBlank()) {
+            try {
+                receivedVal = Double.parseDouble(receivedAmountField.getText().trim().replace(",", "."));
+            } catch (Exception ignored) {}
+        }
+        double changeVal = Math.max(0.0, receivedVal - totalVal);
+        sale.setPaidAmount(receivedVal);
+        sale.setChangeAmount(changeVal);
+
         // Defensive copy of items for background thread
         sale.setItems(new java.util.ArrayList<>(itemsTable.getItems()));
 
@@ -1306,7 +1574,7 @@ public class SaleFormController extends BaseFormController {
         saveTask.setOnSucceeded(e -> {
             File pdf = saveTask.getValue();
             try {
-                systemLogService.logUserAction("Sistema", "VENDA_CRIADA", "Venda/Documento gravado com sucesso.");
+                systemLogService.logUserAction(currentUser != null ? currentUser.getUsername() : "Sistema", "VENDA_CRIADA", "Venda/Documento " + sale.getDocumentType() + " gravado com sucesso.");
             } catch (Exception ex) {
                 log.error("Erro ao registar acção de venda", ex);
             }
@@ -1323,14 +1591,16 @@ public class SaleFormController extends BaseFormController {
                         delay.setOnFinished(ev -> rootPane.getChildren().remove(successLabel));
                         delay.play();
 
-                        // Fix #4: Passar os geradores para permitir troca de formato no preview
+                        // Passar todos os 4 geradores de formato (80mm, 58mm, A4, A5)
                         com.sgv.desktop.DocumentPreviewDialog.show(
                             pdf,
                             sale.getDocumentType(),
                             atDefaultFormat(sale.getDocumentType()),
                             sale,
-                            s -> { try { return thermalPrintService.printReceipt(s); } catch (Exception ex) { log.error("Thermal gen failed", ex); return null; } },
-                            s -> { try { return saleDocumentService.generateDocument(s); } catch (Exception ex) { log.error("A4 gen failed", ex); return null; } }
+                            s -> { try { return thermalPrintService.printReceipt(s); } catch (Exception ex) { log.error("Thermal 80mm gen failed", ex); return null; } },
+                            s -> { try { return thermalPrintService.printReceipt58mm(s); } catch (Exception ex) { log.error("Thermal 58mm gen failed", ex); return null; } },
+                            s -> { try { return saleDocumentService.generateDocument(s); } catch (Exception ex) { log.error("A4 gen failed", ex); return null; } },
+                            s -> { try { return saleDocumentService.generateDocumentA5(s); } catch (Exception ex) { log.error("A5 gen failed", ex); return null; } }
                         );
                     }
                     // Fix #8: Chamar onSave antes do resetForm para evitar NPE de timing

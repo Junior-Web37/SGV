@@ -23,9 +23,11 @@ public class CashMovementFormController extends BaseFormController {
     @FXML private TextField descriptionField;
 
     private final CashSessionService cashSessionService;
+    private final com.sgv.service.SystemLogService systemLogService;
     private Runnable onSuccess;
 
-    public CashMovementFormController(CashSessionService cashSessionService) {
+    public CashMovementFormController(CashSessionService cashSessionService, com.sgv.service.SystemLogService systemLogService) {
+        this.systemLogService = systemLogService;
         this.cashSessionService = cashSessionService;
     }
 
@@ -36,6 +38,11 @@ public class CashMovementFormController extends BaseFormController {
         reasonCombo.setItems(FXCollections.observableArrayList("SANGRIA", "REFORCO", "OUTRO"));
         UiUtils.attachSafe(saveButton, this::doSave, null, "CASH_MOV_SAVE");
         UiUtils.attachSafe(cancelButton, this::doCancel, null, "CASH_MOV_CANCEL");
+
+        UiUtils.applyHoverElevation(saveButton);
+        UiUtils.applyPressFeedback(saveButton);
+        UiUtils.applyHoverElevation(cancelButton);
+        UiUtils.applyPressFeedback(cancelButton);
 
         UiUtils.applyNumericFormatter(amountField);
 
@@ -128,13 +135,14 @@ public class CashMovementFormController extends BaseFormController {
                 return null;
             }
         };
-        saveTask.setOnSucceeded(e -> { if (onSuccess != null) onSuccess.run(); doCancel(); });
+        saveTask.setOnSucceeded(e -> { systemLogService.logUserAction(currentUser != null ? currentUser.getUsername() : "Sistema", "MOVIMENTO_CAIXA_GRAVADO", "Movimento de caixa (" + typeCombo.getValue() + "): " + amountField.getText() + " MT - " + descriptionField.getText()); if (onSuccess != null) onSuccess.run(); doCancel(); });
         saveTask.setOnFailed(e -> {
             Throwable ex = saveTask.getException();
+            systemLogService.logError("CASH_MOV_FAILED", "Erro em movimento de caixa: " + (ex != null ? ex.getMessage() : ""), ex);
             String msg = ex != null && ex.getMessage() != null ? ex.getMessage() : "Erro desconhecido";
             showError(msg);
             hideSaveSpinner();
         });
-        new Thread(saveTask).start();
+        UiUtils.runTask(saveTask);
     }
 }

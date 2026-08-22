@@ -4,142 +4,156 @@
 <?import javafx.scene.layout.*?>
 
 <BorderPane xmlns="http://javafx.com/javafx/17" xmlns:fx="http://javafx.com/fxml/1"
-            fx:controller="com.sgv.desktop.CashSessionController" styleClass="cash-page">
+            fx:controller="com.sgv.desktop.CashSessionController"
+            style="-fx-background-color:#F8FAFC;">
 
+    <!-- ══════════════════════════════════════════════
+         CABEÇALHO DA SESSÃO DE CAIXA
+         ══════════════════════════════════════════════ -->
     <top>
-<HBox spacing="12" styleClass="cash-header-compact">
-            <padding>
-                <Insets top="10" right="10" bottom="10" left="10"/>
-            </padding>
-            <VBox spacing="4">
-                <Label text="Operador" styleClass="muted-label"/>
-                <Label fx:id="operatorLabel" text="-" styleClass="metric-small"/>
-            </VBox>
+        <VBox spacing="0">
+            <!-- Barra Superior com Informações do Caixa -->
+            <HBox spacing="16" alignment="CENTER_LEFT"
+                  style="-fx-background-color:#0F172A; -fx-padding:14 24; -fx-border-color:#1E293B; -fx-border-width:0 0 1 0;">
+                <VBox spacing="2">
+                    <Label text="OPERADOR DE CAIXA" style="-fx-font-size:10px; -fx-font-weight:700; -fx-text-fill:#94A3B8;"/>
+                    <Label fx:id="operatorLabel" text="—" style="-fx-font-size:14px; -fx-font-weight:800; -fx-text-fill:#FFFFFF;"/>
+                </VBox>
+                <Separator orientation="VERTICAL" style="-fx-padding:0 4; -fx-opacity:0.3;"/>
+                <VBox spacing="2">
+                    <Label text="FILIAL / LOJA" style="-fx-font-size:10px; -fx-font-weight:700; -fx-text-fill:#94A3B8;"/>
+                    <Label fx:id="branchLabel" text="—" style="-fx-font-size:14px; -fx-font-weight:800; -fx-text-fill:#FFFFFF;"/>
+                </VBox>
+                <Separator orientation="VERTICAL" style="-fx-padding:0 4; -fx-opacity:0.3;"/>
+                <VBox spacing="2">
+                    <Label text="HORA DE ABERTURA" style="-fx-font-size:10px; -fx-font-weight:700; -fx-text-fill:#94A3B8;"/>
+                    <Label fx:id="openedAtLabel" text="—" style="-fx-font-size:14px; -fx-font-weight:800; -fx-text-fill:#FFFFFF;"/>
+                </VBox>
+                <Separator orientation="VERTICAL" style="-fx-padding:0 4; -fx-opacity:0.3;"/>
+                <VBox spacing="2">
+                    <Label text="ESTADO DO TURNO" style="-fx-font-size:10px; -fx-font-weight:700; -fx-text-fill:#94A3B8;"/>
+                    <Label fx:id="statusBadge" text="🔴 CAIXA FECHADO"
+                           style="-fx-background-color:#FEE2E2; -fx-text-fill:#EF4444; -fx-padding:4 12; -fx-background-radius:20; -fx-font-weight:800; -fx-font-size:12px;"/>
+                </VBox>
 
-            <VBox spacing="4">
-                <Label text="Filial" styleClass="muted-label"/>
-                <Label fx:id="branchLabel" text="-" styleClass="metric-small"/>
-            </VBox>
+                <Region HBox.hgrow="ALWAYS"/>
 
-
-            <VBox spacing="4">
-                <Label text="Aberto" styleClass="muted-label"/>
-                <Label fx:id="openedAtLabel" text="-" styleClass="metric-small"/>
-            </VBox>
-
-            <VBox spacing="4">
-                <Label fx:id="statusBadge" text="🔴  FECHADO" style="-fx-background-color: #FEE2E2; -fx-text-fill: #EF4444; -fx-padding: 6 14; -fx-background-radius: 20; -fx-font-weight: 700; -fx-font-size: 13px;"/>
-            </VBox>
-
-            <Region HBox.hgrow="ALWAYS"/>
-
-            <VBox spacing="4" alignment="CENTER_RIGHT">
-                <Label text="Total" styleClass="muted-label"/>
-                <Label fx:id="systemValueLabel" text="0.00 MT" styleClass="metric-large"/>
-            </VBox>
-
-            <HBox spacing="6" alignment="CENTER_RIGHT">
-                <Button fx:id="openSessionButton" text="Abrir" styleClass="primary-button"/>
-                <Button fx:id="closeSessionButton" text="Fechar" styleClass="danger-button"/>
+                <!-- Botões de Ação de Abertura / Fecho -->
+                <HBox spacing="10" alignment="CENTER_RIGHT">
+                    <Button fx:id="openSessionButton" text="💼 Abrir Caixa" styleClass="btn-primary-ux"
+                            style="-fx-font-weight:800; -fx-font-size:13px; -fx-padding:8 16;"/>
+                    <Button fx:id="closeSessionButton" text="🔒 Fechar Caixa (Fita Z)" styleClass="btn-danger-ux"
+                            style="-fx-font-weight:800; -fx-font-size:13px; -fx-padding:8 16;"/>
+                </HBox>
             </HBox>
-        </HBox>
+        </VBox>
     </top>
 
     <center>
-        <TabPane tabClosingPolicy="UNAVAILABLE">
+        <TabPane tabClosingPolicy="UNAVAILABLE" style="-fx-padding:12 16;">
             <tabs>
-                <Tab text="Resumo">
-                    <VBox spacing="8">
-                        <padding>
-                            <Insets top="10" right="10" bottom="10" left="10"/>
-                        </padding>
-                        <HBox spacing="8" alignment="CENTER_LEFT">
-                            <VBox>
-                                <Label text="Resumo do Turno" styleClass="section-title"/>
-                                <Label fx:id="statusSummaryLabel" text="Nenhum turno em andamento" styleClass="muted-label"/>
-                            </VBox>
+                <!-- ── ABA 1: MOVIMENTOS DO TURNO ATUAL ────────────────── -->
+                <Tab text="💼  Turno Atual &amp; Movimentos">
+                    <VBox spacing="12" style="-fx-padding:12 0;">
+                        <!-- LINHA DE CARTÕES DE TOTAIS (KPIS DO CAIXA) -->
+                        <GridPane hgap="12" vgap="12">
+                            <columnConstraints>
+                                <ColumnConstraints percentWidth="25"/>
+                                <ColumnConstraints percentWidth="25"/>
+                                <ColumnConstraints percentWidth="25"/>
+                                <ColumnConstraints percentWidth="25"/>
+                            </columnConstraints>
+                            <children>
+                                <VBox GridPane.columnIndex="0" styleClass="card-pane" style="-fx-padding:14; -fx-background-color:#FFFFFF;">
+                                    <Label text="FUNDO DE MANEIO" style="-fx-font-size:10px; -fx-font-weight:700; -fx-text-fill:#64748B;"/>
+                                    <Label fx:id="initialValueLabel" text="0.00 MT" style="-fx-font-size:20px; -fx-font-weight:800; -fx-text-fill:#2563EB; -fx-padding:4 0 0 0;"/>
+                                </VBox>
+                                <VBox GridPane.columnIndex="1" styleClass="card-pane" style="-fx-padding:14; -fx-background-color:#FFFFFF;">
+                                    <Label text="TOTAL ENTRADAS (+)" style="-fx-font-size:10px; -fx-font-weight:700; -fx-text-fill:#64748B;"/>
+                                    <Label fx:id="totalEntriesLabel" text="0.00 MT" style="-fx-font-size:20px; -fx-font-weight:800; -fx-text-fill:#10B981; -fx-padding:4 0 0 0;"/>
+                                </VBox>
+                                <VBox GridPane.columnIndex="2" styleClass="card-pane" style="-fx-padding:14; -fx-background-color:#FFFFFF;">
+                                    <Label text="TOTAL SAÍDAS / SANGRIAS (-)" style="-fx-font-size:10px; -fx-font-weight:700; -fx-text-fill:#64748B;"/>
+                                    <Label fx:id="totalExitsLabel" text="0.00 MT" style="-fx-font-size:20px; -fx-font-weight:800; -fx-text-fill:#EF4444; -fx-padding:4 0 0 0;"/>
+                                </VBox>
+                                <VBox GridPane.columnIndex="3" styleClass="card-pane" style="-fx-padding:14; -fx-background-color:#F0FDF4; -fx-border-color:#86EFAC;">
+                                    <Label text="SALDO TOTAL EM CAIXA" style="-fx-font-size:10px; -fx-font-weight:800; -fx-text-fill:#059669;"/>
+                                    <Label fx:id="systemValueLabel" text="0.00 MT" style="-fx-font-size:22px; -fx-font-weight:900; -fx-text-fill:#059669; -fx-padding:4 0 0 0;"/>
+                                </VBox>
+                            </children>
+                        </GridPane>
+
+                        <!-- TOOLBAR DE MOVIMENTOS -->
+                        <HBox spacing="10" alignment="CENTER_LEFT"
+                              style="-fx-background-color:#FFFFFF; -fx-padding:10 16; -fx-background-radius:8; -fx-border-color:#E2E8F0; -fx-border-width:1; -fx-border-radius:8;">
+                            <Label fx:id="statusSummaryLabel" text="Turno activo — todos os movimentos gravados em tempo real"
+                                   style="-fx-font-size:12px; -fx-font-weight:700; -fx-text-fill:#475569;"/>
                             <Region HBox.hgrow="ALWAYS"/>
-                            <HBox spacing="6">
-                                <Button fx:id="addMovementButton" text="+ Movimento" styleClass="primary-button"/>
-                                <Button fx:id="refreshMovementsButton" text="Atualizar" styleClass="secondary-button"/>
-                            </HBox>
+                            <Button fx:id="addMovementButton" text="➕ Registar Sangria / Reforço" styleClass="btn-primary-ux"
+                                    style="-fx-font-size:12px; -fx-padding:7 14;"/>
+                            <Button fx:id="refreshMovementsButton" text="🔄 Actualizar" styleClass="btn-secondary-ux"
+                                    style="-fx-font-size:12px; -fx-padding:7 14;"/>
                         </HBox>
 
-                        <TableView fx:id="movementsTable" VBox.vgrow="ALWAYS" styleClass="cash-table compact-table">
+                        <!-- TABELA DE MOVIMENTOS -->
+                        <TableView fx:id="movementsTable" VBox.vgrow="ALWAYS" styleClass="table-view"
+                                   style="-fx-font-size:12px; -fx-background-color:#ffffff;">
                             <columns>
-                                <TableColumn fx:id="timeColumn" text="Hora" prefWidth="110"/>
-                                <TableColumn fx:id="typeColumn" text="Tipo" prefWidth="110"/>
+                                <TableColumn fx:id="timeColumn" text="Hora" prefWidth="90"/>
+                                <TableColumn fx:id="typeColumn" text="Tipo" prefWidth="100"/>
                                 <TableColumn fx:id="operationKindColumn" text="Operação" prefWidth="120"/>
-                                <TableColumn fx:id="reasonColumn" text="Motivo" prefWidth="200"/>
-                                <TableColumn fx:id="amountColumn" text="Valor" prefWidth="110"/>
-                                <TableColumn fx:id="descriptionColumn" text="Descrição" prefWidth="320"/>
+                                <TableColumn fx:id="reasonColumn" text="Motivo" prefWidth="160"/>
+                                <TableColumn fx:id="amountColumn" text="Valor (MT)" prefWidth="120"/>
+                                <TableColumn fx:id="descriptionColumn" text="Descrição / Referência" prefWidth="300"/>
                                 <TableColumn fx:id="userColumn" text="Operador" prefWidth="140"/>
                             </columns>
                             <placeholder>
-                                <Label fx:id="movementsHintLabel" text="Nenhum movimento registado." styleClass="muted-italic"/>
+                                <Label fx:id="movementsHintLabel" text="Nenhum movimento registado neste turno." style="-fx-text-fill:#94A3B8; -fx-font-size:13px; -fx-font-style:italic;"/>
                             </placeholder>
                         </TableView>
 
-                        <HBox spacing="20" alignment="CENTER_LEFT" styleClass="summary-row" visible="true" managed="true">
-                            <VBox spacing="2">
-                                <Label text="Valor Inicial" styleClass="muted-label"/>
-                                <Label fx:id="initialValueLabel" text="0.00 MT" styleClass="form-field-strong"/>
-                            </VBox>
-                            <VBox spacing="2">
-                                <Label text="Entradas" styleClass="muted-label"/>
-                                <Label fx:id="totalEntriesLabel" text="0.00 MT" styleClass="form-field-strong"/>
-                            </VBox>
-                            <VBox spacing="2">
-                                <Label text="Saídas" styleClass="muted-label"/>
-                                <Label fx:id="totalExitsLabel" text="0.00 MT" styleClass="form-field-strong"/>
-                            </VBox>
-                            <VBox spacing="2">
-                                <Label text="Movimentos" styleClass="muted-label"/>
-                                <Label fx:id="movementCountLabel" text="0" styleClass="form-field-strong"/>
-                            </VBox>
-                            <VBox spacing="2">
-                                <Label text="Último" styleClass="muted-label"/>
-                                <Label fx:id="lastMovementLabel" text="-" styleClass="form-field-strong"/>
-                            </VBox>
+                        <!-- Rodapé com contagem rápida -->
+                        <HBox spacing="16" alignment="CENTER_RIGHT" style="-fx-padding:4 8;">
+                            <Label text="Total de Movimentos:" style="-fx-font-size:11px; -fx-text-fill:#64748B;"/>
+                            <Label fx:id="movementCountLabel" text="0" style="-fx-font-size:12px; -fx-font-weight:800; -fx-text-fill:#0F172A;"/>
+                            <Label text="Último registo:" style="-fx-font-size:11px; -fx-text-fill:#64748B;"/>
+                            <Label fx:id="lastMovementLabel" text="—" style="-fx-font-size:12px; -fx-font-weight:700; -fx-text-fill:#0F172A;"/>
                         </HBox>
+
                         <VBox fx:id="closedStatePane" visible="false" managed="false"/>
                         <VBox fx:id="openStatePane" visible="false" managed="false"/>
                     </VBox>
                 </Tab>
 
-                <Tab text="Histórico">
-                    <VBox spacing="8">
-                        <padding>
-                            <Insets top="10" right="10" bottom="10" left="10"/>
-                        </padding>
-                        <HBox spacing="8" alignment="CENTER_LEFT">
-                            <Label text="Histórico de Turnos" styleClass="section-title"/>
+                <!-- ── ABA 2: HISTÓRICO DE FECHOS ANTERIORES ───────────── -->
+                <Tab text="📑  Histórico de Fechos de Caixa">
+                    <VBox spacing="12" style="-fx-padding:12 0;">
+                        <HBox spacing="10" alignment="CENTER_LEFT"
+                              style="-fx-background-color:#FFFFFF; -fx-padding:10 16; -fx-background-radius:8; -fx-border-color:#E2E8F0; -fx-border-width:1; -fx-border-radius:8;">
+                            <Label text="Histórico consolidado de turnos anteriores e fitas Z emitidas"
+                                   style="-fx-font-size:12px; -fx-font-weight:700; -fx-text-fill:#475569;"/>
                             <Region HBox.hgrow="ALWAYS"/>
-                            <Button fx:id="refreshHistoryButton" text="Atualizar" styleClass="secondary-button"/>
-                            <Button fx:id="viewSessionButton" text="Ver" styleClass="primary-button"/>
+                            <Button fx:id="viewSessionButton" text="👁️ Ver Detalhes / Fita Z" styleClass="btn-primary-ux"
+                                    style="-fx-font-size:12px; -fx-padding:7 14;"/>
+                            <Button fx:id="refreshHistoryButton" text="🔄 Actualizar" styleClass="btn-secondary-ux"
+                                    style="-fx-font-size:12px; -fx-padding:7 14;"/>
                         </HBox>
 
-                        <SplitPane orientation="VERTICAL" VBox.vgrow="ALWAYS">
-                            <padding>
-                                <Insets top="10" right="10" bottom="10" left="10"/>
-                            </padding>
-                            <items>
-                                <TableView fx:id="historyTable" styleClass="cash-table compact-table">
-                                    <columns>
-                                        <TableColumn fx:id="historyOpenedColumn" text="Aberto" prefWidth="140"/>
-                                        <TableColumn fx:id="historyClosedColumn" text="Fechado" prefWidth="140"/>
-                                        <TableColumn fx:id="historyStateColumn" text="Estado" prefWidth="90"/>
-                                        <TableColumn fx:id="historyInitialValueColumn" text="Valor Inicial" prefWidth="120"/>
-                                        <TableColumn fx:id="historySystemValueColumn" text="Valor Sistema" prefWidth="120"/>
-                                        <TableColumn fx:id="historyReportedValueColumn" text="Valor Reportado" prefWidth="120"/>
-                                        <TableColumn fx:id="historyOperatorColumn" text="Operador" prefWidth="160"/>
-                                    </columns>
-                                    <placeholder>
-                                        <Label text="Nenhum histórico disponível" styleClass="muted-italic"/>
-                                    </placeholder>
-                                </TableView>
-                            </items>
-                        </SplitPane>
+                        <TableView fx:id="historyTable" VBox.vgrow="ALWAYS" styleClass="table-view"
+                                   style="-fx-font-size:12px; -fx-background-color:#ffffff;">
+                            <columns>
+                                <TableColumn fx:id="historyOpenedColumn" text="Abertura" prefWidth="130"/>
+                                <TableColumn fx:id="historyClosedColumn" text="Fecho" prefWidth="130"/>
+                                <TableColumn fx:id="historyStateColumn" text="Estado" prefWidth="100"/>
+                                <TableColumn fx:id="historyInitialValueColumn" text="Fundo Maneio (MT)" prefWidth="130"/>
+                                <TableColumn fx:id="historySystemValueColumn" text="Valor Sistema (MT)" prefWidth="130"/>
+                                <TableColumn fx:id="historyReportedValueColumn" text="Valor Contado (MT)" prefWidth="130"/>
+                                <TableColumn fx:id="historyOperatorColumn" text="Operador Responsável" prefWidth="180"/>
+                            </columns>
+                            <placeholder>
+                                <Label text="Nenhum histórico de fecho disponível" style="-fx-text-fill:#94A3B8; -fx-font-size:13px; -fx-font-style:italic;"/>
+                            </placeholder>
+                        </TableView>
                     </VBox>
                 </Tab>
             </tabs>

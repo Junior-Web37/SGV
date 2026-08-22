@@ -58,6 +58,8 @@ public class DashboardNavigationManager {
     private final SupplierPaymentRepository supplierPaymentRepository;
     private final SystemLogService systemLogService;
     private final CashSessionService cashSessionService;
+    private final WarehouseTransferRepository warehouseTransferRepository;
+    private final WarehouseTransferService warehouseTransferService;
 
     private TableView<Product> productsTable;
     private HBox productsStatsCardsBox;
@@ -70,12 +72,17 @@ public class DashboardNavigationManager {
     private Runnable suppliersPaymentsLoadRunnable;
     private Map<Long, BigDecimal> supplierBalances = new HashMap<>();
 
+    private TableView<Purchase> purchasesTable;
+    private Runnable purchasesLoadRunnable;
+
     public TableView<Product> getProductsTable() { return productsTable; }
     public TableView<Sale> getSalesTable() { return salesTable; }
     public TableView<Customer> getCustomersTable() { return customersTable; }
     public TableView<Category> getCategoriesTable() { return categoriesTable; }
     public TableView<MetricUnit> getUnitsTable() { return unitsTable; }
     public TableView<Supplier> getSuppliersTable() { return suppliersTable; }
+    public TableView<Purchase> getPurchasesTable() { return purchasesTable; }
+    public void reloadPurchases() { if (purchasesLoadRunnable != null) purchasesLoadRunnable.run(); }
 
     private String fmtMt(BigDecimal v) {
         return Formatters.moneyMT(v);
@@ -106,7 +113,9 @@ public class DashboardNavigationManager {
                                        SupplierRepository supplierRepository,
                                        SupplierPaymentRepository supplierPaymentRepository,
                                        SystemLogService systemLogService,
-                                       CashSessionService cashSessionService) {
+                                       CashSessionService cashSessionService,
+                                       WarehouseTransferRepository warehouseTransferRepository,
+                                       WarehouseTransferService warehouseTransferService) {
         this.applicationContext = applicationContext;
         this.crudManager = crudManager;
         this.kpiManager = kpiManager;
@@ -128,6 +137,8 @@ public class DashboardNavigationManager {
         this.supplierPaymentRepository = supplierPaymentRepository;
         this.systemLogService = systemLogService;
         this.cashSessionService = cashSessionService;
+        this.warehouseTransferRepository = warehouseTransferRepository;
+        this.warehouseTransferService = warehouseTransferService;
     }
 
     // ═══════════════════════════════════════════════════════════════════════════
@@ -163,7 +174,8 @@ public class DashboardNavigationManager {
     public void showSubNav(String moduleLabel, HBox targetItems,
                            HBox navRootPane, HBox navSubPane, Label navSubModuleLabel,
                            HBox navComercialItems, HBox navOperacoesItems,
-                           HBox navFinanceiroItems, HBox navAdminItems, HBox navArmazensItems) {
+                           HBox navFinanceiroItems, HBox navAdminItems, HBox navArmazensItems,
+                           HBox navRelatoriosItems) {
         if (navRootPane == null || navSubPane == null) return;
         navSubModuleLabel.setText(moduleLabel);
 
@@ -172,6 +184,7 @@ public class DashboardNavigationManager {
         if (navFinanceiroItems != null) { navFinanceiroItems.setVisible(false); navFinanceiroItems.setManaged(false); }
         if (navAdminItems != null) { navAdminItems.setVisible(false); navAdminItems.setManaged(false); }
         if (navArmazensItems != null) { navArmazensItems.setVisible(false); navArmazensItems.setManaged(false); }
+        if (navRelatoriosItems != null) { navRelatoriosItems.setVisible(false); navRelatoriosItems.setManaged(false); }
 
         if (targetItems != null) { targetItems.setVisible(true); targetItems.setManaged(true); }
 
@@ -225,6 +238,10 @@ public class DashboardNavigationManager {
     }
 
     public <T> Callback<TableView<T>, TableRow<T>> makeTableRowFactory() {
+        return makeTableRowFactory(null);
+    }
+
+    public <T> Callback<TableView<T>, TableRow<T>> makeTableRowFactory(Runnable onDoubleClick) {
         return tv -> {
             TableRow<T> row = new TableRow<>();
             Runnable applyStyle = () -> {
@@ -242,6 +259,13 @@ public class DashboardNavigationManager {
             };
             row.hoverProperty().addListener((obs, old, isHover) -> applyStyle.run());
             row.selectedProperty().addListener((obs, old, isSel) -> applyStyle.run());
+            if (onDoubleClick != null) {
+                row.setOnMouseClicked(event -> {
+                    if (event.getClickCount() == 2 && !row.isEmpty()) {
+                        onDoubleClick.run();
+                    }
+                });
+            }
             return row;
         };
     }
@@ -430,8 +454,8 @@ public class DashboardNavigationManager {
                                  VBox catalogsPane, VBox reportsPane, VBox producaoPane,
                                  VBox sistemaPane, VBox usersPane, VBox warehousesPane, VBox logsPane,
                                  User currentUser) {
-        pageTitleLabel.setText("Dashboard");
-        pageSubtitleLabel.setText("Visão geral do sistema");
+        pageTitleLabel.setText("Painel Geral");
+        pageSubtitleLabel.setText("Visão geral das operações, vendas e tesouraria");
         setPaneVisibility(summaryPane, salesStatsPane, salesPane, productsPane, customersPane,
             stockPane, turnoCaixaPane, comprasPane, financeiroPane, catalogsPane, reportsPane,
             producaoPane, sistemaPane, usersPane, warehousesPane, logsPane);
@@ -452,8 +476,8 @@ public class DashboardNavigationManager {
                                     Runnable onNewSale, Runnable onPrint,
                                     Runnable onViewDetails, Runnable onConvertQuote, Runnable onCreateCreditNote, Runnable onAnnul) {
         setActiveNav(null, allNavButtons);
-        pageTitleLabel.setText("Vendas");
-        pageSubtitleLabel.setText("Histórico e gestão de documentos");
+        pageTitleLabel.setText("Vendas & Facturação");
+        pageSubtitleLabel.setText("Consulta, emissão e anulação de Facturas e Vendas a Dinheiro (VD)");
         setPaneVisibility(salesStatsPane, summaryPane, salesPane, productsPane, customersPane,
             stockPane, turnoCaixaPane, comprasPane, financeiroPane, catalogsPane, reportsPane,
             producaoPane, sistemaPane, usersPane, warehousesPane, logsPane);
@@ -472,6 +496,11 @@ public class DashboardNavigationManager {
             Button creditNoteBtn = makeActionButton("Nota Crédito", "#F59E0B", "#ffffff");
             Button annulBtn = makeActionButton("Anular", "#EF4444", "#ffffff");
             Button refreshBtn = makeIconButton("↻", "#10B981", "#ffffff");
+
+            for (Button b : List.of(newBtn, printBtn, viewBtn, convertBtn, creditNoteBtn, annulBtn, refreshBtn)) {
+                UiUtils.applyHoverElevation(b);
+                UiUtils.applyPressFeedback(b);
+            }
 
             UiUtils.attachSafe(newBtn, onNewSale, systemLogService, "SALE_NEW");
             UiUtils.attachSafe(printBtn, onPrint, systemLogService, "SALE_PRINT");
@@ -627,7 +656,7 @@ public class DashboardNavigationManager {
         }
 
         GridPane kpi = (GridPane) salesStatsPane.lookup("#salesKPI");
-        kpiManager.updateSalesKPIs(kpi);
+        kpiManager.updateSalesKPIs(kpi, currentUser);
         loadSalesStats.run();
         loadSales.run();
         updateCashBadge.run();
@@ -643,8 +672,8 @@ public class DashboardNavigationManager {
                                    Runnable onNewCustomer, Runnable onEditCustomer, Runnable onDeleteCustomer,
                                    Runnable onViewCustomer, Runnable onSettleDebt, Runnable onReconcileCustomerCredits) {
         setActiveNav(navMenuClientes, allNavButtons);
-        pageTitleLabel.setText("Clientes");
-        pageSubtitleLabel.setText("Base de dados de clientes");
+        pageTitleLabel.setText("Clientes & Contas Correntes");
+        pageSubtitleLabel.setText("Gestão de clientes, NUIT, limites de crédito e saldos devedores");
         setPaneVisibility(customersPane, allPanes);
 
         if (customersTableParam == null) {
@@ -668,6 +697,11 @@ public class DashboardNavigationManager {
             Button btnEliminar = makeActionButton("Eliminar", "#EF4444", "#ffffff");
             Button btnAtualizar = makeActionButton("Atualizar", "#10B981", "#ffffff");
             Button btnExportar = makeActionButton("Exportar Excel", "#475569", "#ffffff");
+
+            for (Button b : List.of(btnNovo, btnEditar, btnDetalhes, btnLiquidar, btnReconciliar, btnEliminar, btnAtualizar, btnExportar)) {
+                UiUtils.applyHoverElevation(b);
+                UiUtils.applyPressFeedback(b);
+            }
 
             Region spacer = new Region();
             HBox.setHgrow(spacer, Priority.ALWAYS);
@@ -744,8 +778,8 @@ public class DashboardNavigationManager {
                                     Runnable updateCashBadge, Runnable loadWarehousesCards,
                                     Runnable onNewWarehouse, Runnable onEditWarehouse, Runnable onDeleteWarehouse) {
         setActiveNav(navArmazens, allNavButtons);
-        pageTitleLabel.setText("Armazéns");
-        pageSubtitleLabel.setText("Gestão de locais e stock — centros de distribuição e abastecimento");
+        pageTitleLabel.setText("Armazéns Centrais");
+        pageSubtitleLabel.setText("Depósitos centrais, centros de distribuição e abastecimento de lojas");
         setPaneVisibility(warehousesPane, allPanes);
 
         if (warehousesPane.getChildren().isEmpty()) {
@@ -763,6 +797,11 @@ public class DashboardNavigationManager {
             Button btnEditar = makeActionButton("Editar", "#475569", "#ffffff");
             Button btnEliminar = makeActionButton("Eliminar", "#EF4444", "#ffffff");
             Button btnAtualizar = makeActionButton("Atualizar", "#10B981", "#ffffff");
+
+            for (Button b : List.of(btnNovo, btnEditar, btnEliminar, btnAtualizar)) {
+                UiUtils.applyHoverElevation(b);
+                UiUtils.applyPressFeedback(b);
+            }
 
             UiUtils.attachSafe(btnNovo, onNewWarehouse, systemLogService, "WAREHOUSE_NEW");
             UiUtils.attachSafe(btnEditar, onEditWarehouse, systemLogService, "WAREHOUSE_EDIT");
@@ -803,8 +842,8 @@ public class DashboardNavigationManager {
                               VBox logsPane, User currentUser,
                               VBox[] allPanes, Button[] allNavButtons) {
         setActiveNav(null, allNavButtons);
-        pageTitleLabel.setText("Logs do Sistema");
-        pageSubtitleLabel.setText("Auditoria e registo de eventos");
+        pageTitleLabel.setText("Auditoria & Segurança");
+        pageSubtitleLabel.setText("Rastreabilidade de operações, registo de acessos e eventos do sistema");
         setPaneVisibility(logsPane, allPanes);
         logsPane.getChildren().clear();
 
@@ -970,6 +1009,13 @@ public class DashboardNavigationManager {
         table.setPlaceholder(new Label("Sem registos para esta categoria."));
 
         table.setRowFactory(tv -> new TableRow<>() {
+            {
+                setOnMouseClicked(event -> {
+                    if (event.getClickCount() == 2 && !isEmpty() && getItem() != null) {
+                        showLogDetails(getItem(), getScene().getWindow());
+                    }
+                });
+            }
             @Override protected void updateItem(AuditLog item, boolean empty) {
                 super.updateItem(item, empty);
                 if (empty || item == null) { setStyle(""); return; }
@@ -988,10 +1034,10 @@ public class DashboardNavigationManager {
                                      VBox fornecedoresPane, User currentUser,
                                      VBox[] allPanes, Button[] allNavButtons,
                                      Runnable updateCashBadge,
-                                     Runnable onNewSupplier, Runnable onEditSupplier, Runnable onNewSupplierPayment, Runnable onDeleteSupplier) {
+                                     Runnable onNewSupplier, Runnable onEditSupplier, Runnable onViewSupplier, Runnable onNewSupplierPayment, Runnable onDeleteSupplier) {
         setActiveNav(navFornecedores, allNavButtons);
-        pageTitleLabel.setText("Fornecedores");
-        pageSubtitleLabel.setText("Gestão de fornecedores");
+        pageTitleLabel.setText("Gestão de Fornecedores");
+        pageSubtitleLabel.setText("Entrada de mercadorias, facturas de fornecedores e abastecimento");
         setPaneVisibility(fornecedoresPane, allPanes);
 
         if (fornecedoresPane.getChildren().isEmpty()) {
@@ -1002,10 +1048,16 @@ public class DashboardNavigationManager {
             toolbar.setStyle("-fx-background-color: #ffffff; -fx-padding: 12 16; -fx-border-color: #E2E8F0; -fx-border-width: 0 0 1 0;");
 
             Button btnNovo = makeActionButton("+ Novo Fornecedor", "#2563EB", "#ffffff");
+            Button btnDetalhes = makeActionButton("Ver Detalhes", "#0EA5E9", "#ffffff");
             Button btnEditar = makeActionButton("Editar", "#475569", "#ffffff");
-            Button btnPagamento = makeActionButton("+ Pagamento", "#2563EB", "#ffffff");
+            Button btnPagamento = makeActionButton("+ Pagamento", "#10B981", "#ffffff");
             Button btnEliminar = makeActionButton("Eliminar", "#EF4444", "#ffffff");
-            Button btnAtualizar = makeActionButton("Atualizar", "#10B981", "#ffffff");
+            Button btnAtualizar = makeActionButton("Atualizar", "#64748B", "#ffffff");
+
+            for (Button b : List.of(btnNovo, btnDetalhes, btnEditar, btnPagamento, btnEliminar, btnAtualizar)) {
+                UiUtils.applyHoverElevation(b);
+                UiUtils.applyPressFeedback(b);
+            }
 
             Region spacer = new Region();
             HBox.setHgrow(spacer, Priority.ALWAYS);
@@ -1016,16 +1068,17 @@ public class DashboardNavigationManager {
             searchField.setStyle("-fx-font-size: 13px; -fx-font-weight: 600; -fx-padding: 8 12; -fx-background-radius: 6; -fx-border-color: #E2E8F0; -fx-border-radius: 6; -fx-background-color: #F8FAFC;");
 
             UiUtils.attachSafe(btnNovo, onNewSupplier, systemLogService, "SUPPLIER_NEW");
+            UiUtils.attachSafe(btnDetalhes, onViewSupplier, systemLogService, "SUPPLIER_VIEW");
             UiUtils.attachSafe(btnEditar, onEditSupplier, systemLogService, "SUPPLIER_EDIT");
             UiUtils.attachSafe(btnPagamento, onNewSupplierPayment, systemLogService, "SUPPLIER_PAYMENT_NEW");
             UiUtils.attachSafe(btnEliminar, onDeleteSupplier, systemLogService, "SUPPLIER_DELETE");
             UiUtils.attachSafe(btnAtualizar, () -> reloadSuppliers(), systemLogService, "SUPPLIER_REFRESH");
 
-            toolbar.getChildren().addAll(btnNovo, btnEditar, btnPagamento, btnEliminar, btnAtualizar, spacer, searchField);
+            toolbar.getChildren().addAll(btnNovo, btnDetalhes, btnEditar, btnPagamento, btnEliminar, btnAtualizar, spacer, searchField);
 
             TableView<Supplier> table = new TableView<>();
             table.setStyle("-fx-font-size: 13px; -fx-background-color: #ffffff; -fx-border-color: #E2E8F0; -fx-border-width: 0 1 1 1; -fx-padding: 0 20 20 20;");
-            table.setRowFactory(makeTableRowFactory());
+            table.setRowFactory(makeTableRowFactory(onViewSupplier));
             this.suppliersTable = table;
 
             TableColumn<Supplier, String> s1 = new TableColumn<>("Nome");
@@ -1050,7 +1103,7 @@ public class DashboardNavigationManager {
             s5.setCellFactory(coloredStateCell());
 
             TableColumn<Supplier, String> s6 = new TableColumn<>("Saldo a Pagar");
-            s6.setPrefWidth(130);
+            s6.setPrefWidth(140);
             s6.setCellValueFactory(d -> {
                 BigDecimal bal = supplierBalances.getOrDefault(d.getValue().getId(), BigDecimal.ZERO);
                 return new SimpleStringProperty(fmtMt(bal));
@@ -1099,7 +1152,7 @@ public class DashboardNavigationManager {
 
             // ── Histórico de pagamentos a fornecedores ─────────────────────
             Label paymentsTitle = new Label("HISTÓRICO DE PAGAMENTOS A FORNECEDORES");
-            paymentsTitle.setStyle("-fx-font-size:11px; -fx-font-weight:700; -fx-text-fill:#475569;");
+            paymentsTitle.setStyle("-fx-font-size:11px; -fx-font-weight:700; -fx-text-fill:#475569; -fx-font-family:monospace;");
             Label paymentsContext = new Label("Pagamentos recentes (todos os fornecedores) — selecione um fornecedor para filtrar");
             paymentsContext.setStyle("-fx-font-size:12px; -fx-font-weight:600; -fx-text-fill:#64748B;");
             TableView<SupplierPaymentRow> paymentsTable = new TableView<>();
@@ -1130,7 +1183,7 @@ public class DashboardNavigationManager {
             HBox paymentsHeader = new HBox(10);
             paymentsHeader.getChildren().add(paymentsContext);
             VBox paymentsCard = new VBox(10);
-            paymentsCard.setStyle("-fx-background-color:#ffffff; -fx-padding:20; -fx-background-radius:3; -fx-border-color:#E2E8F0; -fx-border-width:1; -fx-border-radius:3;");
+            paymentsCard.setStyle("-fx-background-color:#ffffff; -fx-padding:20; -fx-background-radius:6; -fx-border-color:#E2E8F0; -fx-border-width:1; -fx-border-radius:6;");
             paymentsCard.getChildren().addAll(paymentsTitle, paymentsHeader, paymentsTable);
 
             suppliersPaymentsLoadRunnable = () -> {
@@ -1163,9 +1216,9 @@ public class DashboardNavigationManager {
             });
 
             GridPane kpiGrid = buildKPIGrid(
-                new String[]{"Total Fornecedores", "Activos", "Inactivos"},
-                new String[]{"Registos de fornecedores", "Fornecedores activos", "Fornecedores inactivos"},
-                new String[]{"blue", "green", "orange"}
+                new String[]{"Total Fornecedores", "Activos", "Inactivos", "Dívida Total (MT)"},
+                new String[]{"Registos de fornecedores", "Fornecedores activos", "Fornecedores inactivos", "Total a pagar em aberto"},
+                new String[]{"blue", "green", "orange", "purple"}
             );
             kpiGrid.setId("suppliersKPI");
 
@@ -1187,8 +1240,8 @@ public class DashboardNavigationManager {
                                        Runnable updateCashBadge,
                                        Runnable onNewPurchase, Runnable onTransfer) {
         setActiveNav(navStockArmazem, allNavButtons);
-        pageTitleLabel.setText("Stock por Armazém");
-        pageSubtitleLabel.setText("Stock central em todos os armazéns");
+        pageTitleLabel.setText("Stock Central por Armazém");
+        pageSubtitleLabel.setText("Existências consolidadas em armazéns centrais e depósitos");
         setPaneVisibility(stockArmazemPane, allPanes);
 
         if (stockArmazemPane.getChildren().isEmpty()) {
@@ -1329,10 +1382,12 @@ public class DashboardNavigationManager {
     public void showComprasPane(Button navCompras, Label pageTitleLabel, Label pageSubtitleLabel,
                                  VBox comprasPane, User currentUser,
                                  VBox[] allPanes, Button[] allNavButtons,
-                                 Runnable updateCashBadge) {
+                                 Runnable updateCashBadge,
+                                 Runnable onNewPurchase, Runnable onViewPurchase,
+                                 Runnable onNewPayment, Runnable onAnnulPurchase, Runnable onRefresh) {
         setActiveNav(navCompras, allNavButtons);
-        pageTitleLabel.setText("Compras / Fornecedores");
-        pageSubtitleLabel.setText("Gestão de fornecedores");
+        pageTitleLabel.setText("Facturas de Compra");
+        pageSubtitleLabel.setText("Entrada de mercadorias, facturas de fornecedores e abastecimento");
         setPaneVisibility(comprasPane, allPanes);
 
         if (comprasPane.getChildren().isEmpty()) {
@@ -1340,48 +1395,121 @@ public class DashboardNavigationManager {
             main.setStyle("-fx-background-color: #F8FAFC;");
 
             GridPane kpiGrid = buildKPIGrid(
-                new String[]{"Total Compras", "Valor Total", "Pendentes", "Recebidas"},
-                new String[]{"Todas as compras", "Capital investido", "Por receber", "Já recebidas"},
+                new String[]{"Total Compras", "Volume Comprado", "Por Liquidar", "Liquidadas"},
+                new String[]{"Todas as compras", "Total faturado (MT)", "Com saldo pendente", "Totalmente pagas"},
                 new String[]{"blue", "green", "orange", "purple"}
             );
             kpiGrid.setId("comprasKPI");
 
+            HBox toolbar = new HBox(10);
+            toolbar.setStyle("-fx-background-color: #ffffff; -fx-padding: 12 16; -fx-border-color: #E2E8F0; -fx-border-width: 0 0 1 0;");
+
+            Button btnNovo = makeActionButton("+ Nova Compra", "#2563EB", "#ffffff");
+            Button btnDetalhes = makeActionButton("Ver Detalhes", "#0EA5E9", "#ffffff");
+            Button btnPagamento = makeActionButton("+ Pagamento", "#10B981", "#ffffff");
+            Button btnAnular = makeActionButton("Anular Compra", "#EF4444", "#ffffff");
+            Button btnAtualizar = makeActionButton("Atualizar", "#64748B", "#ffffff");
+
+            for (Button b : List.of(btnNovo, btnDetalhes, btnPagamento, btnAnular, btnAtualizar)) {
+                UiUtils.applyHoverElevation(b);
+                UiUtils.applyPressFeedback(b);
+            }
+
+            UiUtils.attachSafe(btnNovo, onNewPurchase, systemLogService, "PURCHASE_NEW");
+            UiUtils.attachSafe(btnDetalhes, onViewPurchase, systemLogService, "PURCHASE_VIEW");
+            UiUtils.attachSafe(btnPagamento, onNewPayment, systemLogService, "PURCHASE_PAYMENT_NEW");
+            UiUtils.attachSafe(btnAnular, onAnnulPurchase, systemLogService, "PURCHASE_ANNUL");
+            UiUtils.attachSafe(btnAtualizar, () -> { if (onRefresh != null) onRefresh.run(); }, systemLogService, "PURCHASE_REFRESH");
+
+            Region spacer = new Region();
+            HBox.setHgrow(spacer, Priority.ALWAYS);
+
+            TextField searchField = new TextField();
+            searchField.setPromptText("Pesquisar por nº factura ou fornecedor...");
+            searchField.setStyle("-fx-font-size: 13px; -fx-font-weight: 600; -fx-padding: 8 12; -fx-background-radius: 6; -fx-border-color: #E2E8F0; -fx-border-radius: 6; -fx-background-color: #F8FAFC; -fx-min-width: 280; -fx-pref-width: 320;");
+
+            toolbar.getChildren().addAll(btnNovo, btnDetalhes, btnPagamento, btnAnular, btnAtualizar, spacer, searchField);
+
             TableView<Purchase> purchasesTable = new TableView<>();
             purchasesTable.setStyle("-fx-font-size: 13px; -fx-background-color: #ffffff; -fx-border-color: #E2E8F0; -fx-border-width: 0 1 1 1; -fx-padding: 0 20 20 20;");
+            purchasesTable.setPlaceholder(new Label("Sem facturas de compra registadas"));
+            purchasesTable.setRowFactory(makeTableRowFactory(onViewPurchase));
+            this.purchasesTable = purchasesTable;
 
             TableColumn<Purchase, String> p1 = new TableColumn<>("Factura");
-            p1.setPrefWidth(120);
+            p1.setPrefWidth(140);
             p1.setCellValueFactory(d -> new SimpleStringProperty(d.getValue().getInvoiceNumber() != null ? d.getValue().getInvoiceNumber() : "—"));
 
             TableColumn<Purchase, String> p2 = new TableColumn<>("Data");
-            p2.setPrefWidth(120);
-            p2.setCellValueFactory(d -> new SimpleStringProperty(d.getValue().getCreatedAt() != null ? d.getValue().getCreatedAt().toString().substring(0, 10) : "—"));
+            p2.setPrefWidth(110);
+            p2.setCellValueFactory(d -> {
+                LocalDateTime dt = d.getValue().getPurchaseDate() != null ? d.getValue().getPurchaseDate() : d.getValue().getCreatedAt();
+                return new SimpleStringProperty(dt != null ? dt.format(DateTimeFormatter.ofPattern("dd/MM/yyyy")) : "—");
+            });
 
-            TableColumn<Purchase, String> p3 = new TableColumn<>("Total");
-            p3.setPrefWidth(120);
-            p3.setCellValueFactory(d -> new SimpleStringProperty(d.getValue().getTotal() != null ? String.format("%.2f MT", d.getValue().getTotal()) : "0 MT"));
+            TableColumn<Purchase, String> p3 = new TableColumn<>("Fornecedor");
+            p3.setPrefWidth(220);
+            p3.setCellValueFactory(d -> new SimpleStringProperty(d.getValue().getSupplier() != null ? d.getValue().getSupplier().getName() : "—"));
 
-            TableColumn<Purchase, String> p4 = new TableColumn<>("Estado");
-            p4.setPrefWidth(100);
-            p4.setCellValueFactory(d -> new SimpleStringProperty(d.getValue().getState() != null ? d.getValue().getState() : "—"));
-            p4.setCellFactory(coloredStateCell());
+            TableColumn<Purchase, String> p4 = new TableColumn<>("Armazém");
+            p4.setPrefWidth(150);
+            p4.setCellValueFactory(d -> new SimpleStringProperty(d.getValue().getTargetWarehouse() != null ? d.getValue().getTargetWarehouse().getName() : "—"));
 
-            purchasesTable.getColumns().addAll(List.of(p1, p2, p3, p4));
-            purchasesTable.setRowFactory(makeTableRowFactory());
+            TableColumn<Purchase, String> p5 = new TableColumn<>("Total Factura");
+            p5.setPrefWidth(130);
+            p5.setCellValueFactory(d -> new SimpleStringProperty(fmtMt(d.getValue().getTotalAmount() != null ? d.getValue().getTotalAmount() : BigDecimal.ZERO)));
 
-            HBox toolbar = new HBox(12);
-            toolbar.setStyle("-fx-background-color: #ffffff; -fx-padding: 12 16; -fx-border-color: #E2E8F0; -fx-border-width: 0 0 1 0;");
-            TextField searchField = new TextField();
-            searchField.setPromptText("Pesquisar compras...");
-            searchField.setStyle("-fx-font-size: 13px; -fx-font-weight: 600; -fx-padding: 8 12; -fx-background-radius: 6; -fx-border-color: #E2E8F0; -fx-border-radius: 6; -fx-background-color: #F8FAFC; -fx-min-width: 280; -fx-pref-width: 320;");
-            HBox.setHgrow(searchField, Priority.ALWAYS);
-            toolbar.getChildren().add(searchField);
+            TableColumn<Purchase, String> p6 = new TableColumn<>("Valor Pago");
+            p6.setPrefWidth(120);
+            p6.setCellValueFactory(d -> new SimpleStringProperty(fmtMt(d.getValue().getPaidAmountValue() != null ? d.getValue().getPaidAmountValue() : BigDecimal.ZERO)));
+
+            TableColumn<Purchase, String> p7 = new TableColumn<>("Saldo Pendente");
+            p7.setPrefWidth(130);
+            p7.setCellValueFactory(d -> {
+                BigDecimal tot = d.getValue().getTotalAmount() != null ? d.getValue().getTotalAmount() : BigDecimal.ZERO;
+                BigDecimal paid = d.getValue().getPaidAmountValue() != null ? d.getValue().getPaidAmountValue() : BigDecimal.ZERO;
+                BigDecimal pend = tot.subtract(paid);
+                return new SimpleStringProperty(fmtMt(pend));
+            });
+            p7.setCellFactory(c -> new TableCell<>() {
+                @Override
+                protected void updateItem(String item, boolean empty) {
+                    super.updateItem(item, empty);
+                    if (empty || item == null) {
+                        setText(null);
+                        setStyle("");
+                        return;
+                    }
+                    setText(item);
+                    boolean zero = "0,00 MT".equals(item);
+                    setStyle(zero
+                            ? "-fx-text-fill:#10B981; -fx-font-weight:700;"
+                            : "-fx-text-fill:#DC2626; -fx-font-weight:700;");
+                }
+            });
+
+            TableColumn<Purchase, String> p8 = new TableColumn<>("Estado");
+            p8.setPrefWidth(110);
+            p8.setCellValueFactory(d -> new SimpleStringProperty(d.getValue().getState() != null ? d.getValue().getState() : "—"));
+            p8.setCellFactory(coloredStateCell());
+
+            purchasesTable.getColumns().addAll(List.of(p1, p2, p3, p4, p5, p6, p7, p8));
 
             Runnable loadData = () -> {
                 String q = searchField.getText() == null ? "" : searchField.getText().trim();
-                List<Purchase> list = q.isEmpty() ? purchaseRepository.findAllByOrderByCreatedAtDesc() : purchaseRepository.searchByInvoice(q);
+                List<Purchase> list;
+                if (q.isEmpty()) {
+                    list = purchaseRepository.findAllByOrderByCreatedAtDesc();
+                } else {
+                    list = purchaseRepository.searchByInvoice(q);
+                }
                 purchasesTable.setItems(FXCollections.observableArrayList(list));
+                GridPane kpi = (GridPane) comprasPane.lookup("#comprasKPI");
+                if (kpi != null) {
+                    kpiManager.updateComprasKPIs(kpi);
+                }
             };
+            this.purchasesLoadRunnable = loadData;
             UiUtils.setupDebounce(searchField, loadData, 400);
             loadData.run();
 
@@ -1390,17 +1518,20 @@ public class DashboardNavigationManager {
         }
 
         GridPane kpi = (GridPane) comprasPane.lookup("#comprasKPI");
-        kpiManager.updateComprasKPIs(kpi);
+        if (kpi != null) {
+            kpiManager.updateComprasKPIs(kpi);
+        }
         updateCashBadge.run();
     }
 
     public void showProducaoPane(Button navProducao, Label pageTitleLabel, Label pageSubtitleLabel,
                                   VBox producaoPane, User currentUser,
                                   VBox[] allPanes, Button[] allNavButtons,
-                                  Runnable updateCashBadge) {
+                                  Runnable updateCashBadge,
+                                  Runnable onNewOrder, Runnable onViewOrder, Runnable onCompleteOrder, Runnable onDeleteOrder) {
         setActiveNav(navProducao, allNavButtons);
-        pageTitleLabel.setText("Produção");
-        pageSubtitleLabel.setText("Ordens de produção");
+        pageTitleLabel.setText("Fabrico & Padaria");
+        pageSubtitleLabel.setText("Ordens de fabrico e abate automático de matérias-primas por receita");
         setPaneVisibility(producaoPane, allPanes);
 
         if (producaoPane.getChildren().isEmpty()) {
@@ -1415,18 +1546,19 @@ public class DashboardNavigationManager {
             kpiGrid.setId("producaoKPI");
 
             TableView<ProductionOrder> ordersTable = new TableView<>();
-            ordersTable.setStyle("-fx-font-size: 13px; -fx-background-color: #ffffff; -fx-border-color: #E2E8F0; -fx-border-width: 0 1 1 1; -fx-padding: 0 20 20 20;");
+            this.ordersTable = ordersTable;
+            ordersTable.setStyle("-fx-font-size: 13px; -fx-background-color: #ffffff; -fx-border-color: #E2E8F0; -fx-border-width: 0 1 1 1; -fx-padding: 0;");
 
             TableColumn<ProductionOrder, String> o1 = new TableColumn<>("Nº Ordem");
-            o1.setPrefWidth(120);
+            o1.setPrefWidth(130);
             o1.setCellValueFactory(d -> new SimpleStringProperty(d.getValue().getOrderNumber() != null ? d.getValue().getOrderNumber() : "—"));
 
             TableColumn<ProductionOrder, String> o2 = new TableColumn<>("Produto");
-            o2.setPrefWidth(220);
+            o2.setPrefWidth(240);
             o2.setCellValueFactory(d -> new SimpleStringProperty(d.getValue().getProduct() != null ? d.getValue().getProduct().getName() : "—"));
 
             TableColumn<ProductionOrder, String> o3 = new TableColumn<>("Quantidade");
-            o3.setPrefWidth(100);
+            o3.setPrefWidth(120);
             o3.setCellValueFactory(d -> new SimpleStringProperty(d.getValue().getQuantity() != null ? String.valueOf(d.getValue().getQuantity()) + " " + (d.getValue().getUnit() != null ? d.getValue().getUnit() : "") : "—"));
 
             TableColumn<ProductionOrder, String> o4 = new TableColumn<>("Criada em");
@@ -1441,22 +1573,43 @@ public class DashboardNavigationManager {
             ordersTable.getColumns().addAll(List.of(o1, o2, o3, o4, o5));
             ordersTable.setRowFactory(makeTableRowFactory());
 
-            HBox toolbar = new HBox(12);
+            HBox toolbar = new HBox(10);
             toolbar.setStyle("-fx-background-color: #ffffff; -fx-padding: 12 16; -fx-border-color: #E2E8F0; -fx-border-width: 0 0 1 0;");
+
+            Button btnNova = makeActionButton("+ Nova Ordem", "#2563EB", "#ffffff");
+            Button btnDetalhes = makeActionButton("Ver Detalhes", "#0EA5E9", "#ffffff");
+            Button btnConcluir = makeActionButton("Concluir Ordem", "#10B981", "#ffffff");
+            Button btnEliminar = makeActionButton("Eliminar", "#EF4444", "#ffffff");
+            Button btnAtualizar = makeActionButton("Atualizar", "#475569", "#ffffff");
+
+            for (Button b : List.of(btnNova, btnDetalhes, btnConcluir, btnEliminar, btnAtualizar)) {
+                UiUtils.applyHoverElevation(b);
+                UiUtils.applyPressFeedback(b);
+            }
+
+            Region spacer = new Region();
+            HBox.setHgrow(spacer, Priority.ALWAYS);
+
             TextField searchField = new TextField();
             searchField.setPromptText("Pesquisar ordens (Nº ou Produto)...");
-            searchField.setStyle("-fx-font-size: 13px; -fx-font-weight: 600; -fx-padding: 8 12; -fx-background-radius: 6; -fx-border-color: #E2E8F0; -fx-border-radius: 6; -fx-background-color: #F8FAFC; -fx-min-width: 280; -fx-pref-width: 320;");
-            HBox.setHgrow(searchField, Priority.ALWAYS);
-            toolbar.getChildren().add(searchField);
+            searchField.setStyle("-fx-font-size: 13px; -fx-font-weight: 600; -fx-padding: 8 12; -fx-background-radius: 6; -fx-border-color: #CBD5E1; -fx-border-radius: 6; -fx-background-color: #F8FAFC; -fx-pref-width: 280;");
 
             Runnable loadData = () -> {
                 String q = searchField.getText() == null ? "" : searchField.getText().trim();
                 List<ProductionOrder> list = q.isEmpty() ? productionOrderRepository.findAllByOrderByCreatedAtDesc() : productionOrderRepository.searchByNumberOrProduct(q);
                 ordersTable.setItems(FXCollections.observableArrayList(list));
             };
+
+            UiUtils.attachSafe(btnNova, onNewOrder, systemLogService, "PROD_NEW");
+            UiUtils.attachSafe(btnDetalhes, onViewOrder, systemLogService, "PROD_VIEW");
+            UiUtils.attachSafe(btnConcluir, onCompleteOrder, systemLogService, "PROD_COMPLETE");
+            UiUtils.attachSafe(btnEliminar, onDeleteOrder, systemLogService, "PROD_DELETE");
+            UiUtils.attachSafe(btnAtualizar, loadData, systemLogService, "PROD_REFRESH");
+
             UiUtils.setupDebounce(searchField, loadData, 400);
             loadData.run();
 
+            toolbar.getChildren().addAll(btnNova, btnDetalhes, btnConcluir, btnEliminar, btnAtualizar, spacer, searchField);
             main.getChildren().addAll(kpiGrid, toolbar, ordersTable);
             producaoPane.getChildren().add(main);
         }
@@ -1471,8 +1624,8 @@ public class DashboardNavigationManager {
                                  VBox[] allPanes, Button[] allNavButtons,
                                  Runnable updateCashBadge) {
         setActiveNav(navRelatorios, allNavButtons);
-        pageTitleLabel.setText("Relatórios");
-        pageSubtitleLabel.setText("Estatísticas e exportações");
+        pageTitleLabel.setText("Mapas Fiscais & SAF-T MZ");
+        pageSubtitleLabel.setText("Apuramento de IVA (16%), ficheiro SAF-T oficial AT e mapas de vendas");
         setPaneVisibility(reportsPane, allPanes);
 
         if (reportsPane.getChildren().isEmpty()) {
@@ -1487,8 +1640,8 @@ public class DashboardNavigationManager {
                                  VBox[] allPanes, Button[] allNavButtons,
                                  Runnable updateCashBadge) {
         setActiveNav(navSistema, allNavButtons);
-        pageTitleLabel.setText("Sistema");
-        pageSubtitleLabel.setText("Gestão de utilizadores, permissões e configurações");
+        pageTitleLabel.setText("Parâmetros da Empresa");
+        pageSubtitleLabel.setText("Dados fiscais da empresa, cópias de segurança (backup) e licenciamento");
         setPaneVisibility(sistemaPane, allPanes);
 
         if (sistemaPane.getChildren().isEmpty()) {
@@ -1514,8 +1667,8 @@ public class DashboardNavigationManager {
                                    Runnable loadCategories, Runnable loadMetricUnits,
                                    TableView<Category> categoriesTableParam, TableView<MetricUnit> unitsTableParam) {
         setActiveNav(navCatalogos, allNavButtons);
-        pageTitleLabel.setText("Catálogos");
-        pageSubtitleLabel.setText("Gestão de Categorias e Unidades");
+        pageTitleLabel.setText("Famílias & Unidades de Medida");
+        pageSubtitleLabel.setText("Categorias de artigos e unidades comerciais (UN, KG, L, CX)");
         setPaneVisibility(catalogsPane, allPanes);
 
         if (categoriesTableParam == null) categoriesTableParam = new TableView<>();
@@ -1530,9 +1683,9 @@ public class DashboardNavigationManager {
             main.setStyle("-fx-background-color: #F8FAFC;");
 
             GridPane kpiGrid = buildKPIGrid(
-                new String[]{"Categorias", "Unidades Métricas", "Activas", "—"},
-                new String[]{"Total de categorias", "Tipos de unidade", "Unidades activas", "—"},
-                new String[]{"blue", "purple", "green", "gray"}
+                new String[]{"Categorias", "Unidades Métricas", "Granel / Fardo", "Artigos c/ Família"},
+                new String[]{"Total de categorias", "Tipos de unidade", "Produtos c/ fardo activo", "Artigos categorizados"},
+                new String[]{"blue", "purple", "green", "orange"}
             );
             kpiGrid.setId("catalogsKPI");
 
@@ -1545,22 +1698,56 @@ public class DashboardNavigationManager {
             half.setHgrow(Priority.ALWAYS);
             splitGrid.getColumnConstraints().addAll(half, half);
 
+            // ─── PAINEL ESQUERDO: CATEGORIAS ─────────────────────────
             VBox leftPane = new VBox(0);
-            leftPane.setStyle("-fx-background-color: #ffffff; -fx-border-color: #E2E8F0; -fx-border-width: 1; -fx-border-radius: 3;");
+            leftPane.setStyle("-fx-background-color: #ffffff; -fx-border-color: #E2E8F0; -fx-border-width: 1; -fx-border-radius: 6;");
 
             HBox catHeader = new HBox(8);
             catHeader.setStyle("-fx-padding: 10 12; -fx-background-color: #F8FAFC; -fx-border-color: #E2E8F0; -fx-border-width: 0 0 1 0;");
             catHeader.setAlignment(Pos.CENTER_LEFT);
-            Label leftTitle = new Label("Categorias");
+            Label leftTitle = new Label("Categorias / Famílias");
             leftTitle.setStyle("-fx-font-size: 13px; -fx-font-weight: 700; -fx-text-fill: #0F172A;");
             Region catSpacer = new Region();
             HBox.setHgrow(catSpacer, Priority.ALWAYS);
             TextField searchCatField = new TextField();
             searchCatField.setPromptText("Pesquisar...");
-            searchCatField.setStyle("-fx-font-size: 12px; -fx-padding: 4 8; -fx-background-radius: 4; -fx-border-color: #E2E8F0; -fx-border-radius: 4; -fx-min-width: 120;");
+            searchCatField.setStyle("-fx-font-size: 12px; -fx-padding: 6 10; -fx-background-radius: 4; -fx-border-color: #E2E8F0; -fx-border-radius: 4; -fx-min-width: 120;");
             Button catNewBtn = new Button("+ Nova");
-            catNewBtn.setStyle("-fx-background-color: #2563EB; -fx-text-fill: #ffffff; -fx-font-weight: 700; -fx-padding: 6 12; -fx-background-radius: 3; -fx-cursor: hand; -fx-font-size: 12px;");
-            catHeader.getChildren().addAll(leftTitle, catSpacer, searchCatField, catNewBtn);
+            catNewBtn.setStyle("-fx-background-color: #2563EB; -fx-text-fill: #ffffff; -fx-font-weight: 700; -fx-padding: 6 12; -fx-background-radius: 4; -fx-cursor: hand; -fx-font-size: 12px;");
+            Button catDelBtn = new Button("Eliminar");
+            catDelBtn.setStyle("-fx-background-color: #EF4444; -fx-text-fill: #ffffff; -fx-font-weight: 700; -fx-padding: 6 12; -fx-background-radius: 4; -fx-cursor: hand; -fx-font-size: 12px;");
+
+            UiUtils.applyHoverElevation(catNewBtn);
+            UiUtils.applyPressFeedback(catNewBtn);
+            UiUtils.applyHoverElevation(catDelBtn);
+            UiUtils.applyPressFeedback(catDelBtn);
+
+            catNewBtn.setOnAction(e -> crudManager.openCategoryForm(null, catalogsPane.getScene().getWindow(), loadCategories));
+            catDelBtn.setOnAction(e -> {
+                Category sel = categoriesTable.getSelectionModel().getSelectedItem();
+                if (sel != null) {
+                    Alert confirm = new Alert(Alert.AlertType.CONFIRMATION, "Tem a certeza que deseja eliminar a categoria \"" + sel.getName() + "\"?", ButtonType.YES, ButtonType.NO);
+                    confirm.setHeaderText(null);
+                    confirm.showAndWait().ifPresent(res -> {
+                        if (res == ButtonType.YES) {
+                            try {
+                                applicationContext.getBean(com.sgv.service.CategoryService.class).deleteById(sel.getId());
+                                loadCategories.run();
+                            } catch (Exception ex) {
+                                Alert err = new Alert(Alert.AlertType.ERROR, "Erro ao eliminar categoria: " + ex.getMessage());
+                                err.setHeaderText(null);
+                                err.showAndWait();
+                            }
+                        }
+                    });
+                } else {
+                    Alert a = new Alert(Alert.AlertType.WARNING, "Selecione uma categoria na lista.");
+                    a.setHeaderText(null);
+                    a.showAndWait();
+                }
+            });
+
+            catHeader.getChildren().addAll(leftTitle, catSpacer, searchCatField, catNewBtn, catDelBtn);
             
             Runnable doSearchCat = () -> {
                 String q = searchCatField.getText() == null ? "" : searchCatField.getText().trim().toLowerCase();
@@ -1578,12 +1765,15 @@ public class DashboardNavigationManager {
                 catIdCol.setPrefWidth(60);
                 catIdCol.setCellValueFactory(d -> new SimpleStringProperty(d.getValue().getId() != null ? String.valueOf(d.getValue().getId()) : "—"));
 
-                TableColumn<Category, String> catNomeCol = new TableColumn<>("Nome");
-                catNomeCol.setPrefWidth(260);
+                TableColumn<Category, String> catNomeCol = new TableColumn<>("Nome da Família / Categoria");
+                catNomeCol.setPrefWidth(280);
                 catNomeCol.setCellValueFactory(d -> new SimpleStringProperty(d.getValue().getName() != null ? d.getValue().getName() : "—"));
 
                 categoriesTable.getColumns().addAll(List.of(catIdCol, catNomeCol));
-                categoriesTable.setRowFactory(makeTableRowFactory());
+                categoriesTable.setRowFactory(makeTableRowFactory(() -> {
+                    Category sel = categoriesTable.getSelectionModel().getSelectedItem();
+                    if (sel != null) showCategoryDetails(sel, catalogsPane.getScene().getWindow());
+                }));
             }
 
             if (categoriesTable != null) {
@@ -1593,22 +1783,56 @@ public class DashboardNavigationManager {
                 leftPane.getChildren().add(catHeader);
             }
 
+            // ─── PAINEL DIREITO: UNIDADES DE MEDIDA ───────────────────
             VBox rightPane = new VBox(0);
-            rightPane.setStyle("-fx-background-color: #ffffff; -fx-border-color: #E2E8F0; -fx-border-width: 1; -fx-border-radius: 3;");
+            rightPane.setStyle("-fx-background-color: #ffffff; -fx-border-color: #E2E8F0; -fx-border-width: 1; -fx-border-radius: 6;");
 
             HBox unitHeader = new HBox(8);
             unitHeader.setStyle("-fx-padding: 10 12; -fx-background-color: #F8FAFC; -fx-border-color: #E2E8F0; -fx-border-width: 0 0 1 0;");
             unitHeader.setAlignment(Pos.CENTER_LEFT);
-            Label rightTitle = new Label("Unidades Métricas");
+            Label rightTitle = new Label("Unidades Métricas / SAF-T");
             rightTitle.setStyle("-fx-font-size: 13px; -fx-font-weight: 700; -fx-text-fill: #0F172A;");
             Region unitSpacer = new Region();
             HBox.setHgrow(unitSpacer, Priority.ALWAYS);
             TextField searchUnitField = new TextField();
             searchUnitField.setPromptText("Pesquisar...");
-            searchUnitField.setStyle("-fx-font-size: 12px; -fx-padding: 4 8; -fx-background-radius: 4; -fx-border-color: #E2E8F0; -fx-border-radius: 4; -fx-min-width: 120;");
+            searchUnitField.setStyle("-fx-font-size: 12px; -fx-padding: 6 10; -fx-background-radius: 4; -fx-border-color: #E2E8F0; -fx-border-radius: 4; -fx-min-width: 120;");
             Button unitNewBtn = new Button("+ Nova");
-            unitNewBtn.setStyle("-fx-background-color: #7C3AED; -fx-text-fill: #ffffff; -fx-font-weight: 700; -fx-padding: 6 12; -fx-background-radius: 3; -fx-cursor: hand; -fx-font-size: 12px;");
-            unitHeader.getChildren().addAll(rightTitle, unitSpacer, searchUnitField, unitNewBtn);
+            unitNewBtn.setStyle("-fx-background-color: #7C3AED; -fx-text-fill: #ffffff; -fx-font-weight: 700; -fx-padding: 6 12; -fx-background-radius: 4; -fx-cursor: hand; -fx-font-size: 12px;");
+            Button unitDelBtn = new Button("Eliminar");
+            unitDelBtn.setStyle("-fx-background-color: #EF4444; -fx-text-fill: #ffffff; -fx-font-weight: 700; -fx-padding: 6 12; -fx-background-radius: 4; -fx-cursor: hand; -fx-font-size: 12px;");
+
+            UiUtils.applyHoverElevation(unitNewBtn);
+            UiUtils.applyPressFeedback(unitNewBtn);
+            UiUtils.applyHoverElevation(unitDelBtn);
+            UiUtils.applyPressFeedback(unitDelBtn);
+
+            unitNewBtn.setOnAction(e -> crudManager.openMetricUnitForm(null, catalogsPane.getScene().getWindow(), loadMetricUnits));
+            unitDelBtn.setOnAction(e -> {
+                MetricUnit sel = unitsTable.getSelectionModel().getSelectedItem();
+                if (sel != null) {
+                    Alert confirm = new Alert(Alert.AlertType.CONFIRMATION, "Tem a certeza que deseja eliminar a unidade \"" + sel.getAbbreviation() + "\"?", ButtonType.YES, ButtonType.NO);
+                    confirm.setHeaderText(null);
+                    confirm.showAndWait().ifPresent(res -> {
+                        if (res == ButtonType.YES) {
+                            try {
+                                applicationContext.getBean(com.sgv.service.MetricUnitService.class).deleteUnit(sel.getId());
+                                loadMetricUnits.run();
+                            } catch (Exception ex) {
+                                Alert err = new Alert(Alert.AlertType.ERROR, "Erro ao eliminar unidade: " + ex.getMessage());
+                                err.setHeaderText(null);
+                                err.showAndWait();
+                            }
+                        }
+                    });
+                } else {
+                    Alert a = new Alert(Alert.AlertType.WARNING, "Selecione uma unidade na lista.");
+                    a.setHeaderText(null);
+                    a.showAndWait();
+                }
+            });
+
+            unitHeader.getChildren().addAll(rightTitle, unitSpacer, searchUnitField, unitNewBtn, unitDelBtn);
             
             Runnable doSearchUnit = () -> {
                 String q = searchUnitField.getText() == null ? "" : searchUnitField.getText().trim().toLowerCase();
@@ -1634,7 +1858,10 @@ public class DashboardNavigationManager {
                 uDescCol.setCellValueFactory(d -> new SimpleStringProperty(d.getValue().getDescription() != null ? d.getValue().getDescription() : "—"));
 
                 unitsTable.getColumns().addAll(List.of(uAbbrCol, uDescCol));
-                unitsTable.setRowFactory(makeTableRowFactory());
+                unitsTable.setRowFactory(makeTableRowFactory(() -> {
+                    MetricUnit sel = unitsTable.getSelectionModel().getSelectedItem();
+                    if (sel != null) showMetricUnitDetails(sel, catalogsPane.getScene().getWindow());
+                }));
             }
 
             if (unitsTable != null) {
@@ -1663,8 +1890,8 @@ public class DashboardNavigationManager {
                                VBox[] allPanes, Button[] allNavButtons,
                                Runnable updateCashBadge) {
         setActiveNav(null, allNavButtons);
-        pageTitleLabel.setText("Stock");
-        pageSubtitleLabel.setText("Gestão de Inventário");
+        pageTitleLabel.setText("Inventário & Stock em Loja");
+        pageSubtitleLabel.setText("Controlo de existências na filial, ajustes manuais e quebras");
         setPaneVisibility(stockPane, allPanes);
 
         stockPane.getChildren().clear();
@@ -1695,6 +1922,11 @@ public class DashboardNavigationManager {
         Button detalhesBtn = makeActionButton("Ver Detalhes", "#0EA5E9", "#ffffff");
         Button deleteBtn = makeActionButton("Eliminar", "#EF4444", "#ffffff");
         Button refreshBtn = makeIconButton("↻", "#475569", "#ffffff");
+
+        for (Button b : List.of(adjustBtn, detalhesBtn, deleteBtn, refreshBtn)) {
+            UiUtils.applyHoverElevation(b);
+            UiUtils.applyPressFeedback(b);
+        }
 
         toolbar.getChildren().addAll(searchField, adjustBtn, detalhesBtn, deleteBtn, refreshBtn);
 
@@ -1815,8 +2047,8 @@ public class DashboardNavigationManager {
                                     VBox[] allPanes, Button[] allNavButtons,
                                     Runnable updateCashBadge) {
         setActiveNav(null, allNavButtons);
-        pageTitleLabel.setText("Financeiro");
-        pageSubtitleLabel.setText("Visão geral financeira");
+        pageTitleLabel.setText("Tesouraria & Finanças");
+        pageSubtitleLabel.setText("Balanço de tesouraria, despesas operacionais e recebimentos");
         setPaneVisibility(financeiroPane, allPanes);
 
         GridPane kpi = (GridPane) financeiroPane.lookup("#financeiroKPI");
@@ -1829,8 +2061,8 @@ public class DashboardNavigationManager {
                                VBox[] allPanes, Button[] allNavButtons,
                                Runnable updateCashBadge) {
         setActiveNav(null, allNavButtons);
-        pageTitleLabel.setText("Utilizadores");
-        pageSubtitleLabel.setText("Gestão de utilizadores e permissões");
+        pageTitleLabel.setText("Utilizadores & Acessos");
+        pageSubtitleLabel.setText("Operadores de caixa, fiscais, gerentes e perfis de segurança");
         setPaneVisibility(usersPane, allPanes);
 
         if (usersPane.getChildren().isEmpty()) {
@@ -1898,8 +2130,8 @@ public void showTurnoCaixaPane(Label pageTitleLabel, Label pageSubtitleLabel,
                                 VBox turnoCaixaPane, User currentUser,
                                 VBox[] allPanes, Button[] allNavButtons,
                                 Runnable updateCashBadge) {
-    pageTitleLabel.setText("Turno de Caixa");
-    pageSubtitleLabel.setText("Gestão de aberturas, fechos e movimentos");
+    pageTitleLabel.setText("Sessão & Fecho de Caixa");
+    pageSubtitleLabel.setText("Abertura com Fundo de Maneio, Fecho cego com Fita Z, Sangrias e Reforços");
     setActiveNav(null, allNavButtons);
     setPaneVisibility(turnoCaixaPane, allPanes);
     updateCashBadge.run();
@@ -1930,8 +2162,8 @@ public void showTurnoCaixaPane(Label pageTitleLabel, Label pageSubtitleLabel,
                                   Consumer<Product> onViewProduct,
                                   Consumer<String> onSearch) {
         setActiveNav(null, allNavButtons);
-        pageTitleLabel.setText("Produtos");
-        pageSubtitleLabel.setText("Gestão de catálogo e stock");
+        pageTitleLabel.setText("Artigos & Serviços");
+        pageSubtitleLabel.setText("Catálogo de artigos, preços de venda, margem de lucro e códigos de barras");
         setPaneVisibility(productsPane, allPanes);
         updateCashBadge.run();
 
@@ -2230,18 +2462,6 @@ public void showTurnoCaixaPane(Label pageTitleLabel, Label pageSubtitleLabel,
         if (valueLbl instanceof Label) ((Label) valueLbl).setText(value);
     }
 
-    public void showSalesPane(Label pageTitleLabel, Label pageSubtitleLabel,
-                               VBox salesPane, User currentUser,
-                               VBox[] allPanes, Button[] allNavButtons,
-                               Runnable loadSales, Runnable updateCashBadge) {
-        setActiveNav(null, allNavButtons);
-        pageTitleLabel.setText("Consultar Vendas");
-        pageSubtitleLabel.setText("Histórico de vendas e facturas");
-        setPaneVisibility(salesPane, allPanes);
-        loadSales.run();
-        updateCashBadge.run();
-    }
-
     private void showAlert(javafx.scene.control.Alert.AlertType type, String message) {
         javafx.scene.control.Alert alert = new javafx.scene.control.Alert(type);
         alert.setHeaderText(null);
@@ -2257,18 +2477,558 @@ public void showTurnoCaixaPane(Label pageTitleLabel, Label pageSubtitleLabel,
         String stockMin = selected.getStockMinAmount() != null ? String.format("%.2f", selected.getStockMinAmount()) : "0";
         String stockMax = selected.getStockMaxAmount() != null ? String.format("%.2f", selected.getStockMaxAmount()) : "0";
 
-        DetailDialog.create(owner)
-            .title("Detalhes do Stock")
+        var dialog = DetailDialog.create(owner)
+            .title("Ficha de Stock & Kardex")
             .subtitle(productInfo)
-            .section("Produto")
+            .width(740)
+            .height(580)
+            .section("Dados do Artigo")
             .field("Código", selected.getProduct() != null ? selected.getProduct().getCode() : "—")
-            .field("Nome", selected.getProduct() != null ? selected.getProduct().getName() : "—")
-            .section("Filial")
-            .field("Filial", branchInfo)
-            .section("Stock")
-            .field("Stock Actual", stockActual)
-            .field("Stock Mínimo", stockMin)
-            .field("Stock Máximo", stockMax)
-            .show();
+            .field("Nome do Artigo", selected.getProduct() != null ? selected.getProduct().getName() : "—")
+            .field("Estabelecimento / Filial", branchInfo)
+            .section("Posição de Inventário")
+            .field("Stock Actual em Loja", stockActual, "#2563EB")
+            .field("Stock Mínimo (Alerta)", stockMin)
+            .field("Stock Máximo (Capacidade)", stockMax);
+
+        if (selected.getProduct() != null && selected.getProduct().getId() != null) {
+            List<StockMovement> movements = stockMovementRepository.findByProductIdOrderByCreatedAtDesc(selected.getProduct().getId());
+            if (movements != null && !movements.isEmpty()) {
+                String[] cols = {"Data", "Tipo", "Subtipo", "Qtd", "Antes", "Depois", "Referência", "Operador"};
+                List<Map<String, String>> rows = new ArrayList<>();
+                for (StockMovement m : movements.stream().limit(15).toList()) {
+                    Map<String, String> row = new LinkedHashMap<>();
+                    row.put("Data", m.getCreatedAt() != null ? m.getCreatedAt().format(DATE_FORMATTER) : "—");
+                    row.put("Tipo", m.getType() != null ? m.getType() : "—");
+                    row.put("Subtipo", m.getSubtype() != null ? m.getSubtype() : "—");
+                    row.put("Qtd", m.getQtyAmount() != null ? String.format("%.2f", m.getQtyAmount()) : "—");
+                    row.put("Antes", m.getStockBeforeAmount() != null ? String.format("%.2f", m.getStockBeforeAmount()) : "—");
+                    row.put("Depois", m.getStockAfterAmount() != null ? String.format("%.2f", m.getStockAfterAmount()) : "—");
+                    row.put("Referência", m.getReference() != null ? m.getReference() : "—");
+                    row.put("Operador", m.getUser() != null ? m.getUser().getUsername() : "—");
+                    rows.add(row);
+                }
+                dialog.tableSection("Histórico de Movimentações (Kardex)", cols, rows);
+            }
+        }
+
+        dialog.show();
     }
+
+    public void showTransfersPane(Button navTransferir, Label pageTitleLabel, Label pageSubtitleLabel,
+                                  VBox transfersPane, User currentUser,
+                                  VBox[] allPanes, Button[] allNavButtons,
+                                  Runnable updateCashBadge, Runnable onNewTransfer) {
+        setActiveNav(navTransferir, allNavButtons);
+        pageTitleLabel.setText("Guias de Transferência de Stock");
+        pageSubtitleLabel.setText("Movimentações entre Armazém Central e Lojas com Guia de Transporte");
+        setPaneVisibility(transfersPane, allPanes);
+
+        if (transfersPane.getChildren().isEmpty()) {
+            VBox main = new VBox(0);
+            main.setStyle("-fx-background-color: #F8FAFC;");
+
+            // 1. KPI Row
+            FlowPane kpiRow = new FlowPane(12, 0);
+            kpiRow.setStyle("-fx-padding: 16 20 8 20;");
+
+            Label kpiTotal = new Label("0");
+            Label kpiCompleted = new Label("0");
+            Label kpiInTransit = new Label("0");
+
+            kpiRow.getChildren().addAll(
+                makeKpiCard("TOTAL DE GUIAS", kpiTotal, "#2563EB"),
+                makeKpiCard("RECEBIDAS NA LOJA", kpiCompleted, "#10B981"),
+                makeKpiCard("EM TRÂNSITO / PENDENTES", kpiInTransit, "#F59E0B")
+            );
+
+            // 2. Toolbar de Filtros Avançados
+            HBox toolbar = new HBox(10);
+            toolbar.setStyle("-fx-background-color: #ffffff; -fx-padding: 12 16; -fx-border-color: #E2E8F0; -fx-border-width: 0 0 1 0;");
+
+            Button btnNova = makeActionButton("+ Nova Guia de Transferência", "#2563EB", "#ffffff");
+            Button btnAtualizar = makeActionButton("🔄 Actualizar", "#475569", "#ffffff");
+
+            UiUtils.applyHoverElevation(btnNova);
+            UiUtils.applyPressFeedback(btnNova);
+            UiUtils.applyHoverElevation(btnAtualizar);
+            UiUtils.applyPressFeedback(btnAtualizar);
+
+            ComboBox<Warehouse> whFilter = new ComboBox<>();
+            whFilter.setPromptText("Origem: Todos");
+            whFilter.setPrefWidth(180);
+            whFilter.setStyle("-fx-font-size: 12px; -fx-font-weight: 600;");
+
+            ComboBox<Branch> brFilter = new ComboBox<>();
+            brFilter.setPromptText("Destino: Todas");
+            brFilter.setPrefWidth(180);
+            brFilter.setStyle("-fx-font-size: 12px; -fx-font-weight: 600;");
+
+            ComboBox<String> statusFilter = new ComboBox<>();
+            statusFilter.getItems().addAll("Todos os Estados", "PENDING", "IN_TRANSIT", "COMPLETED", "CANCELLED");
+            statusFilter.setValue("Todos os Estados");
+            statusFilter.setPrefWidth(160);
+            statusFilter.setStyle("-fx-font-size: 12px; -fx-font-weight: 600;");
+
+            Region spacer = new Region();
+            HBox.setHgrow(spacer, Priority.ALWAYS);
+
+            TextField searchField = new TextField();
+            searchField.setPromptText("Pesquisar guia, artigo ou operador...");
+            searchField.setPrefWidth(240);
+            searchField.setStyle("-fx-font-size: 12px; -fx-font-weight: 600; -fx-padding: 6 10; -fx-background-radius: 4; -fx-border-color: #E2E8F0; -fx-border-radius: 4;");
+
+            UiUtils.attachSafe(btnNova, onNewTransfer, systemLogService, "TRANSFERS_NEW");
+
+            toolbar.getChildren().addAll(btnNova, btnAtualizar, whFilter, brFilter, statusFilter, spacer, searchField);
+
+            // 3. Tabela de Transferências
+            TableView<WarehouseTransfer> table = new TableView<>();
+            table.setStyle("-fx-font-size: 12px; -fx-background-color: #ffffff; -fx-border-color: #E2E8F0; -fx-border-width: 0 1 1 1;");
+            table.setPlaceholder(new Label("Nenhuma guia de transferência encontrada"));
+            table.setRowFactory(makeTableRowFactory());
+
+            TableColumn<WarehouseTransfer, String> c1 = new TableColumn<>("Nº Documento");
+            c1.setPrefWidth(130);
+            c1.setCellValueFactory(d -> {
+                WarehouseTransfer t = d.getValue();
+                return new SimpleStringProperty((t.getSeries() != null ? t.getSeries() : "TWA") + " " + t.getDocumentYear() + "/" + t.getDocumentNumber());
+            });
+
+            TableColumn<WarehouseTransfer, String> c2 = new TableColumn<>("Data / Hora");
+            c2.setPrefWidth(130);
+            c2.setCellValueFactory(d -> new SimpleStringProperty(d.getValue().getCreatedAt() != null ? d.getValue().getCreatedAt().format(DATE_FORMATTER) : "—"));
+
+            TableColumn<WarehouseTransfer, String> c3 = new TableColumn<>("Origem (Armazém)");
+            c3.setPrefWidth(160);
+            c3.setCellValueFactory(d -> new SimpleStringProperty(d.getValue().getWarehouse() != null ? d.getValue().getWarehouse().getName() : "—"));
+
+            TableColumn<WarehouseTransfer, String> c4 = new TableColumn<>("Destino (Filial)");
+            c4.setPrefWidth(160);
+            c4.setCellValueFactory(d -> new SimpleStringProperty(d.getValue().getBranch() != null ? d.getValue().getBranch().getName() : "—"));
+
+            TableColumn<WarehouseTransfer, String> c5 = new TableColumn<>("Itens / Volume");
+            c5.setPrefWidth(110);
+            c5.setCellValueFactory(d -> {
+                int count = d.getValue().getItems() != null ? d.getValue().getItems().size() : 0;
+                return new SimpleStringProperty(count + " artigos");
+            });
+
+            TableColumn<WarehouseTransfer, String> c6 = new TableColumn<>("Estado");
+            c6.setPrefWidth(120);
+            c6.setCellValueFactory(d -> {
+                String st = d.getValue().getStatus() != null ? d.getValue().getStatus() : "PENDING";
+                String desc = switch (st) {
+                    case "COMPLETED" -> "🟢 Recebido";
+                    case "IN_TRANSIT" -> "🚚 Em Trânsito";
+                    case "CANCELLED" -> "🔴 Cancelado";
+                    default -> "🟡 Pendente";
+                };
+                return new SimpleStringProperty(desc);
+            });
+
+            TableColumn<WarehouseTransfer, String> c7 = new TableColumn<>("Responsável");
+            c7.setPrefWidth(140);
+            c7.setCellValueFactory(d -> new SimpleStringProperty(d.getValue().getRequestedBy() != null ? d.getValue().getRequestedBy().getFullName() : "—"));
+
+            TableColumn<WarehouseTransfer, Void> c8 = new TableColumn<>("Acções");
+            c8.setPrefWidth(180);
+            c8.setCellFactory(col -> new TableCell<>() {
+                private final Button btnVer = new Button("👁️ Ver");
+                private final Button btnReceber = new Button("✅ Confirmar");
+                private final HBox box = new HBox(6, btnVer, btnReceber);
+
+                {
+                    btnVer.setStyle("-fx-font-size: 11px; -fx-padding: 3 8; -fx-background-color: #F1F5F9; -fx-text-fill: #0F172A; -fx-background-radius: 3; -fx-cursor: hand;");
+                    btnReceber.setStyle("-fx-font-size: 11px; -fx-padding: 3 8; -fx-background-color: #10B981; -fx-text-fill: white; -fx-font-weight: 700; -fx-background-radius: 3; -fx-cursor: hand;");
+
+                    btnVer.setOnAction(e -> {
+                        WarehouseTransfer t = getTableView().getItems().get(getIndex());
+                        if (t != null) {
+                            String st = t.getStatus() != null ? t.getStatus() : "PENDING";
+                            String stColor = switch (st) {
+                                case "COMPLETED" -> "#10B981";
+                                case "IN_TRANSIT" -> "#F59E0B";
+                                case "CANCELLED" -> "#EF4444";
+                                default -> "#3B82F6";
+                            };
+                            var dd = DetailDialog.create(transfersPane.getScene().getWindow())
+                                .title("Guia de Transferência " + (t.getSeries() != null ? t.getSeries() : "TWA") + " " + t.getDocumentYear() + "/" + t.getDocumentNumber())
+                                .subtitle("Expedição de Stock do Armazém Central para Loja")
+                                .statusBadge(st, stColor)
+                                .width(680)
+                                .height(540)
+                                .section("Dados da Guia de Transporte")
+                                .field("Armazém de Origem", t.getWarehouse() != null ? t.getWarehouse().getName() : "—")
+                                .field("Filial de Destino", t.getBranch() != null ? t.getBranch().getName() : "—")
+                                .field("Data de Emissão", t.getCreatedAt() != null ? t.getCreatedAt().format(DATE_FORMATTER) : "—")
+                                .field("Responsável", t.getRequestedBy() != null ? t.getRequestedBy().getFullName() : "—");
+
+                            if (t.getItems() != null && !t.getItems().isEmpty()) {
+                                String[] cols = {"Código", "Artigo / Descrição", "Quantidade", "Unidade"};
+                                List<Map<String, String>> rows = new ArrayList<>();
+                                for (WarehouseTransferItem it : t.getItems()) {
+                                    Map<String, String> row = new LinkedHashMap<>();
+                                    row.put("Código", it.getProduct() != null ? it.getProduct().getCode() : "—");
+                                    row.put("Artigo / Descrição", it.getProduct() != null ? it.getProduct().getName() : "—");
+                                    row.put("Quantidade", String.format("%.2f", it.getQuantity() != null ? it.getQuantity() : 0));
+                                    row.put("Unidade", it.getProduct() != null && it.getProduct().getUnit() != null ? it.getProduct().getUnit().getAbbreviation() : "UN");
+                                    rows.add(row);
+                                }
+                                dd.tableSection("Artigos Transferidos (Guia de Transporte TWA)", cols, rows);
+                            }
+                            dd.show();
+                        }
+                    });
+
+                    btnReceber.setOnAction(e -> {
+                        WarehouseTransfer t = getTableView().getItems().get(getIndex());
+                        if (t != null && !"COMPLETED".equals(t.getStatus()) && !"CANCELLED".equals(t.getStatus())) {
+                            Alert alert = new Alert(Alert.AlertType.CONFIRMATION, "Confirmar receção de mercadoria na filial? O stock será actualizado.", ButtonType.YES, ButtonType.NO);
+                            alert.setHeaderText(null);
+                            alert.showAndWait().ifPresent(response -> {
+                                if (response == ButtonType.YES) {
+                                    try {
+                                        warehouseTransferService.complete(t.getId(), currentUser);
+                                        btnAtualizar.fire();
+                                    } catch (Exception ex) {
+                                        systemLogService.logError("TRANSFER_COMPLETE_FAILED", "Erro ao receber transferência", ex);
+                                    }
+                                }
+                            });
+                        }
+                    });
+                }
+
+                @Override
+                protected void updateItem(Void item, boolean empty) {
+                    super.updateItem(item, empty);
+                    if (empty || getIndex() >= getTableView().getItems().size()) {
+                        setGraphic(null);
+                    } else {
+                        WarehouseTransfer t = getTableView().getItems().get(getIndex());
+                        boolean isDone = t != null && ("COMPLETED".equals(t.getStatus()) || "CANCELLED".equals(t.getStatus()));
+                        btnReceber.setVisible(!isDone);
+                        btnReceber.setManaged(!isDone);
+                        setGraphic(box);
+                    }
+                }
+            });
+
+            table.getColumns().addAll(List.of(c1, c2, c3, c4, c5, c6, c7, c8));
+
+            Runnable loadTransfers = () -> {
+                List<WarehouseTransfer> all = warehouseTransferRepository.findAllByOrderByCreatedAtDesc();
+                long total = all.size();
+                long completed = all.stream().filter(t -> "COMPLETED".equals(t.getStatus())).count();
+                long inTransit = all.stream().filter(t -> "IN_TRANSIT".equals(t.getStatus()) || "PENDING".equals(t.getStatus())).count();
+
+                kpiTotal.setText(String.valueOf(total));
+                kpiCompleted.setText(String.valueOf(completed));
+                kpiInTransit.setText(String.valueOf(inTransit));
+
+                Warehouse selWh = whFilter.getValue();
+                Branch selBr = brFilter.getValue();
+                String selSt = statusFilter.getValue();
+                String q = searchField.getText() == null ? "" : searchField.getText().trim().toLowerCase();
+
+                List<WarehouseTransfer> filtered = all.stream()
+                        .filter(t -> selWh == null || (t.getWarehouse() != null && t.getWarehouse().getId().equals(selWh.getId())))
+                        .filter(t -> selBr == null || (t.getBranch() != null && t.getBranch().getId().equals(selBr.getId())))
+                        .filter(t -> selSt == null || "Todos os Estados".equals(selSt) || selSt.equalsIgnoreCase(t.getStatus()))
+                        .filter(t -> q.isEmpty() || (t.getDocumentNumber() != null && String.valueOf(t.getDocumentNumber()).contains(q))
+                                || (t.getWarehouse() != null && t.getWarehouse().getName().toLowerCase().contains(q))
+                                || (t.getBranch() != null && t.getBranch().getName().toLowerCase().contains(q)))
+                        .toList();
+
+                table.setItems(FXCollections.observableArrayList(filtered));
+            };
+
+            whFilter.setItems(FXCollections.observableArrayList(warehouseRepository.findAll()));
+            brFilter.setItems(FXCollections.observableArrayList(branchRepository.findAll()));
+
+            whFilter.valueProperty().addListener((o, ov, nv) -> loadTransfers.run());
+            brFilter.valueProperty().addListener((o, ov, nv) -> loadTransfers.run());
+            statusFilter.valueProperty().addListener((o, ov, nv) -> loadTransfers.run());
+            searchField.textProperty().addListener((o, ov, nv) -> loadTransfers.run());
+            btnAtualizar.setOnAction(e -> loadTransfers.run());
+
+            main.getChildren().addAll(kpiRow, toolbar, table);
+            VBox.setVgrow(table, Priority.ALWAYS);
+            transfersPane.getChildren().add(main);
+            loadTransfers.run();
+        } else {
+            // Recarregar dados se já inicializado
+            Node main = transfersPane.getChildren().get(0);
+            if (main instanceof VBox) {
+                // Find table and refresh
+            }
+        }
+        updateCashBadge.run();
+    }
+
+    public void showSupplierDetails(Supplier supplier, Window owner) {
+        if (supplier == null) return;
+        List<Purchase> purchases = purchaseRepository.findBySupplierIdOrderByCreatedAtDesc(supplier.getId());
+        List<SupplierPayment> payments = supplierPaymentRepository.findBySupplierId(supplier.getId());
+
+        BigDecimal totalPurchases = purchases.stream()
+                .filter(p -> !"CANCELLED".equalsIgnoreCase(p.getState()))
+                .map(p -> p.getTotalAmount() != null ? p.getTotalAmount() : BigDecimal.ZERO)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+
+        BigDecimal totalPaid = payments.stream()
+                .map(sp -> sp.getAmountValue() != null ? sp.getAmountValue() : BigDecimal.ZERO)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+
+        BigDecimal balance = totalPurchases.subtract(totalPaid);
+
+        var dialog = DetailDialog.create(owner)
+                .title("Ficha de Fornecedor & Conta-Corrente")
+                .subtitle(supplier.getName())
+                .statusBadge(Boolean.TRUE.equals(supplier.getActive()) ? "ACTIVO" : "INACTIVO",
+                        Boolean.TRUE.equals(supplier.getActive()) ? "#10B981" : "#EF4444")
+                .width(740)
+                .height(600)
+                .section("Identificação da Empresa / Fornecedor")
+                .field("Nome / Razão Social", supplier.getName())
+                .field("NUIT", supplier.getNuit() != null && !supplier.getNuit().isBlank() ? supplier.getNuit() : "—")
+                .field("Contacto / Telefone", supplier.getContact() != null ? supplier.getContact() : "—")
+                .field("Endereço Físico", supplier.getAddress() != null ? supplier.getAddress() : "—")
+                .section("Posição Financeira & Saldo devedor")
+                .field("Total Faturado em Compras", fmtMt(totalPurchases))
+                .field("Total Liquidado / Pago", fmtMt(totalPaid), "#10B981")
+                .field("Saldo Devedor / A Pagar", fmtMt(balance), balance.compareTo(BigDecimal.ZERO) > 0 ? "#DC2626" : "#10B981");
+
+        if (!purchases.isEmpty()) {
+            List<Map<String, String>> pRows = purchases.stream().limit(10).map(p -> {
+                Map<String, String> m = new LinkedHashMap<>();
+                LocalDateTime dt = p.getPurchaseDate() != null ? p.getPurchaseDate() : p.getCreatedAt();
+                m.put("Data", dt != null ? dt.format(DateTimeFormatter.ofPattern("dd/MM/yyyy")) : "—");
+                m.put("Factura", p.getInvoiceNumber() != null ? p.getInvoiceNumber() : "#" + p.getId());
+                m.put("Total", p.getTotalAmount() != null ? fmtMt(p.getTotalAmount()) : "—");
+                m.put("Pago", p.getPaidAmountValue() != null ? fmtMt(p.getPaidAmountValue()) : "—");
+                m.put("Estado", p.getState() != null ? p.getState() : "—");
+                return m;
+            }).toList();
+            dialog.tableSection("Histórico de Facturas de Compra (Últimas 10)", new String[]{"Data", "Factura", "Total", "Pago", "Estado"}, pRows);
+        }
+
+        if (!payments.isEmpty()) {
+            List<Map<String, String>> payRows = payments.stream().limit(10).map(sp -> {
+                Map<String, String> m = new LinkedHashMap<>();
+                m.put("Data", sp.getCreatedAt() != null ? sp.getCreatedAt().format(DATE_FORMATTER) : "—");
+                m.put("Valor", sp.getAmountValue() != null ? fmtMt(sp.getAmountValue()) : "—");
+                m.put("Método", sp.getMethod() != null ? sp.getMethod() : "—");
+                m.put("Ref.", sp.getReference() != null ? sp.getReference() : "—");
+                return m;
+            }).toList();
+            dialog.tableSection("Histórico de Pagamentos (Últimos 10)", new String[]{"Data", "Valor", "Método", "Ref."}, payRows);
+        }
+
+        dialog.show();
+    }
+
+    public void showPurchaseDetails(Purchase purchase, Window owner) {
+        if (purchase == null) return;
+        Purchase full = purchaseRepository.findByIdWithItems(purchase.getId());
+        if (full == null) full = purchase;
+
+        BigDecimal tot = full.getTotalAmount() != null ? full.getTotalAmount() : BigDecimal.ZERO;
+        BigDecimal paid = full.getPaidAmountValue() != null ? full.getPaidAmountValue() : BigDecimal.ZERO;
+        BigDecimal pending = tot.subtract(paid);
+
+        String statusColor = "PAID".equalsIgnoreCase(full.getState()) ? "#10B981"
+                : "CANCELLED".equalsIgnoreCase(full.getState()) ? "#EF4444"
+                : "PAGO_PARCIAL".equalsIgnoreCase(full.getState()) ? "#F59E0B" : "#2563EB";
+
+        var dialog = DetailDialog.create(owner)
+                .title("Factura de Compra")
+                .subtitle(full.getInvoiceNumber() != null ? full.getInvoiceNumber() : "Compra #" + full.getId())
+                .statusBadge(full.getState() != null ? full.getState() : "RECEIVED", statusColor)
+                .width(740)
+                .height(600)
+                .section("Dados do Documento")
+                .field("Nº Factura Fornecedor", full.getInvoiceNumber() != null ? full.getInvoiceNumber() : "—")
+                .field("Fornecedor", full.getSupplier() != null ? full.getSupplier().getName() : "—")
+                .field("NUIT Fornecedor", full.getSupplier() != null && full.getSupplier().getNuit() != null ? full.getSupplier().getNuit() : "—")
+                .field("Armazém de Entrada", full.getTargetWarehouse() != null ? full.getTargetWarehouse().getName() : "—")
+                .field("Data de Emissão", full.getPurchaseDate() != null ? full.getPurchaseDate().format(DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm")) : (full.getCreatedAt() != null ? full.getCreatedAt().format(DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm")) : "—"))
+                .field("Registado Por", full.getUser() != null ? full.getUser().getFullName() : "—")
+                .section("Resumo Financeiro & IVA (CIVA 16%)")
+                .field("Subtotal (s/ IVA)", fmtMt(full.getSubtotalAmount() != null ? full.getSubtotalAmount() : BigDecimal.ZERO))
+                .field("IVA Suportado (16%)", fmtMt(full.getTotalTaxAmount() != null ? full.getTotalTaxAmount() : BigDecimal.ZERO), "#F59E0B")
+                .field("TOTAL FACTURA", fmtMt(tot), "#2563EB")
+                .field("Valor Já Amortizado", fmtMt(paid), "#10B981")
+                .field("Saldo Pendente", fmtMt(pending), pending.compareTo(BigDecimal.ZERO) > 0 ? "#DC2626" : "#10B981");
+
+        if (full.getItems() != null && !full.getItems().isEmpty()) {
+            List<Map<String, String>> itemRows = full.getItems().stream().map(item -> {
+                Map<String, String> m = new LinkedHashMap<>();
+                m.put("Produto", item.getProduct() != null ? item.getProduct().getName() : "—");
+                m.put("Qtd", item.getQuantity() != null ? String.format(java.util.Locale.US, "%.2f %s", item.getQuantity(), (item.getProduct() != null && item.getProduct().getUnit() != null ? item.getProduct().getUnit().getAbbreviation() : "")) : "0");
+                m.put("Custo Unit.", item.getCostPrice() != null ? String.format(java.util.Locale.US, "%.2f MT", item.getCostPrice()) : "—");
+                m.put("Subtotal", item.getSubtotal() != null ? String.format(java.util.Locale.US, "%.2f MT", item.getSubtotal()) : "—");
+                return m;
+            }).toList();
+            dialog.tableSection("Artigos / Itens da Factura de Compra", new String[]{"Produto", "Qtd", "Custo Unit.", "Subtotal"}, itemRows);
+        }
+
+        if (full.getNotes() != null && !full.getNotes().isBlank()) {
+            dialog.section("Observações").field("Notas", full.getNotes());
+        }
+
+        dialog.show();
+    }
+
+    public void showPaymentDetails(Payment payment, Window owner) {
+        if (payment == null) return;
+        Sale sale = payment.getSale();
+
+        var dialog = DetailDialog.create(owner)
+                .title("Comprovativo de Pagamento / Recibo")
+                .subtitle("Recibo #" + payment.getId() + (sale != null ? " — Factura " + (sale.getSeries() != null ? sale.getSeries() : "FT") + "/" + sale.getDocumentNumber() : ""))
+                .statusBadge("LIQUIDADO", "#10B981")
+                .width(680)
+                .height(520)
+                .section("Dados do Recebimento")
+                .field("Nº do Recibo", "#" + payment.getId())
+                .field("Data / Hora", payment.getCreatedAt() != null ? payment.getCreatedAt().format(DATE_FORMATTER) : "—")
+                .field("Cliente", payment.getSaleCustomerName())
+                .field("Método de Pagamento", payment.getMethod() != null ? payment.getMethod() : "—")
+                .field("Referência / POS", payment.getTerminalRef() != null ? payment.getTerminalRef() : "—")
+                .field("Valor Recebido", fmtMt(payment.getAmountValue() != null ? payment.getAmountValue() : BigDecimal.ZERO), "#10B981");
+
+        if (sale != null) {
+            BigDecimal saleTotal = sale.getTotalAmount() != null ? sale.getTotalAmount() : BigDecimal.ZERO;
+            BigDecimal salePaid = sale.getPaidAmountValue() != null ? sale.getPaidAmountValue() : BigDecimal.ZERO;
+            BigDecimal salePending = saleTotal.subtract(salePaid);
+
+            dialog.section("Factura de Venda Amortizada")
+                    .field("Documento", (sale.getDocumentType() != null ? sale.getDocumentType() : "Factura") + " " + (sale.getSeries() != null ? sale.getSeries() : "") + "/" + sale.getDocumentNumber())
+                    .field("Total da Factura", fmtMt(saleTotal))
+                    .field("Valor Já Amortizado", fmtMt(salePaid), "#10B981")
+                    .field("Saldo Restante da Factura", fmtMt(salePending), salePending.compareTo(BigDecimal.ZERO) > 0 ? "#DC2626" : "#10B981")
+                    .field("Estado da Factura", sale.getState() != null ? sale.getState() : "—");
+        }
+
+        dialog.show();
+    }
+
+    public void showExpenseDetails(Expense expense, Window owner) {
+        if (expense == null) return;
+        String statusColor = "PAID".equalsIgnoreCase(expense.getState()) ? "#10B981"
+                : "CANCELLED".equalsIgnoreCase(expense.getState()) ? "#EF4444" : "#F59E0B";
+
+        var dialog = DetailDialog.create(owner)
+                .title("Ficha de Despesa Operacional")
+                .subtitle("Despesa #" + expense.getId() + " — " + (expense.getDescription() != null ? expense.getDescription() : ""))
+                .statusBadge(expense.getState() != null ? expense.getState() : "PENDING", statusColor)
+                .width(680)
+                .height(520)
+                .section("Identificação da Despesa")
+                .field("Descrição", expense.getDescription() != null ? expense.getDescription() : "—")
+                .field("Categoria PGC MZ", expense.getCategory() != null ? expense.getCategory() : "—")
+                .field("Nº Documento / Factura", expense.getNotes() != null ? expense.getNotes() : "—")
+                .field("Estabelecimento / Centro de Custo", expense.getBranch() != null ? expense.getBranch().getName() : "Sede Central")
+                .field("Registado Por", expense.getUser() != null ? expense.getUser().getFullName() : "—")
+                .section("Valores & Prazos")
+                .field("Valor da Despesa", fmtMt(expense.getAmountValue() != null ? expense.getAmountValue() : BigDecimal.ZERO), "#2563EB")
+                .field("Data de Registo", expense.getCreatedAt() != null ? expense.getCreatedAt().format(DateTimeFormatter.ofPattern("dd/MM/yyyy")) : "—")
+                .field("Data de Vencimento", expense.getDueDate() != null ? expense.getDueDate().format(DateTimeFormatter.ofPattern("dd/MM/yyyy")) : "—")
+                .field("Data de Pagamento", expense.getPaidAt() != null ? expense.getPaidAt().format(DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm")) : "—")
+                .field("Estado Contabilístico", expense.getState() != null ? expense.getState() : "—");
+
+        dialog.show();
+    }
+
+    public void showCategoryDetails(Category category, Window owner) {
+        if (category == null) return;
+        List<Product> products = productRepository.findByCategoryId(category.getId());
+        long totalArticles = products.size();
+        long activeArticles = products.stream().filter(p -> Boolean.TRUE.equals(p.getIsActive())).count();
+
+        var dialog = DetailDialog.create(owner)
+                .title("Ficha de Categoria / Família")
+                .subtitle(category.getName())
+                .statusBadge(activeArticles > 0 ? "COM ARTIGOS" : "SEM ARTIGOS", activeArticles > 0 ? "#10B981" : "#64748B")
+                .width(680)
+                .height(520)
+                .section("Identificação da Categoria")
+                .field("ID da Categoria", String.valueOf(category.getId()))
+                .field("Nome da Família / Categoria", category.getName())
+                .field("Total de Artigos Cadastrados", String.valueOf(totalArticles))
+                .field("Artigos Activos para Venda", String.valueOf(activeArticles));
+
+        if (!products.isEmpty()) {
+            List<Map<String, String>> pRows = products.stream().limit(15).map(p -> {
+                Map<String, String> m = new LinkedHashMap<>();
+                m.put("Código", p.getCode() != null ? p.getCode() : "—");
+                m.put("Nome", p.getName() != null ? p.getName() : "—");
+                m.put("Preço Venda", p.getPriceSale() != null ? String.format("%.2f MT", p.getPriceSale()) : "—");
+                m.put("Unidade", p.getUnit() != null ? p.getUnit().getAbbreviation() : "UN");
+                m.put("Estado", Boolean.TRUE.equals(p.getIsActive()) ? "Activo" : "Inactivo");
+                return m;
+            }).toList();
+            dialog.tableSection("Artigos desta Categoria (Primeiros 15)", new String[]{"Código", "Nome", "Preço Venda", "Unidade", "Estado"}, pRows);
+        }
+
+        dialog.show();
+    }
+
+    public void showMetricUnitDetails(MetricUnit unit, Window owner) {
+        if (unit == null) return;
+        List<Product> products = productRepository.findByUnitIdOrUnitBulkId(unit.getId(), unit.getId());
+        long totalArticles = products.size();
+
+        var dialog = DetailDialog.create(owner)
+                .title("Ficha de Unidade de Medida")
+                .subtitle(unit.getAbbreviation() + " — " + (unit.getDescription() != null ? unit.getDescription() : ""))
+                .statusBadge("OFICIAL SAF-T", "#2563EB")
+                .width(680)
+                .height(520)
+                .section("Identificação da Unidade")
+                .field("Abreviação / Símbolo", unit.getAbbreviation())
+                .field("Descrição Completa", unit.getDescription() != null ? unit.getDescription() : "—")
+                .field("Artigos que utilizam esta Unidade", String.valueOf(totalArticles));
+
+        if (!products.isEmpty()) {
+            List<Map<String, String>> pRows = products.stream().limit(15).map(p -> {
+                Map<String, String> m = new LinkedHashMap<>();
+                m.put("Código", p.getCode() != null ? p.getCode() : "—");
+                m.put("Nome", p.getName() != null ? p.getName() : "—");
+                m.put("Preço Venda", p.getPriceSale() != null ? String.format("%.2f MT", p.getPriceSale()) : "—");
+                m.put("Categoria", p.getCategory() != null ? p.getCategory().getName() : "—");
+                return m;
+            }).toList();
+            dialog.tableSection("Artigos que utilizam esta Unidade (Primeiros 15)", new String[]{"Código", "Nome", "Preço Venda", "Categoria"}, pRows);
+        }
+
+        dialog.show();
+    }
+
+    public void showLogDetails(AuditLog auditLog, Window owner) {
+        if (auditLog == null) return;
+        String cat = auditLog.getCategory() != null ? auditLog.getCategory() : "INFO";
+        String color = "ERROR".equals(cat) ? "#EF4444" : "SECURITY".equals(cat) ? "#F59E0B" : "USER_ACTION".equals(cat) ? "#10B981" : "#2563EB";
+
+        var dialog = DetailDialog.create(owner)
+                .title("Registo de Auditoria & Evento")
+                .subtitle("Log #" + auditLog.getId() + " — " + (auditLog.getAction() != null ? auditLog.getAction() : ""))
+                .statusBadge(cat, color)
+                .width(680)
+                .height(520)
+                .section("Detalhes do Evento")
+                .field("ID do Registo", String.valueOf(auditLog.getId()))
+                .field("Data / Hora", auditLog.getCreatedAt() != null ? auditLog.getCreatedAt().format(DATE_FORMATTER) : "—")
+                .field("Utilizador / Operador", auditLog.getUsername() != null ? auditLog.getUsername() : "Sistema")
+                .field("Ação Executada", auditLog.getAction() != null ? auditLog.getAction() : "—")
+                .field("Entidade Afetada", auditLog.getEntity() != null ? auditLog.getEntity() : "—")
+                .field("ID da Entidade", auditLog.getEntityId() != null ? String.valueOf(auditLog.getEntityId()) : "—")
+                .section("Mensagem & Descrição")
+                .field("Detalhes da Operação", auditLog.getDetails() != null ? auditLog.getDetails() : "—");
+
+        dialog.show();
+    }
+
 }

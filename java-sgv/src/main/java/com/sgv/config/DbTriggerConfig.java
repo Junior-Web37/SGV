@@ -37,7 +37,7 @@ public class DbTriggerConfig {
                     "BEFORE UPDATE ON sales " +
                     "FOR EACH ROW " +
                     "BEGIN " +
-                    "    IF OLD.state IN ('EMITIDA', 'ANULADA') THEN " +
+                    "    IF OLD.state IN ('EMITIDA', 'PAGO', 'PAGO_PARCIAL', 'ANULADA') THEN " +
                     "        IF OLD.total <> NEW.total OR " +
                     "           OLD.subtotal <> NEW.subtotal OR " +
                     "           OLD.total_tax <> NEW.total_tax OR " +
@@ -51,20 +51,20 @@ public class DbTriggerConfig {
                     "END;"
                 );
 
-                // Trigger para impedir DELETE de vendas emitidas/anuladas
+                // Trigger para impedir DELETE de vendas emitidas/anuladas/pagas
                 jdbcTemplate.execute("DROP TRIGGER IF EXISTS trg_prevent_sales_delete");
                 jdbcTemplate.execute(
                     "CREATE TRIGGER trg_prevent_sales_delete " +
                     "BEFORE DELETE ON sales " +
                     "FOR EACH ROW " +
                     "BEGIN " +
-                    "    IF OLD.state IN ('EMITIDA', 'ANULADA') THEN " +
+                    "    IF OLD.state IN ('EMITIDA', 'PAGO', 'PAGO_PARCIAL', 'ANULADA') THEN " +
                     "        SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Documentos fiscais não podem ser apagados após emissão.'; " +
                     "    END IF; " +
                     "END;"
                 );
 
-                // Trigger para impedir UPDATE de itens de vendas emitidas/anuladas
+                // Trigger para impedir UPDATE de itens de vendas emitidas/anuladas/pagas
                 jdbcTemplate.execute("DROP TRIGGER IF EXISTS trg_prevent_sale_items_update");
                 jdbcTemplate.execute(
                     "CREATE TRIGGER trg_prevent_sale_items_update " +
@@ -73,13 +73,13 @@ public class DbTriggerConfig {
                     "BEGIN " +
                     "    DECLARE sale_state VARCHAR(255); " +
                     "    SELECT state INTO sale_state FROM sales WHERE id = OLD.sale_id; " +
-                    "    IF sale_state IN ('EMITIDA', 'ANULADA') THEN " +
+                    "    IF sale_state IN ('EMITIDA', 'PAGO', 'PAGO_PARCIAL', 'ANULADA') THEN " +
                     "        SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Itens de documentos fiscais emitidos não podem ser modificados.'; " +
                     "    END IF; " +
                     "END;"
                 );
 
-                // Trigger para impedir DELETE de itens de vendas emitidas/anuladas
+                // Trigger para impedir DELETE de itens de vendas emitidas/anuladas/pagas
                 jdbcTemplate.execute("DROP TRIGGER IF EXISTS trg_prevent_sale_items_delete");
                 jdbcTemplate.execute(
                     "CREATE TRIGGER trg_prevent_sale_items_delete " +
@@ -88,7 +88,7 @@ public class DbTriggerConfig {
                     "BEGIN " +
                     "    DECLARE sale_state VARCHAR(255); " +
                     "    SELECT state INTO sale_state FROM sales WHERE id = OLD.sale_id; " +
-                    "    IF sale_state IN ('EMITIDA', 'ANULADA') THEN " +
+                    "    IF sale_state IN ('EMITIDA', 'PAGO', 'PAGO_PARCIAL', 'ANULADA') THEN " +
                     "        SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Itens de documentos fiscais emitidos não podem ser apagados.'; " +
                     "    END IF; " +
                     "END;"

@@ -30,59 +30,66 @@
                 <!-- Navigation container -->
                 <StackPane fx:id="navStackPane" style="-fx-padding: 0 8;">
 
-                    <!-- ROOT NAV: Module-level buttons -->
+                    <!-- ROOT NAV: Módulos Reorganizados por Fluxo de Negócio Lógico -->
                     <HBox fx:id="navRootPane" spacing="4" alignment="CENTER_LEFT">
-                        <Button fx:id="navResumo" text="⌂  Dashboard" styleClass="nav-btn-home"/>
-                        <Button fx:id="navModComercial" text="Comercial  ▸" styleClass="nav-btn"/>
-                        <Button fx:id="navModOperacoes" text="Operações  ▸" styleClass="nav-btn"/>
-                        <Button fx:id="navModFinanceiro" text="Financeiro  ▸" styleClass="nav-btn"/>
-                        <Button fx:id="navModAdministracao" text="Admin  ▸" styleClass="nav-btn"/>
-                        <Button fx:id="navModArmazens" text="Armazém  ▸" styleClass="nav-btn"/>
-                        <Button fx:id="navModLogs" text="Logs" styleClass="nav-btn"/>
+                        <Button fx:id="navResumo" text="⌂  Painel Geral" styleClass="nav-btn-home"/>
+                        <Button fx:id="navModComercial" text="Vendas &amp; Facturação  ▸" styleClass="nav-btn"/>
+                        <Button fx:id="navModFinanceiro" text="Caixa &amp; Tesouraria  ▸" styleClass="nav-btn"/>
+                        <Button fx:id="navModOperacoes" text="Stock &amp; Artigos  ▸" styleClass="nav-btn"/>
+                        <Button fx:id="navModArmazens" text="Armazém &amp; Compras  ▸" styleClass="nav-btn"/>
+                        <Button fx:id="navModRelatorios" text="Mapas &amp; Relatórios  ▸" styleClass="nav-btn"/>
+                        <Button fx:id="navModAdministracao" text="Configurações  ▸" styleClass="nav-btn"/>
                     </HBox>
 
                     <!-- SUB-MODULE NAV -->
                     <HBox fx:id="navSubPane" spacing="4" alignment="CENTER_LEFT" visible="false" managed="false">
                         <Button fx:id="navBackButton" text="◂  Voltar" styleClass="nav-btn"/>
                         <Separator orientation="VERTICAL" style="-fx-padding: 8 4; -fx-background-color:#1D4ED8;"/>
-                        <Label fx:id="navSubModuleLabel" text="Comercial"
+                        <Label fx:id="navSubModuleLabel" text="Vendas &amp; Facturação"
                                style="-fx-text-fill:#BFDBFE; -fx-font-size:12px; -fx-font-weight:700; -fx-padding: 0 8;"/>
 
-                        <!-- Comercial: Nova Venda | Vendas | Clientes | Produtos -->
+                        <!-- 1. Vendas & Facturação: PDV | Cotações | Facturas | Clientes -->
                         <HBox fx:id="navComercialItems" spacing="4" alignment="CENTER_LEFT">
-                            <Button fx:id="navMenuNovaVenda" text="Nova Venda"  styleClass="nav-btn"/>
-                            <Button fx:id="navMenuVendas" text="Vendas"        styleClass="nav-btn"/>
-                            <Button fx:id="navMenuClientes" text="Clientes"   styleClass="nav-btn"/>
-                            <Button fx:id="navMenuProdutos" text="Produtos"   styleClass="nav-btn"/>
+                            <Button fx:id="navMenuNovaVenda" text="⚡ PDV / Nova Venda"  styleClass="nav-btn"/>
+                            <Button fx:id="navMenuVendas"    text="📄 Facturas &amp; Vendas" styleClass="nav-btn"/>
+                            <Button fx:id="navMenuClientes"  text="👥 Gestão de Clientes"   styleClass="nav-btn"/>
                         </HBox>
 
-                        <!-- Operações: Stock | Caixa | Compras -->
-                        <HBox fx:id="navOperacoesItems" spacing="4" alignment="CENTER_LEFT" visible="false" managed="false">
-                            <Button fx:id="navMenuStock"        text="Stock"              styleClass="nav-btn"/>
-                            <Button fx:id="navMenuCaixa"        text="Caixa"              styleClass="nav-btn"/>
-                            <Button fx:id="navMenuCompras"      text="Compras"            styleClass="nav-btn"/>
-                        </HBox>
-
-                        <!-- Financeiro: Financeiro | Pagamentos | Despesas -->
+                        <!-- 2. Caixa & Tesouraria: Caixa | Recebimentos | Despesas | Resumo -->
                         <HBox fx:id="navFinanceiroItems" spacing="4" alignment="CENTER_LEFT" visible="false" managed="false">
-                            <Button fx:id="navMenuFinanceiro" text="Financeiro"  styleClass="nav-btn"/>
-                            <Button fx:id="navMenuPagamentos" text="Pagamentos" styleClass="nav-btn"/>
-                            <Button fx:id="navMenuDespesas" text="Despesas"     styleClass="nav-btn"/>
+                            <Button fx:id="navMenuCaixa"      text="💼 Sessão de Caixa" styleClass="nav-btn"/>
+                            <Button fx:id="navMenuPagamentos" text="💳 Recebimentos"   styleClass="nav-btn"/>
+                            <Button fx:id="navMenuDespesas"   text="📉 Despesas"       styleClass="nav-btn"/>
+                            <Button fx:id="navMenuFinanceiro" text="📈 Resumo de Caixa" styleClass="nav-btn"/>
                         </HBox>
 
-                        <!-- Admin: Catálogos | Relatórios | Sistema -->
-                        <HBox fx:id="navAdminItems" spacing="4" alignment="CENTER_LEFT" visible="false" managed="false">
-                            <Button fx:id="navMenuCatalogos" text="Catálogos"       styleClass="nav-btn"/>
-                            <Button fx:id="navMenuRelatorios" text="Relatórios"     styleClass="nav-btn"/>
-                            <Button fx:id="navMenuSistema" text="Sistema"           styleClass="nav-btn"/>
+                        <!-- 3. Stock & Artigos: Famílias | Artigos | Inventário | Fabrico -->
+                        <HBox fx:id="navOperacoesItems" spacing="4" alignment="CENTER_LEFT" visible="false" managed="false">
+                            <Button fx:id="navMenuCatalogos" text="📑 Famílias &amp; Unidades" styleClass="nav-btn"/>
+                            <Button fx:id="navMenuProdutos"  text="🏷️ Artigos &amp; Preços" styleClass="nav-btn"/>
+                            <Button fx:id="navMenuStock"     text="📊 Inventário em Loja"  styleClass="nav-btn"/>
+                            <Button fx:id="navMenuProducao"  text="🥖 Fabrico &amp; Padaria" styleClass="nav-btn"/>
                         </HBox>
 
-                        <!-- Armazém: Armazéns | Stock por Armazém | Transferir Stock | Fornecedores -->
+                        <!-- 4. Armazém & Compras: Armazéns | Fornecedores | Compras | Stock Armazém | Transferências -->
                         <HBox fx:id="navArmazensItems" spacing="4" alignment="CENTER_LEFT" visible="false" managed="false">
-                            <Button fx:id="navMenuArmazens"    text="Armazéns"         styleClass="nav-btn"/>
-                            <Button fx:id="navMenuStockArmazem" text="Stock por Armazém" styleClass="nav-btn"/>
-                            <Button fx:id="navMenuTransferir"  text="Transferir Stock" styleClass="nav-btn"/>
-                            <Button fx:id="navMenuFornecedores" text="Fornecedores"    styleClass="nav-btn"/>
+                            <Button fx:id="navMenuArmazens"     text="🏢 Armazéns Centrais"   styleClass="nav-btn"/>
+                            <Button fx:id="navMenuFornecedores" text="🚛 Fornecedores"        styleClass="nav-btn"/>
+                            <Button fx:id="navMenuCompras"      text="📥 Facturas de Compra"  styleClass="nav-btn"/>
+                            <Button fx:id="navMenuStockArmazem" text="📦 Stock por Armazém"   styleClass="nav-btn"/>
+                            <Button fx:id="navMenuTransferir"   text="🔁 Transferir Stock"    styleClass="nav-btn"/>
+                        </HBox>
+
+                        <!-- 5. Mapas & Relatórios: Mapas Fiscais | Logs -->
+                        <HBox fx:id="navRelatoriosItems" spacing="4" alignment="CENTER_LEFT" visible="false" managed="false">
+                            <Button fx:id="navMenuRelatorios" text="📊 Mapas Fiscais &amp; SAF-T" styleClass="nav-btn"/>
+                            <Button fx:id="navMenuLogs"       text="🛡️ Auditoria &amp; Logs"    styleClass="nav-btn"/>
+                        </HBox>
+
+                        <!-- 6. Configurações & Sistema: Parâmetros | Utilizadores -->
+                        <HBox fx:id="navAdminItems" spacing="4" alignment="CENTER_LEFT" visible="false" managed="false">
+                            <Button fx:id="navMenuSistema" text="⚙️ Parâmetros da Empresa" styleClass="nav-btn"/>
+                            <Button fx:id="navMenuUsers"   text="👤 Utilizadores &amp; Acessos" styleClass="nav-btn"/>
                         </HBox>
                     </HBox>
                 </StackPane>
@@ -163,9 +170,9 @@
                                         <HBox spacing="14" alignment="CENTER_LEFT">
                                             <Label text="&#128178;" styleClass="kpi-icon kpi-icon-blue"/>
                                             <VBox spacing="4" HBox.hgrow="ALWAYS">
-                                                <Label text="Total Vendas" style="-fx-font-size:12px; -fx-text-fill:#0F172A; -fx-font-weight:600;"/>
+                                                <Label text="Vendas de Hoje" style="-fx-font-size:12px; -fx-text-fill:#0F172A; -fx-font-weight:700;"/>
                                                 <Label fx:id="salesLabel" text="—" style="-fx-font-size:26px; -fx-font-weight:800; -fx-text-fill:#0F172A;"/>
-                                                <Label text="Todas as operações" style="-fx-font-size:11px; -fx-text-fill:#475569;"/>
+                                                <Label text="Facturado hoje no balcão" style="-fx-font-size:11px; -fx-text-fill:#64748B;"/>
                                             </VBox>
                                         </HBox>
                                     </VBox>
@@ -173,9 +180,9 @@
                                         <HBox spacing="14" alignment="CENTER_LEFT">
                                             <Label text="&#128230;" styleClass="kpi-icon kpi-icon-purple"/>
                                             <VBox spacing="4" HBox.hgrow="ALWAYS">
-                                                <Label text="Total Produtos" style="-fx-font-size:12px; -fx-text-fill:#0F172A; -fx-font-weight:600;"/>
+                                                <Label text="Artigos em Rutura" style="-fx-font-size:12px; -fx-text-fill:#0F172A; -fx-font-weight:700;"/>
                                                 <Label fx:id="productsLabel" text="—" style="-fx-font-size:26px; -fx-font-weight:800; -fx-text-fill:#0F172A;"/>
-                                                <Label text="No catálogo" style="-fx-font-size:11px; -fx-text-fill:#475569;"/>
+                                                <Label text="Abaixo do stock mínimo" style="-fx-font-size:11px; -fx-text-fill:#64748B;"/>
                                             </VBox>
                                         </HBox>
                                     </VBox>
@@ -183,22 +190,22 @@
                                         <HBox spacing="14" alignment="CENTER_LEFT">
                                             <Label text="&#128101;" styleClass="kpi-icon kpi-icon-green"/>
                                             <VBox spacing="4" HBox.hgrow="ALWAYS">
-                                                <Label text="Total Clientes" style="-fx-font-size:12px; -fx-text-fill:#0F172A; -fx-font-weight:600;"/>
+                                                <Label text="Contas a Receber" style="-fx-font-size:12px; -fx-text-fill:#0F172A; -fx-font-weight:700;"/>
                                                 <Label fx:id="customersLabel" text="—" style="-fx-font-size:26px; -fx-font-weight:800; -fx-text-fill:#0F172A;"/>
-                                                <Label text="Registados" style="-fx-font-size:11px; -fx-text-fill:#475569;"/>
+                                                <Label text="Crédito pendente de clientes" style="-fx-font-size:11px; -fx-text-fill:#64748B;"/>
                                             </VBox>
                                         </HBox>
                                     </VBox>
-                                    <VBox GridPane.columnIndex="3" styleClass="card-pane" style="-fx-padding:20;">
-                                        <HBox spacing="14" alignment="CENTER_LEFT">
-                                            <Label text="&#127970;" styleClass="kpi-icon kpi-icon-orange"/>
-                                            <VBox spacing="4" HBox.hgrow="ALWAYS">
-                                                <Label text="Total Filiais" style="-fx-font-size:12px; -fx-text-fill:#0F172A; -fx-font-weight:600;"/>
-                                                <Label fx:id="branchesLabel" text="—" style="-fx-font-size:26px; -fx-font-weight:800; -fx-text-fill:#0F172A;"/>
-                                                <Label text="Unidades activas" style="-fx-font-size:11px; -fx-text-fill:#475569;"/>
-                                            </VBox>
-                                        </HBox>
-                                    </VBox>
+                                     <VBox GridPane.columnIndex="3" styleClass="card-pane" style="-fx-padding:20;">
+                                         <HBox spacing="14" alignment="CENTER_LEFT">
+                                             <Label text="&#128181;" styleClass="kpi-icon kpi-icon-orange"/>
+                                             <VBox spacing="4" HBox.hgrow="ALWAYS">
+                                                 <Label text="Caixa / Gaveta" style="-fx-font-size:12px; -fx-text-fill:#0F172A; -fx-font-weight:700;"/>
+                                                 <Label fx:id="branchesLabel" text="—" style="-fx-font-size:26px; -fx-font-weight:800; -fx-text-fill:#15803D;"/>
+                                                 <Label text="Saldo líquido no turno actual" style="-fx-font-size:11px; -fx-text-fill:#64748B;"/>
+                                             </VBox>
+                                         </HBox>
+                                     </VBox>
                                 </children>
                             </GridPane>
 
@@ -214,7 +221,7 @@
                                 </VBox>
                                 <Separator orientation="VERTICAL" style="-fx-background-color:#E2E8F0; -fx-padding:12 0;"/>
                                 <VBox style="-fx-padding:20;" minWidth="320">
-                                    <Label text="Vendas por Estado"
+                                    <Label text="Meios de Pagamento — Hoje"
                                            style="-fx-font-size:14px; -fx-font-weight:700; -fx-text-fill:#0F172A; -fx-padding:0 0 16 0;"/>
                                     <PieChart fx:id="salesPieChart" prefHeight="280" legendSide="BOTTOM"/>
                                 </VBox>
@@ -241,6 +248,9 @@
 
                         <!-- STOCK POR ARMAZÉM -->
                         <VBox fx:id="stockArmazemPane" spacing="16" visible="false" managed="false" maxWidth="Infinity" VBox.vgrow="ALWAYS"/>
+
+                        <!-- TRANSFERÊNCIAS / GUIAS DE TRANSPORTE -->
+                        <VBox fx:id="transfersPane" spacing="16" visible="false" managed="false" maxWidth="Infinity" VBox.vgrow="ALWAYS"/>
 
                         <!-- TURNO / CAIXA -->
                         <VBox fx:id="turnoCaixaPane" spacing="20" visible="false" managed="false" maxWidth="Infinity"/>
