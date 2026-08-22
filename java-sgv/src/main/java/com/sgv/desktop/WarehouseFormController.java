@@ -42,6 +42,10 @@ public class WarehouseFormController extends BaseFormController {
         initCommonFields();
         UiUtils.attachSafe(saveButton, this::doSave, systemLogService, "WAREHOUSE_SAVE");
         UiUtils.attachSafe(cancelButton, this::doCancel, systemLogService, "WAREHOUSE_CANCEL");
+        UiUtils.applyHoverElevation(saveButton);
+        UiUtils.applyPressFeedback(saveButton);
+        UiUtils.applyHoverElevation(cancelButton);
+        UiUtils.applyPressFeedback(cancelButton);
         activeCheck.setSelected(true);
         codeField.textProperty().addListener((obs, o, n) -> validateRealTime());
         nameField.textProperty().addListener((obs, o, n) -> validateRealTime());
@@ -78,7 +82,7 @@ public class WarehouseFormController extends BaseFormController {
                     showError("Código '" + code + "' já existe noutro armazém.");
                 }
             });
-            new Thread(duplicateCheckTask).start();
+            UiUtils.runTask(duplicateCheckTask);
         }
     }
 
@@ -150,7 +154,7 @@ public class WarehouseFormController extends BaseFormController {
             hideSaveSpinner();
         });
 
-        new Thread(saveTask).start();
+        UiUtils.runTask(saveTask);
     }
 
     private static String blankToNull(String s) { return (s == null || s.isBlank()) ? null : s.trim(); }

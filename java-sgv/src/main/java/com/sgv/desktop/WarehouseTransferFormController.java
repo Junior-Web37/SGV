@@ -106,6 +106,13 @@ public class WarehouseTransferFormController extends BaseFormController {
         UiUtils.attachSafe(saveButton, this::doSave, null, "WH_TRANSFER_SAVE");
         UiUtils.attachSafe(cancelButton, this::doCancel, null, "WH_TRANSFER_CANCEL");
 
+        UiUtils.applyHoverElevation(saveButton);
+        UiUtils.applyPressFeedback(saveButton);
+        UiUtils.applyHoverElevation(cancelButton);
+        UiUtils.applyPressFeedback(cancelButton);
+        UiUtils.applyHoverElevation(addItemButton);
+        UiUtils.applyPressFeedback(addItemButton);
+
         UiUtils.applyNumericFormatter(quantityField);
 
         warehouseCombo.valueProperty().addListener((obs, ov, nv) -> {
@@ -407,15 +414,16 @@ public class WarehouseTransferFormController extends BaseFormController {
             doCancel();
         });
 
-        task.setOnFailed(e -> { Throwable ex = task.getException(); systemLogService.logError("TRANSFER_SAVE_FAILED", "Erro ao salvar transferência: " + (ex != null ? ex.getMessage() : ""), ex);
+        task.setOnFailed(e -> {
             Throwable ex = task.getException();
+            systemLogService.logError("TRANSFER_SAVE_FAILED", "Erro ao salvar transferência: " + (ex != null ? ex.getMessage() : ""), ex);
             String msg = ex != null && ex.getMessage() != null ? ex.getMessage() : "Erro desconhecido";
             log.error("Erro ao gravar transferência", ex);
             showError("Erro ao transferir: " + msg);
             hideSaveSpinner();
         });
 
-        new Thread(task).start();
+        UiUtils.runTask(task);
     }
 
     public static class ItemRow {

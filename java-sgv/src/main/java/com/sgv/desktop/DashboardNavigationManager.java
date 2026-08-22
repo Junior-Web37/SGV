@@ -782,6 +782,11 @@ public class DashboardNavigationManager {
             Button btnEliminar = makeActionButton("Eliminar", "#EF4444", "#ffffff");
             Button btnAtualizar = makeActionButton("Atualizar", "#10B981", "#ffffff");
 
+            for (Button b : List.of(btnNovo, btnEditar, btnEliminar, btnAtualizar)) {
+                UiUtils.applyHoverElevation(b);
+                UiUtils.applyPressFeedback(b);
+            }
+
             UiUtils.attachSafe(btnNovo, onNewWarehouse, systemLogService, "WAREHOUSE_NEW");
             UiUtils.attachSafe(btnEditar, onEditWarehouse, systemLogService, "WAREHOUSE_EDIT");
             UiUtils.attachSafe(btnEliminar, onDeleteWarehouse, systemLogService, "WAREHOUSE_DELETE");
@@ -2363,6 +2368,11 @@ public void showTurnoCaixaPane(Label pageTitleLabel, Label pageSubtitleLabel,
             Button btnNova = makeActionButton("+ Nova Guia de Transferência", "#2563EB", "#ffffff");
             Button btnAtualizar = makeActionButton("🔄 Actualizar", "#475569", "#ffffff");
 
+            UiUtils.applyHoverElevation(btnNova);
+            UiUtils.applyPressFeedback(btnNova);
+            UiUtils.applyHoverElevation(btnAtualizar);
+            UiUtils.applyPressFeedback(btnAtualizar);
+
             ComboBox<Warehouse> whFilter = new ComboBox<>();
             whFilter.setPromptText("Origem: Todos");
             whFilter.setPrefWidth(180);
@@ -2454,24 +2464,39 @@ public void showTurnoCaixaPane(Label pageTitleLabel, Label pageSubtitleLabel,
                     btnVer.setOnAction(e -> {
                         WarehouseTransfer t = getTableView().getItems().get(getIndex());
                         if (t != null) {
-                            StringBuilder details = new StringBuilder();
-                            details.append("Origem: ").append(t.getWarehouse() != null ? t.getWarehouse().getName() : "—").append("
-");
-                            details.append("Destino: ").append(t.getBranch() != null ? t.getBranch().getName() : "—").append("
-");
-                            details.append("Estado: ").append(t.getStatus()).append("
+                            String st = t.getStatus() != null ? t.getStatus() : "PENDING";
+                            String stColor = switch (st) {
+                                case "COMPLETED" -> "#10B981";
+                                case "IN_TRANSIT" -> "#F59E0B";
+                                case "CANCELLED" -> "#EF4444";
+                                default -> "#3B82F6";
+                            };
+                            var dd = DetailDialog.create(transfersPane.getScene().getWindow())
+                                .title("Guia de Transferência " + (t.getSeries() != null ? t.getSeries() : "TWA") + " " + t.getDocumentYear() + "/" + t.getDocumentNumber())
+                                .subtitle("Expedição de Stock do Armazém Central para Loja")
+                                .statusBadge(st, stColor)
+                                .width(680)
+                                .height(540)
+                                .section("Dados da Guia de Transporte")
+                                .field("Armazém de Origem", t.getWarehouse() != null ? t.getWarehouse().getName() : "—")
+                                .field("Filial de Destino", t.getBranch() != null ? t.getBranch().getName() : "—")
+                                .field("Data de Emissão", t.getCreatedAt() != null ? t.getCreatedAt().format(DATE_FORMATTER) : "—")
+                                .field("Responsável", t.getRequestedBy() != null ? t.getRequestedBy().getFullName() : "—");
 
-");
-                            details.append("ARTIGOS TRANSFERIDOS:
-");
-                            if (t.getItems() != null) {
+                            if (t.getItems() != null && !t.getItems().isEmpty()) {
+                                String[] cols = {"Código", "Artigo / Descrição", "Quantidade", "Unidade"};
+                                List<Map<String, String>> rows = new ArrayList<>();
                                 for (WarehouseTransferItem it : t.getItems()) {
-                                    details.append("• ").append(it.getProduct() != null ? it.getProduct().getName() : "Artigo")
-                                           .append(" — Qtd: ").append(it.getQuantity()).append("
-");
+                                    Map<String, String> row = new LinkedHashMap<>();
+                                    row.put("Código", it.getProduct() != null ? it.getProduct().getCode() : "—");
+                                    row.put("Artigo / Descrição", it.getProduct() != null ? it.getProduct().getName() : "—");
+                                    row.put("Quantidade", String.format("%.2f", it.getQuantity() != null ? it.getQuantity() : 0));
+                                    row.put("Unidade", it.getProduct() != null && it.getProduct().getUnit() != null ? it.getProduct().getUnit().getAbbreviation() : "UN");
+                                    rows.add(row);
                                 }
+                                dd.tableSection("Artigos Transferidos (Guia de Transporte TWA)", cols, rows);
                             }
-                            DetailDialog.show("Guia de Transferência " + t.getDocumentNumber(), details.toString());
+                            dd.show();
                         }
                     });
 
