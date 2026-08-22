@@ -1009,6 +1009,13 @@ public class DashboardNavigationManager {
         table.setPlaceholder(new Label("Sem registos para esta categoria."));
 
         table.setRowFactory(tv -> new TableRow<>() {
+            {
+                setOnMouseClicked(event -> {
+                    if (event.getClickCount() == 2 && !isEmpty() && getItem() != null) {
+                        showLogDetails(getItem(), getScene().getWindow());
+                    }
+                });
+            }
             @Override protected void updateItem(AuditLog item, boolean empty) {
                 super.updateItem(item, empty);
                 if (empty || item == null) { setStyle(""); return; }
@@ -3008,6 +3015,30 @@ public void showTurnoCaixaPane(Label pageTitleLabel, Label pageSubtitleLabel,
             }).toList();
             dialog.tableSection("Artigos que utilizam esta Unidade (Primeiros 15)", new String[]{"Código", "Nome", "Preço Venda", "Categoria"}, pRows);
         }
+
+        dialog.show();
+    }
+
+    public void showLogDetails(AuditLog auditLog, Window owner) {
+        if (auditLog == null) return;
+        String cat = auditLog.getCategory() != null ? auditLog.getCategory() : "INFO";
+        String color = "ERROR".equals(cat) ? "#EF4444" : "SECURITY".equals(cat) ? "#F59E0B" : "USER_ACTION".equals(cat) ? "#10B981" : "#2563EB";
+
+        var dialog = DetailDialog.create(owner)
+                .title("Registo de Auditoria & Evento")
+                .subtitle("Log #" + auditLog.getId() + " — " + (auditLog.getAction() != null ? auditLog.getAction() : ""))
+                .statusBadge(cat, color)
+                .width(680)
+                .height(520)
+                .section("Detalhes do Evento")
+                .field("ID do Registo", String.valueOf(auditLog.getId()))
+                .field("Data / Hora", auditLog.getCreatedAt() != null ? auditLog.getCreatedAt().format(DATE_FORMATTER) : "—")
+                .field("Utilizador / Operador", auditLog.getUsername() != null ? auditLog.getUsername() : "Sistema")
+                .field("Ação Executada", auditLog.getAction() != null ? auditLog.getAction() : "—")
+                .field("Entidade Afetada", auditLog.getEntity() != null ? auditLog.getEntity() : "—")
+                .field("ID da Entidade", auditLog.getEntityId() != null ? String.valueOf(auditLog.getEntityId()) : "—")
+                .section("Mensagem & Descrição")
+                .field("Detalhes da Operação", auditLog.getDetails() != null ? auditLog.getDetails() : "—");
 
         dialog.show();
     }
