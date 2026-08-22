@@ -2812,4 +2812,65 @@ public void showTurnoCaixaPane(Label pageTitleLabel, Label pageSubtitleLabel,
         dialog.show();
     }
 
+    public void showPaymentDetails(Payment payment, Window owner) {
+        if (payment == null) return;
+        Sale sale = payment.getSale();
+
+        var dialog = DetailDialog.create(owner)
+                .title("Comprovativo de Pagamento / Recibo")
+                .subtitle("Recibo #" + payment.getId() + (sale != null ? " — Factura " + (sale.getSeries() != null ? sale.getSeries() : "FT") + "/" + sale.getDocumentNumber() : ""))
+                .statusBadge("LIQUIDADO", "#10B981")
+                .width(680)
+                .height(520)
+                .section("Dados do Recebimento")
+                .field("Nº do Recibo", "#" + payment.getId())
+                .field("Data / Hora", payment.getCreatedAt() != null ? payment.getCreatedAt().format(DATE_FORMATTER) : "—")
+                .field("Cliente", payment.getSaleCustomerName())
+                .field("Método de Pagamento", payment.getMethod() != null ? payment.getMethod() : "—")
+                .field("Referência / POS", payment.getTerminalRef() != null ? payment.getTerminalRef() : "—")
+                .field("Valor Recebido", fmtMt(payment.getAmountValue() != null ? payment.getAmountValue() : BigDecimal.ZERO), "#10B981");
+
+        if (sale != null) {
+            BigDecimal saleTotal = sale.getTotalAmount() != null ? sale.getTotalAmount() : BigDecimal.ZERO;
+            BigDecimal salePaid = sale.getPaidAmountValue() != null ? sale.getPaidAmountValue() : BigDecimal.ZERO;
+            BigDecimal salePending = saleTotal.subtract(salePaid);
+
+            dialog.section("Factura de Venda Amortizada")
+                    .field("Documento", (sale.getDocumentType() != null ? sale.getDocumentType() : "Factura") + " " + (sale.getSeries() != null ? sale.getSeries() : "") + "/" + sale.getDocumentNumber())
+                    .field("Total da Factura", fmtMt(saleTotal))
+                    .field("Valor Já Amortizado", fmtMt(salePaid), "#10B981")
+                    .field("Saldo Restante da Factura", fmtMt(salePending), salePending.compareTo(BigDecimal.ZERO) > 0 ? "#DC2626" : "#10B981")
+                    .field("Estado da Factura", sale.getState() != null ? sale.getState() : "—");
+        }
+
+        dialog.show();
+    }
+
+    public void showExpenseDetails(Expense expense, Window owner) {
+        if (expense == null) return;
+        String statusColor = "PAID".equalsIgnoreCase(expense.getState()) ? "#10B981"
+                : "CANCELLED".equalsIgnoreCase(expense.getState()) ? "#EF4444" : "#F59E0B";
+
+        var dialog = DetailDialog.create(owner)
+                .title("Ficha de Despesa Operacional")
+                .subtitle("Despesa #" + expense.getId() + " — " + (expense.getDescription() != null ? expense.getDescription() : ""))
+                .statusBadge(expense.getState() != null ? expense.getState() : "PENDING", statusColor)
+                .width(680)
+                .height(520)
+                .section("Identificação da Despesa")
+                .field("Descrição", expense.getDescription() != null ? expense.getDescription() : "—")
+                .field("Categoria PGC MZ", expense.getCategory() != null ? expense.getCategory() : "—")
+                .field("Nº Documento / Factura", expense.getNotes() != null ? expense.getNotes() : "—")
+                .field("Estabelecimento / Centro de Custo", expense.getBranch() != null ? expense.getBranch().getName() : "Sede Central")
+                .field("Registado Por", expense.getUser() != null ? expense.getUser().getFullName() : "—")
+                .section("Valores & Prazos")
+                .field("Valor da Despesa", fmtMt(expense.getAmountValue() != null ? expense.getAmountValue() : BigDecimal.ZERO), "#2563EB")
+                .field("Data de Registo", expense.getCreatedAt() != null ? expense.getCreatedAt().format(DateTimeFormatter.ofPattern("dd/MM/yyyy")) : "—")
+                .field("Data de Vencimento", expense.getDueDate() != null ? expense.getDueDate().format(DateTimeFormatter.ofPattern("dd/MM/yyyy")) : "—")
+                .field("Data de Pagamento", expense.getPaidAt() != null ? expense.getPaidAt().format(DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm")) : "—")
+                .field("Estado Contabilístico", expense.getState() != null ? expense.getState() : "—");
+
+        dialog.show();
+    }
+
 }

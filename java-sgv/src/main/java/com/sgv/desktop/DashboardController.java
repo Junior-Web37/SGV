@@ -381,12 +381,18 @@ public class DashboardController {
         setupCrudButtons();
 
         if (paymentsTable != null) {
-            paymentsTable.setRowFactory(navManager.makeTableRowFactory());
-            paymentsTable.setPlaceholder(new Label("Nenhum pagamento encontrado."));
+            paymentsTable.setRowFactory(navManager.makeTableRowFactory(() -> {
+                Payment sel = paymentsTable.getSelectionModel().getSelectedItem();
+                if (sel != null) navManager.showPaymentDetails(sel, getOwner());
+            }));
+            paymentsTable.setPlaceholder(new Label("Nenhum pagamento registado."));
         }
         if (expensesTable != null) {
-            expensesTable.setRowFactory(navManager.makeTableRowFactory());
-            expensesTable.setPlaceholder(new Label("Nenhuma despesa encontrada."));
+            expensesTable.setRowFactory(navManager.makeTableRowFactory(() -> {
+                Expense sel = expensesTable.getSelectionModel().getSelectedItem();
+                if (sel != null) navManager.showExpenseDetails(sel, getOwner());
+            }));
+            expensesTable.setPlaceholder(new Label("Nenhuma despesa registada."));
         }
 
         if (notificationBellButton != null) notificationBellButton.setOnAction(e -> kpiManager.showNotificationPopup(notificationBellButton));
@@ -441,8 +447,21 @@ public class DashboardController {
             deleteExpenseButton.setOnAction(e -> {
                 Expense sel = expensesTable != null ? expensesTable.getSelectionModel().getSelectedItem() : null;
                 if (sel != null) {
-                    Alert confirm = new Alert(Alert.AlertType.CONFIRMATION, "Tem certeza que deseja apagar esta despesa?", ButtonType.OK, ButtonType.CANCEL);
-                    confirm.showAndWait().ifPresent(res -> { if (res == ButtonType.OK) crudManager.safeDelete(() -> dashboardCrudService.deleteExpense(sel.getId()), this::loadExpenses, "Despesa", currentUser); });
+                    Alert confirm = new Alert(Alert.AlertType.CONFIRMATION, "Tem a certeza que deseja anular a despesa \"" + sel.getDescription() + "\"?", ButtonType.OK, ButtonType.CANCEL);
+                    confirm.setHeaderText(null);
+                    confirm.setTitle("Confirmar Anulação de Despesa");
+                    confirm.showAndWait().ifPresent(res -> {
+                        if (res == ButtonType.OK) {
+                            try {
+                                applicationContext.getBean(com.sgv.service.ExpenseService.class).annulExpense(sel.getId(), currentUser);
+                                loadExpenses();
+                            } catch (Exception ex) {
+                                Alert err = new Alert(Alert.AlertType.ERROR, "Erro ao anular despesa: " + ex.getMessage());
+                                err.setHeaderText(null);
+                                err.showAndWait();
+                            }
+                        }
+                    });
                 }
             });
         }
