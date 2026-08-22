@@ -1,34 +1,36 @@
-# SGV Desktop 1.0.7 — Notas de Lançamento
+# SGV Desktop 1.0.8 — Notas de Lançamento
 
 **Data:** 22 de Agosto de 2026  
-**Tag:** `v1.0.7`
+**Tag:** `v1.0.8`
 
 ## Pacote de download
 
-- **ZIP oficial:** [SGV-Desktop 1.0.7.zip](https://github.com/Junior-Web37/SGV/archive/refs/tags/v1.0.7.zip)
-- **Página da release:** https://github.com/Junior-Web37/SGV/releases/tag/v1.0.7
+- **ZIP oficial:** [SGV-Desktop 1.0.8.zip](https://github.com/Junior-Web37/SGV/archive/refs/tags/v1.0.8.zip)
+- **Página da release:** https://github.com/Junior-Web37/SGV/releases/tag/v1.0.8
 
 ## O que mudou nesta versão
 
-A v1.0.5/1.0.6 **escondiam** o crash do ComboBox na transferência
-(`fromIndex 0, toIndex 1, size 0`) em vez de o resolver. O formulário
-ficava inutilizável: clicar em armazém / produto não escolhia nada.
+Vender o serviço **SRV-003** (Consultoria) rebentava:
 
-Nesta versão a guia de transferência deixa de usar ComboBox editável:
+`Stock da filial não encontrado para o produto: SRV-003`
 
-- Lista visível de artigos (campo de pesquisa + ListView)
-- Armazém e filial com ComboBox simples, sem `selectFirst()` no arranque
-- Número da guia TWA passa a ser `MAX + 1` (a 2.ª guia já não colide)
-- Recepção carrega os itens da guia (não fica vazia)
+O serviço está marcado `is_service = 1` e **não tem** ficha de stock (é correcto).
+A validação já ignorava serviços; o abate de stock **não**. A venda falhava
+depois de tentar creditar o caixa.
 
-A v1.0.6 (pesquisas mais rápidas) continua incluída.
+Nesta versão:
+
+- Serviços não abatem stock
+- O movimento de caixa só corre depois do stock
+- Inclui a correcção da guia de transferência (v1.0.7)
 
 ## Como actualizar
 
-1. Apague a pasta `SGV-1.0.5` ou `SGV-1.0.6` (a base de dados no XAMPP fica).
-2. Extraia este ZIP.
-3. MySQL do XAMPP em **Start**, porta `3306`.
-4. Duplo clique em `SGV-Launcher.bat`.
+1. Feche o SGV.
+2. Apague a pasta `SGV-1.0.6` / `SGV-1.0.7` (o MySQL/XAMPP fica).
+3. Extraia este ZIP.
+4. XAMPP → MySQL **Start**.
+5. Duplo clique em `SGV-Launcher.bat`.
 
 **Login:** `admin` / `admin`
 
