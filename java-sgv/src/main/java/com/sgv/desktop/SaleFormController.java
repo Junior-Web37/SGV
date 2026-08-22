@@ -538,6 +538,7 @@ public class SaleFormController extends BaseFormController {
         allProducts.setAll(productService.findAllActive());
         filteredProducts = new FilteredList<>(allProducts, p -> true);
         reloadBranchStockCache();
+        refreshPopularProducts();
         
         productSearchCombo.setItems(comboDisplayList);
 
