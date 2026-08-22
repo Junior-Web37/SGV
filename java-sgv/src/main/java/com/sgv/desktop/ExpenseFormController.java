@@ -34,6 +34,7 @@ public class ExpenseFormController extends BaseFormController {
     @FXML
     public void initialize() {
         initCommonFields();
+        UiUtils.hardenComboBox(categoryCombo);
         categoryCombo.setItems(FXCollections.observableArrayList(
             "Água & Eletricidade (EDM / FIPAG)",
             "Comunicações & Internet (Tmcel / Vodacom / Movitel)",

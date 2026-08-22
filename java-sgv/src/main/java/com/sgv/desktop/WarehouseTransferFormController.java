@@ -29,7 +29,6 @@ import org.springframework.stereotype.Component;
 
 import java.math.BigDecimal;
 import java.util.*;
-import java.util.stream.Collectors;
 
 @Component
 public class WarehouseTransferFormController extends BaseFormController {
@@ -38,7 +37,8 @@ public class WarehouseTransferFormController extends BaseFormController {
 
     @FXML private ComboBox<Warehouse> warehouseCombo;
     @FXML private ComboBox<Branch> branchCombo;
-    @FXML private ComboBox<Product> productCombo;
+    @FXML private TextField productSearchField;
+    @FXML private ListView<Product> productList;
     @FXML private TextField quantityField;
     @FXML private Button addItemButton;
     @FXML private TableView<ItemRow> itemsTable;
@@ -59,9 +59,9 @@ public class WarehouseTransferFormController extends BaseFormController {
 
     private final ObservableList<ItemRow> items = FXCollections.observableArrayList();
     private final ObservableList<Product> allProducts = FXCollections.observableArrayList();
-    private final ObservableList<Product> comboDisplayList = FXCollections.observableArrayList();
+    private final ObservableList<Product> productChoices = FXCollections.observableArrayList();
     private final Map<Long, BigDecimal> warehouseStockMap = new HashMap<>();
-    private boolean isRefreshing = false;
+    private Product selectedProduct;
 
     public WarehouseTransferFormController(WarehouseRepository warehouseRepository,
                                            BranchRepository branchRepository,
@@ -80,23 +80,18 @@ public class WarehouseTransferFormController extends BaseFormController {
 
     @FXML
     public void initialize() {
+        items.clear();
+        selectedProduct = null;
+        warehouseStockMap.clear();
         initCommonFields();
-
-        // 1. Carregar armazéns e filiais
-        warehouseCombo.setItems(FXCollections.observableArrayList(warehouseRepository.findByIsActiveTrueOrderByNameAsc()));
-        warehouseCombo.setConverter(new StringConverter<>() {
-            @Override public String toString(Warehouse w) { return w != null ? w.getName() + " (" + w.getCode() + ")" : ""; }
-            @Override public Warehouse fromString(String s) { return null; }
-        });
-
-        branchCombo.setItems(FXCollections.observableArrayList(branchRepository.findAll()));
-        branchCombo.setConverter(new StringConverter<>() {
-            @Override public String toString(Branch b) { return b != null ? b.getName() : ""; }
-            @Override public Branch fromString(String s) { return null; }
-        });
-
-        if (!warehouseCombo.getItems().isEmpty()) warehouseCombo.getSelectionModel().selectFirst();
-        if (!branchCombo.getItems().isEmpty()) branchCombo.getSelectionModel().selectFirst();
+        bindSimpleCombo(warehouseCombo,
+                warehouseRepository.findByIsActiveTrueOrderByNameAsc(),
+                w -> w.getName() + " (" + w.getCode() + ")",
+                "Seleccione o armazém...");
+        bindSimpleCombo(branchCombo,
+                branchRepository.findAll(),
+                Branch::getName,
+                "Seleccione a filial...");
 
         setupProductSearch();
         setupColumns();
@@ -122,16 +117,9 @@ public class WarehouseTransferFormController extends BaseFormController {
         });
 
         branchCombo.valueProperty().addListener((obs, ov, nv) -> validateRealTime());
-        productCombo.valueProperty().addListener((obs, ov, nv) -> {
-            updateSelectedProductStock(nv);
-            validateRealTime();
-        });
 
         itemsTable.setItems(items);
         items.addListener((javafx.collections.ListChangeListener.Change<? extends ItemRow> c) -> validateRealTime());
-
-        loadWarehouseStockCache(warehouseCombo.getValue());
-        refreshProductList();
 
         quantityField.setOnKeyPressed(e -> {
             if (e.getCode() == KeyCode.ENTER) {
@@ -140,7 +128,39 @@ public class WarehouseTransferFormController extends BaseFormController {
             }
         });
 
-        Platform.runLater(this::validateRealTime);
+        Platform.runLater(() -> {
+            if (warehouseCombo.getValue() == null && warehouseCombo.getItems() != null && !warehouseCombo.getItems().isEmpty()) {
+                warehouseCombo.setValue(warehouseCombo.getItems().get(0));
+            }
+            if (branchCombo.getValue() == null && branchCombo.getItems() != null && !branchCombo.getItems().isEmpty()) {
+                branchCombo.setValue(branchCombo.getItems().get(0));
+            }
+            loadWarehouseStockCache(warehouseCombo.getValue());
+            refreshProductList();
+            validateRealTime();
+        });
+    }
+
+    private <T> void bindSimpleCombo(ComboBox<T> combo, List<T> values, java.util.function.Function<T, String> label, String emptyText) {
+        if (combo == null) return;
+        UiUtils.hardenComboBox(combo);
+        combo.setItems(FXCollections.observableArrayList(values != null ? values : List.of()));
+        combo.setConverter(new StringConverter<>() {
+            @Override public String toString(T value) { return value != null ? label.apply(value) : ""; }
+            @Override public T fromString(String s) { return null; }
+        });
+        combo.setCellFactory(lv -> new ListCell<>() {
+            @Override protected void updateItem(T value, boolean empty) {
+                super.updateItem(value, empty);
+                setText(empty || value == null ? null : label.apply(value));
+            }
+        });
+        combo.setButtonCell(new ListCell<>() {
+            @Override protected void updateItem(T value, boolean empty) {
+                super.updateItem(value, empty);
+                setText(empty || value == null ? emptyText : label.apply(value));
+            }
+        });
     }
 
     private void loadWarehouseStockCache(Warehouse wh) {
@@ -161,47 +181,64 @@ public class WarehouseTransferFormController extends BaseFormController {
     }
 
     private void setupProductSearch() {
-        allProducts.setAll(productRepository.findAllActive().stream().filter(p -> !Boolean.TRUE.equals(p.getService())).toList());
-        productCombo.setItems(comboDisplayList);
-
-        productCombo.setConverter(new StringConverter<>() {
-            @Override
-            public String toString(Product p) {
-                if (p == null) return "";
-                BigDecimal stock = getAvailableStock(p);
-                return String.format("%s - %s (Stock Armazém: %,.1f)", p.getCode(), p.getName(), stock);
-            }
-            @Override public Product fromString(String string) { return null; }
-        });
-
-        productCombo.setCellFactory(lv -> new ListCell<>() {
-            @Override
-            protected void updateItem(Product p, boolean empty) {
-                super.updateItem(p, empty);
-                if (empty || p == null) {
-                    setText(null);
-                    setStyle("");
-                } else {
+        allProducts.setAll(productRepository.findAllActive().stream()
+                .filter(p -> !Boolean.TRUE.equals(p.getService()))
+                .toList());
+        if (productList != null) {
+            productList.setItems(productChoices);
+            productList.setPlaceholder(new Label("Sem artigos para mostrar"));
+            productList.setCellFactory(lv -> new ListCell<>() {
+                @Override
+                protected void updateItem(Product p, boolean empty) {
+                    super.updateItem(p, empty);
+                    if (empty || p == null) {
+                        setText(null);
+                        setStyle("");
+                        return;
+                    }
                     BigDecimal stock = getAvailableStock(p);
-                    setText(String.format("%s - %s | Stock: %,.1f %s", p.getCode(), p.getName(), stock, p.getUnit() != null ? p.getUnit().getAbbreviation() : "UN"));
+                    String unit = p.getUnit() != null ? p.getUnit().getAbbreviation() : "UN";
+                    setText(String.format("%s - %s | Stock: %,.1f %s", p.getCode(), p.getName(), stock, unit));
                     if (stock.compareTo(BigDecimal.ZERO) <= 0) {
                         setStyle("-fx-text-fill: #94A3B8; -fx-font-style: italic;");
                     } else {
                         setStyle("-fx-text-fill: #0F172A; -fx-font-weight: 600;");
                     }
                 }
-            }
-        });
-
-        // Pesquisa em memória ultra-rápida (sem bloquear a UI)
-        productCombo.getEditor().textProperty().addListener((obs, oldV, newV) -> {
-            if (isRefreshing) return;
-            filterProductsInMemory(newV);
-        });
+            });
+            productList.getSelectionModel().selectedItemProperty().addListener((obs, ov, nv) -> {
+                selectedProduct = nv;
+                updateSelectedProductStock(nv);
+                validateRealTime();
+            });
+            productList.setOnMouseClicked(e -> {
+                if (e.getClickCount() == 2 && productList.getSelectionModel().getSelectedItem() != null) {
+                    handleAddItem();
+                }
+            });
+        }
+        if (productSearchField != null) {
+            UiUtils.setupDebounce(productSearchField, () -> filterProductsInMemory(productSearchField.getText()), 120);
+            productSearchField.setOnKeyPressed(e -> {
+                if (e.getCode() == KeyCode.ENTER) {
+                    e.consume();
+                    if (selectedProduct == null && productList != null && !productChoices.isEmpty()) {
+                        productList.getSelectionModel().selectFirst();
+                        selectedProduct = productList.getSelectionModel().getSelectedItem();
+                    }
+                    handleAddItem();
+                } else if (e.getCode() == KeyCode.DOWN && productList != null && !productChoices.isEmpty()) {
+                    e.consume();
+                    productList.requestFocus();
+                    if (productList.getSelectionModel().getSelectedItem() == null) {
+                        productList.getSelectionModel().selectFirst();
+                    }
+                }
+            });
+        }
     }
 
     private void filterProductsInMemory(String text) {
-        if (isRefreshing) return;
         String query = text != null ? text.trim().toLowerCase() : "";
         List<Product> matches = allProducts.stream()
                 .filter(p -> {
@@ -212,18 +249,18 @@ public class WarehouseTransferFormController extends BaseFormController {
                 })
                 .sorted(Comparator.comparing((Product p) -> getAvailableStock(p)).reversed()
                         .thenComparing(Product::getName, Comparator.nullsLast(String.CASE_INSENSITIVE_ORDER)))
+                .limit(80)
                 .toList();
-
-        isRefreshing = true;
-        try {
-            comboDisplayList.setAll(matches);
-        } finally {
-            isRefreshing = false;
+        productChoices.setAll(matches);
+        if (selectedProduct != null && matches.stream().noneMatch(p -> p.getId().equals(selectedProduct.getId()))) {
+            selectedProduct = null;
+            if (productList != null) productList.getSelectionModel().clearSelection();
+            updateSelectedProductStock(null);
         }
     }
 
     private void refreshProductList() {
-        filterProductsInMemory(productCombo.getEditor() != null ? productCombo.getEditor().getText() : "");
+        filterProductsInMemory(productSearchField != null ? productSearchField.getText() : "");
     }
 
     private void updateSelectedProductStock(Product p) {
@@ -320,34 +357,34 @@ public class WarehouseTransferFormController extends BaseFormController {
     }
 
     private Product resolveSelectedProduct() {
-        Product p = productCombo.getValue();
-        if (p != null) return p;
-        String text = productCombo.getEditor() != null ? productCombo.getEditor().getText().trim() : "";
+        if (selectedProduct != null) return selectedProduct;
+        if (productList != null && productList.getSelectionModel().getSelectedItem() != null) {
+            return productList.getSelectionModel().getSelectedItem();
+        }
+        String text = productSearchField != null && productSearchField.getText() != null
+                ? productSearchField.getText().trim() : "";
         if (!text.isEmpty()) {
             for (Product prod : allProducts) {
                 if (prod.getCode() != null && prod.getCode().equalsIgnoreCase(text)) return prod;
                 if (prod.getName() != null && prod.getName().equalsIgnoreCase(text)) return prod;
             }
-            // Primeiro resultado que começa por
-            for (Product prod : allProducts) {
+            for (Product prod : productChoices) {
                 if (prod.getName() != null && prod.getName().toLowerCase().startsWith(text.toLowerCase())) return prod;
             }
         }
-        return null;
+        return productChoices.size() == 1 ? productChoices.get(0) : null;
     }
 
     private void clearProductSelection() {
-        isRefreshing = true;
-        try {
-            productCombo.setValue(null);
-            if (productCombo.getEditor() != null) productCombo.getEditor().clear();
-        } finally {
-            isRefreshing = false;
-        }
+        selectedProduct = null;
+        if (productList != null) productList.getSelectionModel().clearSelection();
+        if (productSearchField != null) productSearchField.clear();
         quantityField.setText("1");
         if (stockSummaryLabel != null) stockSummaryLabel.setText("");
         refreshProductList();
-        Platform.runLater(productCombo::requestFocus);
+        Platform.runLater(() -> {
+            if (productSearchField != null) productSearchField.requestFocus();
+        });
     }
 
     @Override

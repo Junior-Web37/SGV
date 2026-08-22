@@ -50,7 +50,11 @@ public class MainApp extends Application {
     public void start(Stage primaryStage) {
 
         // ── Configura handler global de excepções não capturadas ──────────────
-        Thread.setDefaultUncaughtExceptionHandler((t, e) -> {
+        Thread.UncaughtExceptionHandler handler = (t, e) -> {
+            if (UiUtils.isHarmlessJavaFxControlBug(e)) {
+                log.debug("Bug interno JavaFX ignorado (ComboBox/ListView): {}", e != null ? e.getMessage() : "");
+                return;
+            }
             try {
                 java.io.PrintWriter pw = new java.io.PrintWriter("app-crash.log");
                 if (e != null) e.printStackTrace(pw);
@@ -68,7 +72,9 @@ public class MainApp extends Application {
             } catch (Exception ignore) {
                 log.warn("Não foi possível mostrar alerta de erro crítico", ignore);
             }
-        });
+        };
+        Thread.setDefaultUncaughtExceptionHandler(handler);
+        Thread.currentThread().setUncaughtExceptionHandler(handler);
 
         // Definir localização padrão para Moçambique em toda a aplicação
         Locale.setDefault(Locale.forLanguageTag("pt-MZ"));
@@ -243,7 +249,7 @@ public class MainApp extends Application {
 
         // 2. TÍTULO E SUBTÍTULO
         Label logo = new Label("SGV");
-        logo.setStyle("-fx-font-size:52px; -fx-font-weight:900; -fx-text-fill:linear-gradient(to right, #FFFFFF, #93C5FD); -fx-font-family:'Segoe UI', sans-serif; -fx-letter-spacing:1px;");
+        logo.setStyle("-fx-font-size:52px; -fx-font-weight:900; -fx-text-fill:#FFFFFF; -fx-font-family:'Segoe UI', sans-serif;");
 
         DropShadow logoShadow = new DropShadow();
         logoShadow.setColor(Color.web("#2563EB", 0.5));
@@ -251,7 +257,7 @@ public class MainApp extends Application {
         logo.setEffect(logoShadow);
 
         Label subtitle = new Label("SISTEMA DE GESTÃO DE VENDAS & FACTURAÇÃO");
-        subtitle.setStyle("-fx-font-size:11px; -fx-font-weight:800; -fx-text-fill:#38BDF8; -fx-letter-spacing:2px;");
+        subtitle.setStyle("-fx-font-size:11px; -fx-font-weight:800; -fx-text-fill:#38BDF8;");
 
         VBox titleBox = new VBox(4, logo, subtitle);
         titleBox.setAlignment(Pos.CENTER);
@@ -264,7 +270,7 @@ public class MainApp extends Application {
         splashProgressBar.setPrefWidth(420);
         splashProgressBar.setPrefHeight(6);
         splashProgressBar.setStyle(
-            "-fx-accent: linear-gradient(to right, #2563EB, #38BDF8, #60A5FA);" +
+            "-fx-accent: #38BDF8;" +
             "-fx-control-inner-background: #1E293B;" +
             "-fx-background-radius: 4;" +
             "-fx-border-radius: 4;"
@@ -294,7 +300,7 @@ public class MainApp extends Application {
         root.setAlignment(Pos.CENTER);
         root.setPadding(new Insets(36, 40, 24, 40));
         root.setStyle(
-            "-fx-background-color: linear-gradient(to bottom right, #090E17, #0F172A 50%, #172554);" +
+            "-fx-background-color: linear-gradient(from 0% 0% to 100% 100%, #090E17, #0F172A, #172554);" +
             "-fx-border-color: #2563EB;" +
             "-fx-border-width: 1.5;" +
             "-fx-background-radius: 16;" +

@@ -37,6 +37,7 @@ public class CustomerFormController extends BaseFormController {
     @FXML
     public void initialize() {
         initCommonFields();
+        UiUtils.hardenComboBox(typeCombo);
         typeCombo.setItems(javafx.collections.FXCollections.observableArrayList(
                 "RETALHO", "GROSSO", "EMPRESA", "ISENTO"));
         typeCombo.setValue("RETALHO");

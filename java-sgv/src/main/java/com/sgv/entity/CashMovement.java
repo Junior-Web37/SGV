@@ -51,6 +51,8 @@ public class CashMovement {
 
     public BigDecimal getAmount() { return amount; }
     public void setAmount(BigDecimal amount) { this.amount = amount; }
+    public BigDecimal getAmountValue() { return amount; }
+    public void setAmountValue(BigDecimal amount) { this.amount = amount; }
 
     public String getDescription() { return description; }
     public void setDescription(String description) { this.description = description; }

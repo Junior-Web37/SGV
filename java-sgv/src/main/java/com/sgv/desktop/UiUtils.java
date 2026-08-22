@@ -49,10 +49,30 @@ public final class UiUtils {
         };
     }
 
+    public static boolean isHarmlessJavaFxControlBug(Throwable e) {
+        Throwable t = e;
+        while (t != null) {
+            String msg = t.getMessage() != null ? t.getMessage() : "";
+            if (t instanceof IndexOutOfBoundsException
+                    && (msg.contains("fromIndex") || msg.contains("toIndex") || msg.contains("Index"))) {
+                return true;
+            }
+            if (t instanceof IllegalArgumentException && msg.toLowerCase().contains("start must be")) {
+                return true;
+            }
+            t = t.getCause();
+        }
+        return false;
+    }
+
     private static void handleSafeExecution(Runnable r, SystemLogService logService, String action, String defaultMessage) {
         try {
             r.run();
         } catch (Throwable ex) {
+            if (isHarmlessJavaFxControlBug(ex)) {
+                log.debug("Bug interno JavaFX ignorado (ComboBox/ListView): {}", ex.getMessage());
+                return;
+            }
             log.error("[{}] {}", action != null ? action : "UI_ACTION_FAILED", defaultMessage, ex);
             try {
                 if (logService != null) logService.logError(action != null ? action : "UI_ACTION_FAILED", defaultMessage, ex);
@@ -84,6 +104,107 @@ public final class UiUtils {
                 if (logService != null) logService.logError(action != null ? action : "UI_RUN_FAILED", "Erro em operação segura", ex);
             } catch (Exception ignore) {
                 log.debug("Falha ao registar erro no SystemLogService", ignore);
+            }
+        }
+    }
+
+    /**
+     * Protege ComboBox contra bugs conhecidos do JavaFX 21:
+     * - IndexOutOfBoundsException ao clicar numa lista vazia
+     * - IllegalArgumentException "The start must be &lt;= the end" no editor
+     * - setAll() com o popup aberto
+     */
+    public static void hardenComboBox(javafx.scene.control.ComboBox<?> combo) {
+        if (combo == null) return;
+        if (Boolean.TRUE.equals(combo.getProperties().get("sgv.combo.hardened"))) return;
+        combo.getProperties().put("sgv.combo.hardened", Boolean.TRUE);
+        combo.addEventFilter(javafx.scene.input.MouseEvent.MOUSE_PRESSED, e -> {
+            if (combo.getItems() == null || combo.getItems().isEmpty()) {
+                combo.hide();
+                e.consume();
+            }
+        });
+        combo.addEventFilter(javafx.scene.input.KeyEvent.KEY_PRESSED, e -> {
+            if (combo.getItems() == null || combo.getItems().isEmpty()) {
+                combo.hide();
+            }
+        });
+        combo.addEventHandler(javafx.scene.control.ComboBoxBase.ON_SHOWING, e -> {
+            if (combo.getItems() == null || combo.getItems().isEmpty()) {
+                Platform.runLater(combo::hide);
+            }
+        });
+        if (combo.isEditable() && combo.getEditor() != null) {
+            javafx.scene.control.TextField editor = combo.getEditor();
+            editor.addEventFilter(javafx.scene.input.KeyEvent.ANY, ev -> fixComboEditorRange(editor));
+            editor.addEventFilter(javafx.scene.input.MouseEvent.MOUSE_PRESSED, ev -> fixComboEditorRange(editor));
+            editor.addEventFilter(javafx.scene.input.MouseEvent.MOUSE_RELEASED, ev -> fixComboEditorRange(editor));
+        }
+    }
+
+    private static void patchComboPopup(javafx.scene.control.ComboBox<?> combo) {
+        try {
+            if (!(combo.getSkin() instanceof javafx.scene.control.skin.ComboBoxListViewSkin<?> skin)) return;
+            if (!(skin.getPopupContent() instanceof javafx.scene.control.ListView<?> listView)) return;
+            if (Boolean.TRUE.equals(listView.getProperties().get("sgv.list.patched"))) return;
+            listView.getProperties().put("sgv.list.patched", Boolean.TRUE);
+            listView.getSelectionModel().setSelectionMode(javafx.scene.control.SelectionMode.SINGLE);
+            listView.addEventFilter(javafx.scene.input.MouseEvent.MOUSE_PRESSED, ev -> {
+                if (listView.getItems() == null || listView.getItems().isEmpty()) {
+                    ev.consume();
+                    combo.hide();
+                }
+            });
+        } catch (Exception ignored) {
+            log.debug("Não foi possível reforçar o popup do ComboBox");
+        }
+    }
+
+    private static void fixComboEditorRange(javafx.scene.control.TextField editor) {
+        if (editor == null) return;
+        try {
+            String text = editor.getText();
+            int len = text != null ? text.length() : 0;
+            int caret = editor.getCaretPosition();
+            int anchor = editor.getAnchor();
+            if (caret < 0 || anchor < 0 || caret > len || anchor > len || caret != anchor && Math.min(caret, anchor) > len) {
+                editor.deselect();
+                editor.positionCaret(Math.max(0, Math.min(Math.max(caret, anchor), len)));
+            }
+        } catch (Exception ignored) {
+            try { editor.deselect(); } catch (Exception ignore) {}
+        }
+    }
+
+    public static void hardenAllComboBoxes(javafx.scene.Node node) {
+        if (node == null) return;
+        if (node instanceof javafx.scene.control.ComboBox<?> combo) {
+            hardenComboBox(combo);
+        }
+        if (node instanceof javafx.scene.control.ScrollPane scroll && scroll.getContent() != null) {
+            hardenAllComboBoxes(scroll.getContent());
+        }
+        if (node instanceof javafx.scene.control.TabPane tabs) {
+            for (javafx.scene.control.Tab tab : tabs.getTabs()) {
+                hardenAllComboBoxes(tab.getContent());
+            }
+        }
+        if (node instanceof javafx.scene.control.TitledPane titled) {
+            hardenAllComboBoxes(titled.getContent());
+        }
+        if (node instanceof javafx.scene.control.SplitPane split) {
+            for (javafx.scene.Node item : split.getItems()) {
+                hardenAllComboBoxes(item);
+            }
+        }
+        if (node instanceof javafx.scene.control.Accordion accordion) {
+            for (javafx.scene.control.TitledPane pane : accordion.getPanes()) {
+                hardenAllComboBoxes(pane);
+            }
+        }
+        if (node instanceof javafx.scene.Parent parent) {
+            for (javafx.scene.Node child : parent.getChildrenUnmodifiable()) {
+                hardenAllComboBoxes(child);
             }
         }
     }

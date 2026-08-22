@@ -90,10 +90,8 @@ public class WarehouseTransferService {
         }
 
         int year = LocalDateTime.now().getYear();
-        Long nextNum = transferRepository.findMaxDocumentNumberBySeriesAndYear("TWA", year);
-        if (nextNum == null) nextNum = 1L;
-
-        draft.setDocumentNumber(nextNum);
+        Long maxNum = transferRepository.findMaxDocumentNumberBySeriesAndYear("TWA", year);
+        draft.setDocumentNumber(maxNum == null ? 1L : maxNum + 1L);
         draft.setDocumentYear(year);
         draft.setSeries("TWA");
         draft.setStatus("PENDING");
@@ -144,8 +142,12 @@ public class WarehouseTransferService {
     @Transactional
     public WarehouseTransfer complete(Long id, User user) {
         requirePermission(user, "TRANSFERENCIAS", "VIEW");
-        WarehouseTransfer t = transferRepository.findById(id)
-                .orElseThrow(() -> new IllegalArgumentException("Transferência não encontrada"));
+        WarehouseTransfer t = transferRepository.findByIdWithItems(id)
+                .orElseGet(() -> transferRepository.findById(id)
+                        .orElseThrow(() -> new IllegalArgumentException("Transferência não encontrada")));
+        if (t.getItems() == null || t.getItems().isEmpty()) {
+            throw new IllegalStateException("A guia não tem artigos para receber.");
+        }
         if (!"PENDING".equals(t.getStatus()) && !"IN_TRANSIT".equals(t.getStatus())) {
             throw new IllegalStateException("Transferência já finalizada (status: " + t.getStatus() + ")");
         }

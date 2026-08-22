@@ -119,6 +119,7 @@
             <plugin>
                 <groupId>org.springframework.boot</groupId>
                 <artifactId>spring-boot-maven-plugin</artifactId>
+                <version>3.1.4</version>
                 <configuration>
                     <mainClass>com.sgv.desktop.MainApp</mainClass>
                     <jvmArguments>-Xms128m -Xmx512m -XX:MaxMetaspaceSize=128m</jvmArguments>
@@ -149,7 +150,6 @@
                 <version>0.0.8</version>
                 <configuration>
                     <mainClass>com.sgv.desktop.MainApp</mainClass>
-                    <jvmArguments>-Xms64m -Xmx256m -XX:MaxMetaspaceSize=128m</jvmArguments>
                 </configuration>
             </plugin>
             <plugin>

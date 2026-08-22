@@ -72,6 +72,9 @@ public class ProductionOrderFormController extends BaseFormController {
     @FXML
     public void initialize() {
         initCommonFields();
+        UiUtils.hardenComboBox(productCombo);
+        UiUtils.hardenComboBox(unitCombo);
+        UiUtils.hardenComboBox(responsibleCombo);
 
         // 1. Carregar produtos activos
         List<Product> products = productRepository.findAllActive();

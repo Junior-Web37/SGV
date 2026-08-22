@@ -53,6 +53,8 @@ public class UserFormController extends BaseFormController {
     @FXML
     public void initialize() {
         initCommonFields();
+        UiUtils.hardenComboBox(branchCombo);
+        UiUtils.hardenComboBox(roleCombo);
         branchCombo.setItems(javafx.collections.FXCollections.observableArrayList(branchRepository.findAll()));
         roleCombo.setItems(javafx.collections.FXCollections.observableArrayList(roleRepository.findAll()));
 

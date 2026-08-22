@@ -137,42 +137,12 @@ public class DashboardCrudManager {
         if (salesTable == null) return;
         Long branchId = currentUser != null && !currentUser.isSuperAdmin() && currentUser.getBranch() != null
                 ? currentUser.getBranch().getId() : null;
-
-        List<Sale> allSales = saleRepository.findAllWithCustomerAndItems();
-        List<Sale> filtered = allSales.stream()
-                .filter(s -> {
-                    if (branchId == null) return true;
-                    return s.getBranch() != null && branchId.equals(s.getBranch().getId());
-                })
-                .filter(s -> {
-                    if (filter == null || filter.isBlank()) return true;
-                    String term = filter.toLowerCase();
-                    if (s.getDocumentNumber() != null && s.getDocumentNumber().toString().contains(term)) return true;
-                    if (s.getSeries() != null && s.getSeries().toLowerCase().contains(term)) return true;
-                    if (s.getDocumentType() != null && s.getDocumentType().toLowerCase().contains(term)) return true;
-                    if (s.getCustomer() != null && s.getCustomer().getName() != null && s.getCustomer().getName().toLowerCase().contains(term)) return true;
-                    if (s.getCustomerName() != null && s.getCustomerName().toLowerCase().contains(term)) return true;
-                    if (s.getCustomerNuit() != null && s.getCustomerNuit().toLowerCase().contains(term)) return true;
-                    return false;
-                })
-                .filter(s -> {
-                    if (stateFilter == null || "TODOS".equals(stateFilter)) return true;
-                    return stateFilter.equals(s.getState());
-                })
-                .filter(s -> {
-                    if (docTypeFilter == null || "TODOS".equals(docTypeFilter)) return true;
-                    return docTypeFilter.equals(s.getDocumentType());
-                })
-                .filter(s -> {
-                    if (startDate == null && endDate == null) return true;
-                    LocalDateTime dt = s.getCreatedAt();
-                    if (dt == null) return false;
-                    if (startDate != null && dt.isBefore(startDate)) return false;
-                    if (endDate != null && dt.isAfter(endDate)) return false;
-                    return true;
-                })
-                .sorted(Comparator.comparing(Sale::getCreatedAt, Comparator.nullsLast(Comparator.reverseOrder())))
-                .toList();
+        String search = filter != null ? filter.trim() : "";
+        String state = stateFilter != null && !stateFilter.isBlank() ? stateFilter : "TODOS";
+        String docType = docTypeFilter != null && !docTypeFilter.isBlank() ? docTypeFilter : "TODOS";
+        Pageable limit = PageRequest.of(0, 200);
+        List<Sale> filtered = saleRepository.searchForList(
+                search.isEmpty() ? null : search, state, docType, startDate, endDate, branchId, limit);
         salesTable.setItems(FXCollections.observableArrayList(filtered));
     }
 
@@ -183,24 +153,24 @@ public class DashboardCrudManager {
 
     public void loadProducts(TableView<Product> productsTable, String filter, int page) {
         if (productsTable == null) return;
+        String term = filter != null ? filter.trim() : "";
         List<Product> products;
-        if (filter != null && !filter.isEmpty()) {
-            products = productRepository.searchByCodeOrName(filter);
+        if (!term.isEmpty()) {
+            products = productRepository.searchByCodeOrName(term);
         } else {
-            Pageable pageable = PageRequest.of(page, PAGE_SIZE);
-            products = productRepository.findAll(pageable).getContent();
+            products = productRepository.findAllActive();
         }
         productsTable.setItems(FXCollections.observableArrayList(products));
     }
 
     public void loadCustomers(TableView<Customer> customersTable, String filter, int page) {
         if (customersTable == null) return;
+        String term = filter != null ? filter.trim() : "";
         List<Customer> customers;
-        if (filter != null && !filter.isEmpty()) {
-            customers = customerRepository.searchByCodeOrName(filter);
+        if (!term.isEmpty()) {
+            customers = customerRepository.searchByCodeOrName(term);
         } else {
-            Pageable pageable = PageRequest.of(page, PAGE_SIZE);
-            customers = customerRepository.findAll(pageable).getContent();
+            customers = customerRepository.findAll();
         }
         customersTable.setItems(FXCollections.observableArrayList(customers));
     }
@@ -398,6 +368,7 @@ public class DashboardCrudManager {
             stage.initModality(Modality.APPLICATION_MODAL);
             stage.initOwner(owner);
             stage.setTitle(existing != null ? "Editar Armazém" : "Novo Armazém");
+            UiUtils.hardenAllComboBoxes(root);
             stage.setScene(new Scene(root));
             stage.showAndWait();
         } catch (Exception ex) {
@@ -422,6 +393,7 @@ public class DashboardCrudManager {
             stage.initModality(Modality.APPLICATION_MODAL);
             stage.initOwner(owner);
             stage.setTitle("Transferência Armazém → Loja");
+            UiUtils.hardenAllComboBoxes(root);
             stage.setScene(new Scene(root));
             stage.setWidth(900);
             stage.setHeight(620);
@@ -462,6 +434,7 @@ public class DashboardCrudManager {
             scroll.setFitToWidth(true);
             scroll.setFitToHeight(true);
             scroll.setStyle("-fx-background: transparent; -fx-background-color: transparent; -fx-padding: 0;");
+            UiUtils.hardenAllComboBoxes(root);
             Scene scene = new Scene(scroll);
             stage.setScene(scene);
             javafx.geometry.Rectangle2D bounds = javafx.stage.Screen.getPrimary().getVisualBounds();
@@ -1286,6 +1259,7 @@ public class DashboardCrudManager {
         colState.setCellValueFactory(d -> new SimpleStringProperty(d.getValue().getState()));
         pendingTable.getColumns().addAll(List.of(colDoc, colDate, colTotal, colPaid, colPend, colState));
 
+        TextField valorField = new TextField();
         pendingTable.getSelectionModel().selectedItemProperty().addListener((obs, oldV, newV) -> {
             if (newV != null) {
                 double tot = newV.getTotal() != null ? newV.getTotal() : 0.0;
@@ -1304,13 +1278,13 @@ public class DashboardCrudManager {
         payRow.setStyle("-fx-background-color:#ffffff; -fx-padding:16 24; -fx-border-color:#E2E8F0; -fx-border-width:1 0 0 0; -fx-alignment:CENTER_LEFT;");
         Label lblValor = new Label("Valor (MT):");
         lblValor.setStyle("-fx-font-weight:700; -fx-text-fill:#0F172A;");
-        TextField valorField = new TextField();
         valorField.setPromptText("0.00");
         valorField.setPrefWidth(130);
         valorField.setStyle("-fx-font-size:14px; -fx-font-weight:700; -fx-padding:6 10; -fx-border-color:#CBD5E1; -fx-border-radius:6; -fx-background-radius:6;");
         Label lblMetodo = new Label("Método:");
         lblMetodo.setStyle("-fx-font-weight:700; -fx-text-fill:#0F172A;");
         ComboBox<String> metodoCombo = new ComboBox<>();
+        UiUtils.hardenComboBox(metodoCombo);
         metodoCombo.getItems().addAll("Numerário", "M-Pesa", "e-Mola", "mKesh", "Cartão (POS)", "Transferência Bancária", "Cheque");
         metodoCombo.setValue("Numerário");
         metodoCombo.setPrefWidth(180);
@@ -1925,6 +1899,7 @@ public class DashboardCrudManager {
             scroll.setFitToWidth(true);
             scroll.setFitToHeight(true);
             scroll.setStyle("-fx-background: transparent; -fx-background-color: transparent; -fx-padding: 0;");
+            UiUtils.hardenAllComboBoxes(root);
             Scene scene = new Scene(scroll);
             stage.setScene(scene);
             javafx.geometry.Rectangle2D bounds = javafx.stage.Screen.getPrimary().getVisualBounds();

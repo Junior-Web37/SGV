@@ -27,8 +27,10 @@ import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.function.Consumer;
 
 @Component
@@ -63,6 +65,7 @@ public class DashboardNavigationManager {
 
     private TableView<Product> productsTable;
     private HBox productsStatsCardsBox;
+    private final Map<Long, BigDecimal> productStockById = new HashMap<>();
     private TableView<Sale> salesTable;
     private TableView<Customer> customersTable;
     private TableView<Category> categoriesTable;
@@ -73,9 +76,11 @@ public class DashboardNavigationManager {
     private Map<Long, BigDecimal> supplierBalances = new HashMap<>();
 
     private TableView<Purchase> purchasesTable;
+    private TableView<ProductionOrder> ordersTable;
     private Runnable purchasesLoadRunnable;
 
     public TableView<Product> getProductsTable() { return productsTable; }
+    public TableView<ProductionOrder> getOrdersTable() { return ordersTable; }
     public TableView<Sale> getSalesTable() { return salesTable; }
     public TableView<Customer> getCustomersTable() { return customersTable; }
     public TableView<Category> getCategoriesTable() { return categoriesTable; }
@@ -614,6 +619,7 @@ public class DashboardNavigationManager {
             filterDate.setStyle("-fx-font-size: 12px;");
 
             ComboBox<String> filterDocType = new ComboBox<>();
+            UiUtils.hardenComboBox(filterDocType);
             filterDocType.getItems().addAll("Todos", "VENDA", "FACTURA", "RECIBO", "COTACAO", "ENCOMENDA", "NC", "ND");
             filterDocType.setValue("Todos");
             filterDocType.setPromptText("Tipo");
@@ -621,6 +627,7 @@ public class DashboardNavigationManager {
             filterDocType.setStyle("-fx-font-size: 12px; -fx-padding: 4 8;");
 
             ComboBox<String> filterState = new ComboBox<>();
+            UiUtils.hardenComboBox(filterState);
             filterState.getItems().addAll("Todos", "EMITIDA", "PAGO", "ANULADA", "COTACAO_ABERTA", "COTACAO_PAGA", "ENCOMENDA_ABERTA");
             filterState.setValue("Todos");
             filterState.setPromptText("Estado");
@@ -644,8 +651,8 @@ public class DashboardNavigationManager {
             filterClearBtn.setOnAction(e -> {
                 filterSearch.clear();
                 filterDate.setValue(null);
-                filterDocType.setValue(null);
-                filterState.setValue(null);
+                filterDocType.setValue("Todos");
+                filterState.setValue("Todos");
                 if (onAdvancedFilterClear != null) onAdvancedFilterClear.run();
             });
 
@@ -1137,8 +1144,10 @@ public class DashboardNavigationManager {
                 }
                 Map<Long, BigDecimal> balances = new HashMap<>();
                 for (Object[] row : purchaseRepository.findOutstandingBalanceBySupplier()) {
-                    Long sid = (Long) row[0];
-                    BigDecimal bal = (BigDecimal) row[1];
+                    if (row == null || row.length < 2) continue;
+                    Long sid = row[0] instanceof Number n ? n.longValue() : null;
+                    BigDecimal bal = row[1] instanceof BigDecimal bd ? bd
+                            : row[1] instanceof Number n ? BigDecimal.valueOf(n.doubleValue()) : null;
                     if (sid != null && bal != null && bal.compareTo(BigDecimal.ZERO) != 0) {
                         balances.put(sid, bal);
                     }
@@ -1256,6 +1265,7 @@ public class DashboardNavigationManager {
             Button btnAtualizar = makeActionButton("Atualizar", "#475569", "#ffffff");
 
             ComboBox<Warehouse> warehouseFilter = new ComboBox<>();
+            UiUtils.hardenComboBox(warehouseFilter);
             warehouseFilter.setPromptText("Todos os armazéns");
             warehouseFilter.setPrefWidth(220);
             warehouseFilter.setStyle("-fx-font-size: 13px; -fx-font-weight: 600; -fx-background-color: #F8FAFC;");
@@ -2169,6 +2179,7 @@ public void showTurnoCaixaPane(Label pageTitleLabel, Label pageSubtitleLabel,
 
         Runnable loadProductsAndStats = () -> {
             loadProducts.run();
+            refreshProductStockCache(currentUser);
             if (productsStatsCardsBox != null) {
                 loadProductStats(productsStatsCardsBox, currentUser);
             }
@@ -2176,6 +2187,7 @@ public void showTurnoCaixaPane(Label pageTitleLabel, Label pageSubtitleLabel,
 
         Consumer<String> onSearchAndStats = filter -> {
             if (onSearch != null) onSearch.accept(filter);
+            refreshProductStockCache(currentUser);
             if (productsStatsCardsBox != null) {
                 loadProductStats(productsStatsCardsBox, currentUser);
             }
@@ -2300,9 +2312,17 @@ public void showTurnoCaixaPane(Label pageTitleLabel, Label pageSubtitleLabel,
         TableColumn<Product, String> productStockColumn = new TableColumn<>("Stock");
         productStockColumn.setPrefWidth(120);
         productStockColumn.setCellValueFactory(data -> {
+            Product product = data.getValue();
+            if (product != null && Boolean.TRUE.equals(product.getService())) {
+                return new SimpleStringProperty("Serviço");
+            }
             try {
-                if (currentUser != null && currentUser.getBranch() != null && data.getValue().getId() != null) {
-                    return stockBranchService.findByProductIdAndBranchId(data.getValue().getId(), currentUser.getBranch().getId())
+                if (currentUser != null && currentUser.getBranch() != null && product != null && product.getId() != null) {
+                    BigDecimal cached = productStockById.get(product.getId());
+                    if (cached != null) {
+                        return new SimpleStringProperty(String.format("%.1f", cached));
+                    }
+                    return stockBranchService.findByProductIdAndBranchId(product.getId(), currentUser.getBranch().getId())
                         .map(sb -> new SimpleStringProperty(String.format("%.1f", sb.getStockCurrentAmount() != null ? sb.getStockCurrentAmount() : BigDecimal.ZERO)))
                         .orElse(new SimpleStringProperty("0.0"));
                 }
@@ -2316,13 +2336,17 @@ public void showTurnoCaixaPane(Label pageTitleLabel, Label pageSubtitleLabel,
                 if (empty || item == null) { setText(null); setGraphic(null); }
                 else {
                     Label lbl = new Label(item);
-                    try {
-                        double val = Double.parseDouble(item);
-                        if (val <= 0) lbl.setStyle("-fx-font-weight: 700; -fx-text-fill: #EF4444; -fx-background-color: #FEE2E2; -fx-padding: 2 6; -fx-background-radius: 4;");
-                        else if (val < 10) lbl.setStyle("-fx-font-weight: 700; -fx-text-fill: #F59E0B; -fx-background-color: #FEF3C7; -fx-padding: 2 6; -fx-background-radius: 4;");
-                        else lbl.setStyle("-fx-font-weight: 700; -fx-text-fill: #10B981;");
-                    } catch (Exception ex) {
-                        lbl.setStyle("-fx-font-weight: 700; -fx-text-fill: #475569;");
+                    if ("Serviço".equals(item)) {
+                        lbl.setStyle("-fx-font-weight: 700; -fx-text-fill: #7C3AED; -fx-font-style: italic;");
+                    } else {
+                        try {
+                            double val = Double.parseDouble(item);
+                            if (val <= 0) lbl.setStyle("-fx-font-weight: 700; -fx-text-fill: #EF4444; -fx-background-color: #FEE2E2; -fx-padding: 2 6; -fx-background-radius: 4;");
+                            else if (val < 10) lbl.setStyle("-fx-font-weight: 700; -fx-text-fill: #F59E0B; -fx-background-color: #FEF3C7; -fx-padding: 2 6; -fx-background-radius: 4;");
+                            else lbl.setStyle("-fx-font-weight: 700; -fx-text-fill: #10B981;");
+                        } catch (Exception ex) {
+                            lbl.setStyle("-fx-font-weight: 700; -fx-text-fill: #475569;");
+                        }
                     }
                     setGraphic(lbl);
                     setText(null);
@@ -2408,41 +2432,34 @@ public void showTurnoCaixaPane(Label pageTitleLabel, Label pageSubtitleLabel,
         return "📦";
     }
 
+    private void refreshProductStockCache(User currentUser) {
+        productStockById.clear();
+        if (currentUser == null || currentUser.getBranch() == null || currentUser.getBranch().getId() == null) return;
+        if (productsTable == null || productsTable.getItems() == null || productsTable.getItems().isEmpty()) return;
+        List<Long> ids = productsTable.getItems().stream()
+                .map(Product::getId)
+                .filter(Objects::nonNull)
+                .toList();
+        if (ids.isEmpty()) return;
+        for (StockBranch sb : stockBranchService.loadStockForBranchAndProducts(currentUser.getBranch().getId(), ids)) {
+            if (sb.getProduct() != null && sb.getProduct().getId() != null) {
+                productStockById.put(sb.getProduct().getId(),
+                        sb.getStockCurrentAmount() != null ? sb.getStockCurrentAmount() : BigDecimal.ZERO);
+            }
+        }
+        productsTable.refresh();
+    }
+
     public void loadProductStats(HBox cardsBox, User currentUser) {
         if (cardsBox == null || cardsBox.getChildren().size() < 4) return;
         try {
             long total = productRepository.count();
-
-            double avgPrice = 0;
-            try {
-                List<Product> all = productRepository.findAll();
-                avgPrice = all.stream()
-                    .filter(p -> p.getPriceSale() != null && p.getPriceSale() > 0)
-                    .mapToDouble(Product::getPriceSale)
-                    .average().orElse(0);
-            } catch (Exception ex) { log.error("Erro ao calcular KPIs: " + ex.getMessage()); }
-
-            long lowStock = 0;
-            double totalValue = 0;
-            try {
-                List<Product> all = productRepository.findAll();
-                for (Product p : all) {
-                    if (currentUser != null && currentUser.getBranch() != null && p.getId() != null) {
-                        var sb = stockBranchService.findByProductIdAndBranchId(p.getId(), currentUser.getBranch().getId()).orElse(null);
-                        if (sb != null) {
-                            BigDecimal stock = sb.getStockCurrentAmount() != null ? sb.getStockCurrentAmount() : BigDecimal.ZERO;
-                            BigDecimal min = sb.getStockMinAmount() != null ? sb.getStockMinAmount() : BigDecimal.ZERO;
-                            if (stock.compareTo(BigDecimal.ZERO) > 0 && stock.compareTo(min) <= 0) lowStock++;
-                            if (p.getPriceSale() != null) totalValue += stock.doubleValue() * p.getPriceSale();
-                        }
-                    }
-                }
-            } catch (Exception ex) { log.error("Erro ao calcular stock/valor: " + ex.getMessage()); }
-
+            Long branchId = currentUser != null && currentUser.getBranch() != null ? currentUser.getBranch().getId() : null;
+            long lowStock = stockBranchService.listStockAlerts(branchId).size();
             setKpiCardValue(cardsBox, 0, String.valueOf(total));
-            setKpiCardValue(cardsBox, 1, String.format("%.0f MT", avgPrice));
+            setKpiCardValue(cardsBox, 1, "—");
             setKpiCardValue(cardsBox, 2, String.valueOf(lowStock));
-            setKpiCardValue(cardsBox, 3, String.format("%.0f MT", totalValue));
+            setKpiCardValue(cardsBox, 3, "—");
         } catch (Exception ex) {
             log.error("Erro inesperado", ex);
         }
@@ -2492,7 +2509,8 @@ public void showTurnoCaixaPane(Label pageTitleLabel, Label pageSubtitleLabel,
             .field("Stock Máximo (Capacidade)", stockMax);
 
         if (selected.getProduct() != null && selected.getProduct().getId() != null) {
-            List<StockMovement> movements = stockMovementRepository.findByProductIdOrderByCreatedAtDesc(selected.getProduct().getId());
+            List<StockMovement> movements = applicationContext.getBean(StockMovementRepository.class)
+                    .findByProductIdOrderByCreatedAtDesc(selected.getProduct().getId());
             if (movements != null && !movements.isEmpty()) {
                 String[] cols = {"Data", "Tipo", "Subtipo", "Qtd", "Antes", "Depois", "Referência", "Operador"};
                 List<Map<String, String>> rows = new ArrayList<>();
@@ -2513,6 +2531,20 @@ public void showTurnoCaixaPane(Label pageTitleLabel, Label pageSubtitleLabel,
         }
 
         dialog.show();
+    }
+
+    private VBox makeKpiCard(String title, Label valueLabel, String color) {
+        VBox card = new VBox(4);
+        card.setStyle("-fx-background-color: #ffffff; -fx-padding: 14 18; -fx-background-radius: 8; "
+                + "-fx-border-color: #E2E8F0; -fx-border-radius: 8; -fx-min-width: 180;");
+        Label titleLbl = new Label(title);
+        titleLbl.setStyle("-fx-font-size: 11px; -fx-font-weight: 700; -fx-text-fill: #64748B;");
+        if (valueLabel.getText() == null || valueLabel.getText().isBlank()) {
+            valueLabel.setText("0");
+        }
+        valueLabel.setStyle("-fx-font-size: 22px; -fx-font-weight: 900; -fx-text-fill: " + color + ";");
+        card.getChildren().addAll(titleLbl, valueLabel);
+        return card;
     }
 
     public void showTransfersPane(Button navTransferir, Label pageTitleLabel, Label pageSubtitleLabel,
@@ -2555,16 +2587,19 @@ public void showTurnoCaixaPane(Label pageTitleLabel, Label pageSubtitleLabel,
             UiUtils.applyPressFeedback(btnAtualizar);
 
             ComboBox<Warehouse> whFilter = new ComboBox<>();
+            UiUtils.hardenComboBox(whFilter);
             whFilter.setPromptText("Origem: Todos");
             whFilter.setPrefWidth(180);
             whFilter.setStyle("-fx-font-size: 12px; -fx-font-weight: 600;");
 
             ComboBox<Branch> brFilter = new ComboBox<>();
+            UiUtils.hardenComboBox(brFilter);
             brFilter.setPromptText("Destino: Todas");
             brFilter.setPrefWidth(180);
             brFilter.setStyle("-fx-font-size: 12px; -fx-font-weight: 600;");
 
             ComboBox<String> statusFilter = new ComboBox<>();
+            UiUtils.hardenComboBox(statusFilter);
             statusFilter.getItems().addAll("Todos os Estados", "PENDING", "IN_TRANSIT", "COMPLETED", "CANCELLED");
             statusFilter.setValue("Todos os Estados");
             statusFilter.setPrefWidth(160);
@@ -2750,7 +2785,7 @@ public void showTurnoCaixaPane(Label pageTitleLabel, Label pageSubtitleLabel,
             whFilter.valueProperty().addListener((o, ov, nv) -> loadTransfers.run());
             brFilter.valueProperty().addListener((o, ov, nv) -> loadTransfers.run());
             statusFilter.valueProperty().addListener((o, ov, nv) -> loadTransfers.run());
-            searchField.textProperty().addListener((o, ov, nv) -> loadTransfers.run());
+            UiUtils.setupDebounce(searchField, loadTransfers, 250);
             btnAtualizar.setOnAction(e -> loadTransfers.run());
 
             main.getChildren().addAll(kpiRow, toolbar, table);
