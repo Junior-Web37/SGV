@@ -1,0 +1,124 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<?import javafx.scene.control.*?>
+<?import javafx.scene.layout.*?>
+<?import javafx.geometry.Insets?>
+<VBox fx:id="rootPane" xmlns="http://javafx.com/javafx/17" xmlns:fx="http://javafx.com/fxml/1"
+      fx:controller="com.sgv.desktop.PurchaseFormController"
+      spacing="0" styleClass="card-pane" style="-fx-padding:0; -fx-background-radius:10; -fx-background-color:white;"
+      prefWidth="860" prefHeight="640" stylesheets="@/styles/styles.css">
+
+    <HBox alignment="CENTER_LEFT" spacing="14"
+          style="-fx-background-color: linear-gradient(to right, #1E3A8A, #1D4ED8, #1E40AF); -fx-padding:18 24; -fx-background-radius:10 10 0 0;">
+        <VBox spacing="4">
+            <Label text="Factura de Compra / Entrada de Stock" style="-fx-font-size:18px; -fx-font-weight:700; -fx-text-fill:#ffffff;"/>
+            <Label text="Registo de aquisição a fornecedores com atualização automática de stock e PMP" style="-fx-font-size:12px; -fx-text-fill:#94A3B8;"/>
+        </VBox>
+        <Region HBox.hgrow="ALWAYS"/>
+        <Label fx:id="headerTotalLabel" text="Total: 0.00 MT"
+               style="-fx-font-size:20px; -fx-font-weight:800; -fx-text-fill:#10B981; -fx-background-color:#1E293B; -fx-border-color:#334155; -fx-border-radius:6; -fx-background-radius:6; -fx-padding:8 16;"/>
+    </HBox>
+
+    <VBox spacing="16" style="-fx-padding:20 24; -fx-background-color:#ffffff; -fx-background-radius:0 0 10 10;" VBox.vgrow="ALWAYS">
+        <Label fx:id="errorLabel" text=""
+               style="-fx-text-fill:#EF4444; -fx-font-size:13px; -fx-font-weight:600; -fx-background-color:#FEE2E2; -fx-background-radius:6; -fx-padding:8 12;"
+               visible="false" managed="false"/>
+
+        <Label text="DADOS DA FACTURA DO FORNECEDOR" style="-fx-font-size:11px; -fx-font-weight:700; -fx-text-fill:#475569; -fx-font-family:monospace;"/>
+        <GridPane hgap="14" vgap="12">
+            <columnConstraints>
+                <ColumnConstraints percentWidth="30"/>
+                <ColumnConstraints percentWidth="25"/>
+                <ColumnConstraints percentWidth="20"/>
+                <ColumnConstraints percentWidth="25"/>
+            </columnConstraints>
+            <children>
+                <VBox spacing="6" GridPane.columnIndex="0" GridPane.rowIndex="0">
+                    <Label text="Fornecedor *" style="-fx-font-weight:600; -fx-text-fill:#0F172A; -fx-font-size:12px;"/>
+                    <ComboBox fx:id="supplierCombo" promptText="Seleccionar fornecedor..."
+                              style="-fx-pref-width:1000; -fx-background-radius:6; -fx-border-color:#E2E8F0; -fx-border-radius:6; -fx-font-size:13px; -fx-padding:4; -fx-background-color:#F8FAFC;"/>
+                </VBox>
+                <VBox spacing="6" GridPane.columnIndex="1" GridPane.rowIndex="0">
+                    <Label text="Nº Factura Fornecedor *" style="-fx-font-weight:600; -fx-text-fill:#0F172A; -fx-font-size:12px;"/>
+                    <TextField fx:id="invoiceNumberField" promptText="Ex: FAC/2026/001"
+                               style="-fx-padding:9 12; -fx-background-radius:6; -fx-border-color:#E2E8F0; -fx-border-radius:6; -fx-font-size:13px; -fx-background-color:#F8FAFC; -fx-text-fill:#0F172A;"/>
+                </VBox>
+                <VBox spacing="6" GridPane.columnIndex="2" GridPane.rowIndex="0">
+                    <Label text="Data Emissão *" style="-fx-font-weight:600; -fx-text-fill:#0F172A; -fx-font-size:12px;"/>
+                    <DatePicker fx:id="invoiceDatePicker"
+                                style="-fx-pref-width:1000; -fx-background-radius:6; -fx-border-color:#E2E8F0; -fx-border-radius:6; -fx-font-size:13px; -fx-padding:3;"/>
+                </VBox>
+                <VBox spacing="6" GridPane.columnIndex="3" GridPane.rowIndex="0">
+                    <Label text="Armazém de Entrada *" style="-fx-font-weight:600; -fx-text-fill:#0F172A; -fx-font-size:12px;"/>
+                    <ComboBox fx:id="warehouseCombo" promptText="Armazém de destino..."
+                              style="-fx-pref-width:1000; -fx-background-radius:6; -fx-border-color:#E2E8F0; -fx-border-radius:6; -fx-font-size:13px; -fx-padding:4; -fx-background-color:#F8FAFC;"/>
+                </VBox>
+            </children>
+        </GridPane>
+
+        <Separator style="-fx-opacity:0.2;"/>
+
+        <Label text="ITENS DA FACTURA" style="-fx-font-size:11px; -fx-font-weight:700; -fx-text-fill:#475569; -fx-font-family:monospace;"/>
+        <HBox spacing="10" alignment="CENTER_LEFT"
+              style="-fx-background-color:#F1F5F9; -fx-padding:12 14; -fx-background-radius:6; -fx-border-color:#E2E8F0; -fx-border-radius:6; -fx-border-width:1;">
+            <ComboBox fx:id="productCombo" editable="true" promptText="Pesquisar produto por código ou nome..."
+                      style="-fx-pref-width:400; -fx-background-radius:6; -fx-border-color:#CBD5E1; -fx-border-radius:6; -fx-font-size:13px; -fx-padding:4; -fx-background-color:#ffffff;" HBox.hgrow="ALWAYS"/>
+            <TextField fx:id="quantityField" promptText="Qtd"
+                       style="-fx-padding:8 12; -fx-background-radius:6; -fx-border-color:#CBD5E1; -fx-border-radius:6; -fx-font-size:13px; -fx-pref-width:100; -fx-background-color:#ffffff; -fx-text-fill:#0F172A;"/>
+            <TextField fx:id="unitCostField" promptText="Custo Unit. (MT)"
+                       style="-fx-padding:8 12; -fx-background-radius:6; -fx-border-color:#CBD5E1; -fx-border-radius:6; -fx-font-size:13px; -fx-pref-width:130; -fx-background-color:#ffffff; -fx-text-fill:#0F172A;"/>
+            <Button fx:id="addItemButton" text="+ Adicionar Item"
+                    styleClass="btn-primary-ux" style="-fx-padding:8 16; -fx-font-size:13px; -fx-background-color:#2563EB; -fx-text-fill:white; -fx-font-weight:700; -fx-background-radius:6; -fx-cursor:hand;"/>
+        </HBox>
+
+        <TableView fx:id="itemsTable" prefHeight="180" VBox.vgrow="ALWAYS"
+                   style="-fx-background-color:#ffffff; -fx-border-color:#E2E8F0; -fx-border-radius:6;">
+            <columns>
+                <TableColumn fx:id="productColumn"  text="Produto / Artigo"     prefWidth="350"/>
+                <TableColumn fx:id="quantityColumn" text="Quantidade"          prefWidth="120"/>
+                <TableColumn fx:id="priceColumn"    text="Custo Unitário"      prefWidth="140"/>
+                <TableColumn fx:id="totalColumn"    text="Subtotal"            prefWidth="150"/>
+                <TableColumn fx:id="actionColumn"   text=""                    prefWidth="50"/>
+            </columns>
+            <placeholder><Label text="Nenhum artigo adicionado à factura" style="-fx-text-fill:#64748B; -fx-font-weight:600;"/></placeholder>
+        </TableView>
+
+        <HBox alignment="CENTER_RIGHT" spacing="20">
+            <VBox spacing="6" HBox.hgrow="ALWAYS">
+                <Label text="Notas / Observações" style="-fx-font-size:11px; -fx-font-weight:700; -fx-text-fill:#475569; -fx-font-family:monospace;"/>
+                <TextArea fx:id="notesField" wrapText="true"
+                          style="-fx-padding:6 10; -fx-background-radius:6; -fx-border-color:#E2E8F0; -fx-border-radius:6; -fx-font-size:12px; -fx-background-color:#F8FAFC; -fx-text-fill:#0F172A; -fx-min-height:55; -fx-max-height:75;"
+                          promptText="Observações sobre a compra, lote, condições de entrega..."/>
+            </VBox>
+
+            <GridPane hgap="20" vgap="6"
+                      style="-fx-background-color:#F8FAFC; -fx-padding:12 20; -fx-background-radius:6; -fx-border-color:#E2E8F0; -fx-border-radius:6; -fx-border-width:1;"
+                      minWidth="320">
+                <columnConstraints>
+                    <ColumnConstraints minWidth="120"/>
+                    <ColumnConstraints minWidth="140" halignment="RIGHT"/>
+                </columnConstraints>
+                <children>
+                    <Label text="Subtotal (s/ IVA):" style="-fx-font-weight:600; -fx-text-fill:#64748B; -fx-font-size:13px;" GridPane.columnIndex="0" GridPane.rowIndex="0"/>
+                    <Label fx:id="subtotalLabel" text="0.00 MT" style="-fx-font-weight:600; -fx-text-fill:#0F172A; -fx-font-size:13px;" GridPane.columnIndex="1" GridPane.rowIndex="0"/>
+                    <Label text="IVA Suportado (16%):" style="-fx-font-weight:600; -fx-text-fill:#64748B; -fx-font-size:13px;" GridPane.columnIndex="0" GridPane.rowIndex="1"/>
+                    <Label fx:id="taxLabel" text="0.00 MT" style="-fx-font-weight:600; -fx-text-fill:#F59E0B; -fx-font-size:13px;" GridPane.columnIndex="1" GridPane.rowIndex="1"/>
+                    <Separator style="-fx-opacity:0.2;" GridPane.columnIndex="0" GridPane.rowIndex="2" GridPane.columnSpan="2"/>
+                    <Label text="TOTAL FACTURA:" style="-fx-font-weight:800; -fx-text-fill:#0F172A; -fx-font-size:15px;" GridPane.columnIndex="0" GridPane.rowIndex="3"/>
+                    <Label fx:id="totalLabel" text="0.00 MT" style="-fx-font-weight:800; -fx-text-fill:#2563EB; -fx-font-size:17px;" GridPane.columnIndex="1" GridPane.rowIndex="3"/>
+                </children>
+            </GridPane>
+        </HBox>
+
+        <Separator style="-fx-opacity:0.2;"/>
+        <HBox spacing="12" alignment="CENTER_RIGHT">
+            <Button fx:id="cancelButton" text="Cancelar"
+                    styleClass="btn-secondary-ux" style="-fx-padding:9 18; -fx-font-size:13px; -fx-background-color:#ffffff; -fx-text-fill:#0F172A; -fx-background-radius:6; -fx-cursor:hand; -fx-font-weight:600; -fx-border-color:#E2E8F0; -fx-border-radius:6;"/>
+            <StackPane>
+                <Button fx:id="saveButton" text="Salvar e Dar Entrada em Stock"
+                        styleClass="btn-primary-ux" style="-fx-padding:9 22; -fx-font-size:13px; -fx-background-color:#2563EB; -fx-text-fill:white; -fx-font-weight:700; -fx-background-radius:6; -fx-cursor:hand;"/>
+                <ProgressIndicator fx:id="saveSpinner" visible="false" managed="false"
+                                   style="-fx-progress-color:white; -fx-max-width:22; -fx-max-height:22;"/>
+            </StackPane>
+        </HBox>
+    </VBox>
+</VBox>

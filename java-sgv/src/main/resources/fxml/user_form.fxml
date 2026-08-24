@@ -1,0 +1,116 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<?import javafx.scene.control.*?>
+<?import javafx.scene.layout.*?>
+<?import javafx.geometry.Insets?>
+<VBox fx:id="rootPane" xmlns="http://javafx.com/javafx/17" xmlns:fx="http://javafx.com/fxml/1"
+      fx:controller="com.sgv.desktop.UserFormController"
+      spacing="0" styleClass="card-pane" style="-fx-padding:0; -fx-background-radius:10; -fx-background-color:#ffffff;"
+      prefWidth="720" prefHeight="580" stylesheets="@/styles/styles.css">
+
+    <HBox alignment="CENTER_LEFT" spacing="14"
+          style="-fx-background-color: linear-gradient(to right, #1E3A8A, #1D4ED8, #1E40AF); -fx-padding:20 24; -fx-border-color:#E2E8F0; -fx-border-width:0 0 1 0; -fx-background-radius:10 10 0 0;">
+        <VBox spacing="4">
+            <Label text="Registo de Utilizador &amp; Operador" style="-fx-font-size:18px; -fx-font-weight:700; -fx-text-fill:#ffffff;"/>
+            <Label text="Gestão de credenciais, papel no sistema (RBAC) e associação de filial" style="-fx-font-size:12px; -fx-text-fill:#94A3B8;"/>
+        </VBox>
+    </HBox>
+
+    <VBox spacing="18" style="-fx-padding:24; -fx-background-color:#ffffff; -fx-background-radius:0 0 10 10;" VBox.vgrow="ALWAYS">
+        <Label fx:id="errorLabel" text=""
+               style="-fx-text-fill:#EF4444; -fx-font-size:13px; -fx-font-weight:600; -fx-background-color:#FEE2E2; -fx-background-radius:6; -fx-padding:8 12;"
+               visible="false" managed="false"/>
+
+        <Label text="DADOS PESSOAIS" style="-fx-font-size:11px; -fx-font-weight:700; -fx-text-fill:#475569; -fx-font-family:monospace;"/>
+        <GridPane hgap="16" vgap="14">
+            <columnConstraints>
+                <ColumnConstraints percentWidth="50"/>
+                <ColumnConstraints percentWidth="50"/>
+            </columnConstraints>
+            <children>
+                <VBox spacing="6" GridPane.columnIndex="0" GridPane.rowIndex="0" GridPane.columnSpan="2">
+                    <Label text="Nome Completo *" style="-fx-font-weight:600; -fx-text-fill:#0F172A; -fx-font-size:12px;"/>
+                    <TextField fx:id="fullNameField" promptText="Ex: Alberto Macamo"
+                               style="-fx-padding:10 12; -fx-background-radius:6; -fx-border-color:#E2E8F0; -fx-border-radius:6; -fx-font-size:13px; -fx-background-color:#F8FAFC; -fx-text-fill:#0F172A;"/>
+                </VBox>
+                <VBox spacing="6" GridPane.columnIndex="0" GridPane.rowIndex="1">
+                    <Label text="Email Institucional" style="-fx-font-weight:600; -fx-text-fill:#0F172A; -fx-font-size:12px;"/>
+                    <TextField fx:id="emailField" promptText="Ex: alberto@empresa.co.mz"
+                               style="-fx-padding:10 12; -fx-background-radius:6; -fx-border-color:#E2E8F0; -fx-border-radius:6; -fx-font-size:13px; -fx-background-color:#F8FAFC; -fx-text-fill:#0F172A;"/>
+                </VBox>
+                <VBox spacing="6" GridPane.columnIndex="1" GridPane.rowIndex="1">
+                    <Label text="Estado &amp; Políticas de Acesso" style="-fx-font-weight:600; -fx-text-fill:#0F172A; -fx-font-size:12px;"/>
+                    <HBox spacing="14" alignment="CENTER_LEFT">
+                        <CheckBox fx:id="activeCheckbox" text="Utilizador Ativo" selected="true" style="-fx-text-fill:#0F172A; -fx-font-weight:600;"/>
+                        <CheckBox fx:id="forcePasswordCheckbox" text="Forçar Nova Senha" style="-fx-text-fill:#0F172A; -fx-font-weight:600;"/>
+                    </HBox>
+                </VBox>
+            </children>
+        </GridPane>
+
+        <Separator style="-fx-opacity:0.2;"/>
+
+        <Label text="CREDENCIAIS &amp; ATRIBUIÇÃO DE PERFIL" style="-fx-font-size:11px; -fx-font-weight:700; -fx-text-fill:#475569; -fx-font-family:monospace;"/>
+        <GridPane hgap="16" vgap="14">
+            <columnConstraints>
+                <ColumnConstraints percentWidth="50"/>
+                <ColumnConstraints percentWidth="50"/>
+            </columnConstraints>
+            <children>
+                <VBox spacing="6" GridPane.columnIndex="0" GridPane.rowIndex="0">
+                    <Label text="Nome de Utilizador (Username) *" style="-fx-font-weight:600; -fx-text-fill:#0F172A; -fx-font-size:12px;"/>
+                    <TextField fx:id="usernameField" promptText="Ex: amacamo"
+                               style="-fx-padding:10 12; -fx-background-radius:6; -fx-border-color:#E2E8F0; -fx-border-radius:6; -fx-font-size:13px; -fx-background-color:#F8FAFC; -fx-text-fill:#0F172A;"/>
+                </VBox>
+                <VBox spacing="6" GridPane.columnIndex="1" GridPane.rowIndex="0">
+                    <Label text="Função / Papel no Sistema *" style="-fx-font-weight:600; -fx-text-fill:#0F172A; -fx-font-size:12px;"/>
+                    <ComboBox fx:id="roleCombo" promptText="Seleccione o perfil..."
+                              style="-fx-pref-width:1000; -fx-background-radius:6; -fx-border-color:#E2E8F0; -fx-border-radius:6; -fx-font-size:13px; -fx-padding:4; -fx-background-color:#F8FAFC;"/>
+                </VBox>
+                <VBox spacing="6" GridPane.columnIndex="0" GridPane.rowIndex="1">
+                    <Label text="Palavra-passe (Password) *" style="-fx-font-weight:600; -fx-text-fill:#0F172A; -fx-font-size:12px;"/>
+                    <PasswordField fx:id="passwordField" promptText="Mínimo 6 caracteres"
+                                   style="-fx-padding:10 12; -fx-background-radius:6; -fx-border-color:#E2E8F0; -fx-border-radius:6; -fx-font-size:13px; -fx-background-color:#F8FAFC; -fx-text-fill:#0F172A;"/>
+                </VBox>
+                <VBox spacing="6" GridPane.columnIndex="1" GridPane.rowIndex="1">
+                    <Label text="Estabelecimento / Filial de Lotação *" style="-fx-font-weight:600; -fx-text-fill:#0F172A; -fx-font-size:12px;"/>
+                    <ComboBox fx:id="branchCombo" promptText="Seleccione a filial..."
+                              style="-fx-pref-width:1000; -fx-background-radius:6; -fx-border-color:#E2E8F0; -fx-border-radius:6; -fx-font-size:13px; -fx-padding:4; -fx-background-color:#F8FAFC;"/>
+                </VBox>
+            </children>
+        </GridPane>
+
+        <Separator style="-fx-opacity:0.2;"/>
+
+        <Label text="PARÂMETROS OPERACIONAIS" style="-fx-font-size:11px; -fx-font-weight:700; -fx-text-fill:#475569; -fx-font-family:monospace;"/>
+        <GridPane hgap="16" vgap="14">
+            <columnConstraints>
+                <ColumnConstraints percentWidth="50"/>
+                <ColumnConstraints percentWidth="50"/>
+            </columnConstraints>
+            <children>
+                <VBox spacing="6" GridPane.columnIndex="0" GridPane.rowIndex="0">
+                    <Label text="Comissão de Venda (%)" style="-fx-font-weight:600; -fx-text-fill:#0F172A; -fx-font-size:12px;"/>
+                    <TextField fx:id="commissionField" text="0.00"
+                               style="-fx-padding:10 12; -fx-background-radius:6; -fx-border-color:#E2E8F0; -fx-border-radius:6; -fx-font-size:13px; -fx-background-color:#F8FAFC; -fx-text-fill:#0F172A;"/>
+                </VBox>
+                <VBox spacing="6" GridPane.columnIndex="1" GridPane.rowIndex="0" alignment="CENTER_LEFT">
+                    <Label text="Visualização" style="-fx-font-weight:600; -fx-text-fill:#0F172A; -fx-font-size:12px;"/>
+                    <CheckBox fx:id="canViewStatsCheck" text="Pode Visualizar Estatísticas &amp; Dashboard" style="-fx-text-fill:#0F172A; -fx-font-weight:600;"/>
+                </VBox>
+            </children>
+        </GridPane>
+
+        <Region VBox.vgrow="ALWAYS"/>
+        <Separator style="-fx-opacity:0.2;"/>
+        <HBox spacing="12" alignment="CENTER_RIGHT">
+            <Button fx:id="cancelButton" text="Cancelar" styleClass="btn-secondary-ux"
+                    style="-fx-padding:9 18; -fx-font-size:13px; -fx-background-color:#ffffff; -fx-text-fill:#0F172A; -fx-background-radius:6; -fx-cursor:hand; -fx-font-weight:600; -fx-border-color:#E2E8F0; -fx-border-radius:6;"/>
+            <StackPane>
+                <Button fx:id="saveButton" text="Guardar Utilizador" styleClass="btn-primary-ux"
+                        style="-fx-padding:9 22; -fx-font-size:13px; -fx-background-color:#2563EB; -fx-text-fill:white; -fx-font-weight:700; -fx-background-radius:6; -fx-cursor:hand;"/>
+                <ProgressIndicator fx:id="saveSpinner" visible="false" managed="false"
+                                   style="-fx-progress-color:white; -fx-max-width:22; -fx-max-height:22;"/>
+            </StackPane>
+        </HBox>
+    </VBox>
+</VBox>

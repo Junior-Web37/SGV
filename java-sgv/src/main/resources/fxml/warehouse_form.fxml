@@ -1,0 +1,86 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<?import javafx.scene.control.*?>
+<?import javafx.scene.layout.*?>
+<?import javafx.geometry.Insets?>
+<VBox fx:id="rootPane" xmlns="http://javafx.com/javafx/17" xmlns:fx="http://javafx.com/fxml/1"
+      fx:controller="com.sgv.desktop.WarehouseFormController"
+      spacing="0" styleClass="card-pane" style="-fx-padding:0; -fx-background-radius:10; -fx-background-color:#ffffff;"
+      prefWidth="620" prefHeight="540" stylesheets="@/styles/styles.css">
+
+    <!-- HEADER -->
+    <HBox alignment="CENTER_LEFT" spacing="14"
+          style="-fx-background-color: linear-gradient(to right, #1E3A8A, #1D4ED8, #1E40AF); -fx-padding:18 24; -fx-border-color:#1E293B; -fx-border-width:0 0 2 0; -fx-background-radius:10 10 0 0;">
+        <VBox spacing="3">
+            <Label text="🏢 Cadastro de Armazém Central / Depósito" style="-fx-font-size:18px; -fx-font-weight:800; -fx-text-fill:#ffffff;"/>
+            <Label text="Parametrização de centros de distribuição e abastecimento de lojas" style="-fx-font-size:12px; -fx-text-fill:#94A3B8;"/>
+        </VBox>
+        <Region HBox.hgrow="ALWAYS"/>
+        <CheckBox fx:id="activeCheck" text="Activo" selected="true"
+                  style="-fx-text-fill:#ffffff; -fx-font-size:12px; -fx-font-weight:700;"/>
+    </HBox>
+
+    <VBox spacing="16" style="-fx-padding:24; -fx-background-color:#ffffff; -fx-background-radius:0 0 10 10;">
+        <Label fx:id="errorLabel" visible="false" managed="false"
+               style="-fx-text-fill:#EF4444; -fx-font-size:12px; -fx-font-weight:700; -fx-background-color:#FEE2E2; -fx-background-radius:6; -fx-padding:8 12; -fx-border-color:#FCA5A5; -fx-border-width:1; -fx-border-radius:6;"/>
+
+        <GridPane hgap="14" vgap="12">
+            <columnConstraints>
+                <ColumnConstraints percentWidth="35"/>
+                <ColumnConstraints percentWidth="65"/>
+            </columnConstraints>
+            <children>
+                <VBox spacing="4" GridPane.columnIndex="0" GridPane.rowIndex="0">
+                    <Label text="Código do Armazém *" style="-fx-font-size:12px; -fx-font-weight:700; -fx-text-fill:#0F172A;"/>
+                    <TextField fx:id="codeField" promptText="Ex: ARM-01"
+                               style="-fx-font-size:13px; -fx-padding:8 12; -fx-background-radius:6; -fx-border-color:#CBD5E1; -fx-border-radius:6; -fx-background-color:#FFFFFF; -fx-text-fill:#0F172A;"/>
+                </VBox>
+                <VBox spacing="4" GridPane.columnIndex="1" GridPane.rowIndex="0">
+                    <Label text="Nome do Armazém *" style="-fx-font-size:12px; -fx-font-weight:700; -fx-text-fill:#0F172A;"/>
+                    <TextField fx:id="nameField" promptText="Ex: Armazém Central - Matola"
+                               style="-fx-font-size:13px; -fx-padding:8 12; -fx-background-radius:6; -fx-border-color:#CBD5E1; -fx-border-radius:6; -fx-background-color:#FFFFFF; -fx-text-fill:#0F172A;"/>
+                </VBox>
+            </children>
+        </GridPane>
+
+        <GridPane hgap="14" vgap="12">
+            <columnConstraints>
+                <ColumnConstraints percentWidth="50"/>
+                <ColumnConstraints percentWidth="50"/>
+            </columnConstraints>
+            <children>
+                <VBox spacing="4" GridPane.columnIndex="0" GridPane.rowIndex="0">
+                    <Label text="NUIT (9 dígitos)" style="-fx-font-size:12px; -fx-font-weight:700; -fx-text-fill:#0F172A;"/>
+                    <TextField fx:id="nuitField" promptText="Ex: 400123456"
+                               style="-fx-font-size:13px; -fx-padding:8 12; -fx-background-radius:6; -fx-border-color:#CBD5E1; -fx-border-radius:6; -fx-background-color:#FFFFFF; -fx-text-fill:#0F172A;"/>
+                </VBox>
+                <VBox spacing="4" GridPane.columnIndex="1" GridPane.rowIndex="0">
+                    <Label text="Telefone / Contacto" style="-fx-font-size:12px; -fx-font-weight:700; -fx-text-fill:#0F172A;"/>
+                    <TextField fx:id="contactField" promptText="Ex: +258 21 000 000"
+                               style="-fx-font-size:13px; -fx-padding:8 12; -fx-background-radius:6; -fx-border-color:#CBD5E1; -fx-border-radius:6; -fx-background-color:#FFFFFF; -fx-text-fill:#0F172A;"/>
+                </VBox>
+            </children>
+        </GridPane>
+
+        <VBox spacing="4">
+            <Label text="Endereço / Localização Física" style="-fx-font-size:12px; -fx-font-weight:700; -fx-text-fill:#0F172A;"/>
+            <TextField fx:id="addressField" promptText="Ex: Estrada Nacional Nº 4, Km 12, Matola"
+                       style="-fx-font-size:13px; -fx-padding:8 12; -fx-background-radius:6; -fx-border-color:#CBD5E1; -fx-border-radius:6; -fx-background-color:#FFFFFF; -fx-text-fill:#0F172A;"/>
+        </VBox>
+
+        <VBox spacing="4">
+            <Label text="Observações / Especificações de Armazenagem" style="-fx-font-size:12px; -fx-font-weight:700; -fx-text-fill:#0F172A;"/>
+            <TextArea fx:id="notesArea" prefRowCount="2" promptText="Ex: Depósito para secos e matérias-primas..."
+                      style="-fx-font-size:13px; -fx-padding:8 12; -fx-background-radius:6; -fx-border-color:#CBD5E1; -fx-border-radius:6; -fx-background-color:#FFFFFF; -fx-text-fill:#0F172A;"/>
+        </VBox>
+
+        <Separator style="-fx-opacity:0.2;"/>
+        <HBox spacing="12" alignment="CENTER_RIGHT" style="-fx-padding:8 0 0 0;">
+            <Button fx:id="cancelButton" text="Cancelar" styleClass="btn-secondary-ux"/>
+            <StackPane>
+                <Button fx:id="saveButton" text="✓ Guardar Armazém" styleClass="btn-primary-ux"/>
+                <ProgressIndicator fx:id="saveSpinner" visible="false" managed="false"
+                                   style="-fx-progress-color:white; -fx-max-width:20; -fx-max-height:20;"/>
+            </StackPane>
+        </HBox>
+    </VBox>
+</VBox>

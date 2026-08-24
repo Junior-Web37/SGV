@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<?import javafx.scene.layout.*?>
+<?import javafx.scene.control.*?>
+
+<VBox xmlns="http://javafx.com/javafx/17"
+      xmlns:fx="http://javafx.com/fxml/1"
+      fx:controller="com.sgv.desktop.ReportsController"
+      spacing="0"
+      style="-fx-background-color:#F8FAFC;"
+      VBox.vgrow="ALWAYS">
+
+    <!-- TabPane responsivo e com visual moderno integrado -->
+    <TabPane fx:id="reportsTabPane"
+             VBox.vgrow="ALWAYS"
+             tabClosingPolicy="UNAVAILABLE"
+             prefHeight="600"
+             style="-fx-tab-min-height:38; -fx-tab-max-height:38; -fx-background-color:#F8FAFC;"/>
+
+</VBox>

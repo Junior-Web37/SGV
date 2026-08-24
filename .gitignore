@@ -1,0 +1,39 @@
+node_modules/
+data/
+outputs/
+.env
+*.db
+.vscode/
+npm-debug.log
+
+# Java/Maven
+target/
+*.class
+*.jar
+*.iml
+.idea/
+
+# Exportações e cópias de segurança locais
+backups/
+
+# Pacotes de distribuição (publicados nas Releases do GitHub)
+dist/
+*.zip
+
+# Logs
+*.log
+*.gz
+hs_err_pid*.log
+replay_pid*.log
+app-crash.log
+test-output.txt
+temp-test-output.txt
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Editor files
+*.swp
+*.swo
+*~

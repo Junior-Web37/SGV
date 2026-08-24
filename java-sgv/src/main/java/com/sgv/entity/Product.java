@@ -1,0 +1,324 @@
+package com.sgv.entity;
+
+import jakarta.persistence.*;
+import java.math.BigDecimal;
+import java.math.RoundingMode;
+import java.time.LocalDateTime;
+
+@Entity
+@Table(name = "products")
+public class Product {
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Long id;
+
+    @Column(nullable = false, unique = true)
+    private String code;
+
+    @Column(nullable = false)
+    private String name;
+
+    /** Produto activo (pode ser vendido) ou inactivo (venda proibida) */
+    @Column(nullable = false)
+    private Boolean isActive = true;
+
+    @ManyToOne
+    @JoinColumn(name = "category_id")
+    private Category category;
+
+    @ManyToOne
+    @JoinColumn(name = "supplier_id")
+    private Supplier supplier;
+
+    private Boolean isService = false;
+    
+    @ManyToOne
+    @JoinColumn(name = "unit_id")
+    private MetricUnit unit;
+
+    @ManyToOne
+    @JoinColumn(name = "unit_bulk_id")
+    private MetricUnit unitBulk;
+    
+    @Column(name = "price_cost", precision = 19, scale = 4)
+    private BigDecimal priceCost = BigDecimal.ZERO;
+    @Column(name = "price_sale", precision = 19, scale = 4)
+    private BigDecimal priceSale = BigDecimal.ZERO;
+    @Column(name = "price_sale_bulk", precision = 19, scale = 4)
+    private BigDecimal priceSaleBulk = BigDecimal.ZERO;
+    @Column(name = "bulk_quantity", precision = 19, scale = 4)
+    private BigDecimal bulkQuantity = BigDecimal.ZERO;
+    @Column(name = "conversion_factor", precision = 19, scale = 8)
+    private BigDecimal conversionFactor = BigDecimal.ONE;
+    
+    /** Margem de lucro em percentagem (calculada: ((priceSale - priceCost) / priceCost) * 100) */
+    @Column(name = "profit_margin", precision = 19, scale = 4)
+    private BigDecimal profitMargin = BigDecimal.ZERO;
+    @Transient
+    private BigDecimal profitMarginAmount = BigDecimal.ZERO;
+    
+    @Column(name = "tax_rate", precision = 9, scale = 4)
+    private BigDecimal taxRate = BigDecimal.ZERO;      // IVA definido por produto (pode herdar da categoria)
+    @Column(name = "ice_rate", precision = 9, scale = 4)
+    private BigDecimal iceRate = BigDecimal.ZERO;      // ICE definido por produto (pode herdar da categoria)
+    
+    /** Taxa IVA padrão do sistema (usado se taxRate = 0) */
+    @Column(name = "default_tax_rate", precision = 9, scale = 4)
+    private BigDecimal defaultTaxRate = new BigDecimal("16.0000");
+    /** Taxa ICE padrão do sistema (usado se iceRate = 0) */
+    @Column(name = "default_ice_rate", precision = 9, scale = 4)
+    private BigDecimal defaultIceRate = BigDecimal.ZERO;
+    
+    private String expiryDate;
+    private String description;        // Descrição curta do produto
+    private String supplierReference;
+    private String entryDate;
+    private String exitDate;
+    private String location;
+    
+    /** Stock máximo permitido (para alertas) */
+    @Column(name = "stock_max", precision = 19, scale = 4)
+    private BigDecimal stockMax = BigDecimal.ZERO;
+    /** Stock mínimo (para alertas de reposição) */
+    @Column(name = "stock_min", precision = 19, scale = 4)
+    private BigDecimal stockMin = BigDecimal.ZERO;
+    
+    /** Comissão do vendedor para este produto (em %) */
+    @Column(name = "commission_percent", precision = 9, scale = 4)
+    private BigDecimal commissionPercent = BigDecimal.ZERO;
+    
+    /** Observações adicionais */
+    private String observations;
+    
+    private LocalDateTime lastMovementAt;
+
+    // ─── getters e setters ──────────────────────────────────────────────────
+    public Long getId() { return id; }
+    public void setId(Long id) { this.id = id; }
+    
+    public String getCode() { return code; }
+    public void setCode(String code) { this.code = code; }
+    
+    public String getName() { return name; }
+    public void setName(String name) { this.name = name; }
+    
+    public Boolean getIsActive() { return isActive; }
+    public void setIsActive(Boolean isActive) { this.isActive = isActive; }
+    /** @deprecated Usar {@link #getIsActive()} com Boolean.TRUE.equals() */
+    @Deprecated
+    public Boolean getActive() { return isActive != null && isActive; }
+    public void setActive(Boolean active) { isActive = active; }
+    
+    public Category getCategory() { return category; }
+    public void setCategory(Category category) { this.category = category; }
+    
+    public Supplier getSupplier() { return supplier; }
+    public void setSupplier(Supplier supplier) { this.supplier = supplier; }
+    
+    public Boolean getService() { return isService; }
+    public void setService(Boolean service) { isService = service; }
+    
+    public MetricUnit getUnit() { return unit; }
+    public void setUnit(MetricUnit unit) { this.unit = unit; }
+    
+    public MetricUnit getUnitBulk() { return unitBulk; }
+    public void setUnitBulk(MetricUnit unitBulk) { this.unitBulk = unitBulk; }
+    
+    public Double getPriceCost() { return priceCost != null ? priceCost.doubleValue() : 0.0; }
+    public void setPriceCost(Double priceCost) { this.priceCost = priceCost != null ? BigDecimal.valueOf(priceCost) : BigDecimal.ZERO; recalculateProfitMargin(); }
+    public BigDecimal getPriceCostAmount() { return priceCost; }
+    public void setPriceCostAmount(BigDecimal priceCost) { this.priceCost = priceCost; recalculateProfitMargin(); }
+    
+    public Double getPriceSale() { return priceSale != null ? priceSale.doubleValue() : 0.0; }
+    public void setPriceSale(Double priceSale) { this.priceSale = priceSale != null ? BigDecimal.valueOf(priceSale) : BigDecimal.ZERO; recalculateProfitMargin(); }
+    public BigDecimal getPriceSaleAmount() { return priceSale; }
+    public void setPriceSaleAmount(BigDecimal priceSale) { this.priceSale = priceSale; recalculateProfitMargin(); }
+    
+    public Double getPriceSaleBulk() { return priceSaleBulk != null ? priceSaleBulk.doubleValue() : 0.0; }
+    public void setPriceSaleBulk(Double priceSaleBulk) { this.priceSaleBulk = priceSaleBulk != null ? BigDecimal.valueOf(priceSaleBulk) : BigDecimal.ZERO; }
+    public BigDecimal getPriceSaleBulkAmount() { return priceSaleBulk; }
+    public void setPriceSaleBulkAmount(BigDecimal priceSaleBulk) { this.priceSaleBulk = priceSaleBulk; }
+    
+    private static BigDecimal toAmount(Double value) {
+        return value != null ? BigDecimal.valueOf(value) : BigDecimal.ZERO;
+    }
+
+    public Double getBulkQuantity() { return bulkQuantity != null ? bulkQuantity.doubleValue() : 0.0; }
+    public void setBulkQuantity(Double bulkQuantity) { this.bulkQuantity = toAmount(bulkQuantity); }
+    public BigDecimal getBulkQuantityAmount() { return bulkQuantity != null ? bulkQuantity : BigDecimal.ZERO; }
+    public void setBulkQuantityAmount(BigDecimal bulkQuantity) { this.bulkQuantity = bulkQuantity != null ? bulkQuantity : BigDecimal.ZERO; }
+    
+    public Double getConversionFactor() { return conversionFactor != null ? conversionFactor.doubleValue() : 1.0; }
+    public void setConversionFactor(Double conversionFactor) { this.conversionFactor = toAmount(conversionFactor); }
+    public BigDecimal getConversionFactorAmount() { return conversionFactor != null ? conversionFactor : BigDecimal.ONE; }
+    public void setConversionFactorAmount(BigDecimal conversionFactor) { this.conversionFactor = conversionFactor != null ? conversionFactor : BigDecimal.ONE; }
+    
+    public Double getProfitMargin() { return profitMargin != null ? profitMargin.doubleValue() : 0.0; }
+    public void setProfitMargin(Double profitMargin) {
+        this.profitMargin = toAmount(profitMargin);
+        this.profitMarginAmount = this.profitMargin.setScale(4, RoundingMode.HALF_UP);
+    }
+
+    public BigDecimal getProfitMarginAmount() {
+        return profitMarginAmount != null ? profitMarginAmount : BigDecimal.ZERO;
+    }
+
+    public void setProfitMarginAmount(BigDecimal profitMarginAmount) {
+        this.profitMarginAmount = profitMarginAmount != null
+                ? profitMarginAmount.setScale(4, RoundingMode.HALF_UP)
+                : BigDecimal.ZERO;
+        this.profitMargin = this.profitMarginAmount;
+    }
+    
+    /**
+     * Calcula e define a margem de lucro automaticamente.
+     * Fórmula: ((priceSale - priceCost) / priceCost) * 100
+     */
+    public void recalculateProfitMargin() {
+        if (priceCost != null && priceCost.compareTo(BigDecimal.ZERO) > 0 && priceSale != null) {
+            BigDecimal delta = priceSale.subtract(priceCost);
+            BigDecimal percentage = delta.divide(priceCost, 10, RoundingMode.HALF_UP)
+                    .multiply(BigDecimal.valueOf(100));
+            setProfitMarginAmount(percentage.setScale(4, RoundingMode.HALF_UP));
+        } else {
+            setProfitMarginAmount(BigDecimal.ZERO);
+        }
+    }
+    
+    /**
+     * Define o preço de venda com base na margem de lucro desejada.
+     * Fórmula: priceSale = priceCost * (1 + profitMargin/100)
+     */
+    public void calculatePriceFromMargin() {
+        BigDecimal margin = profitMarginAmount != null && profitMarginAmount.compareTo(BigDecimal.ZERO) != 0
+                ? profitMarginAmount
+                : (profitMargin != null ? profitMargin : BigDecimal.ZERO);
+
+        if (priceCost != null && priceCost.compareTo(BigDecimal.ZERO) > 0 && margin != null) {
+            BigDecimal percentFactor = margin.divide(BigDecimal.valueOf(100), 10, RoundingMode.HALF_UP);
+            this.priceSale = priceCost.multiply(BigDecimal.ONE.add(percentFactor))
+                    .setScale(4, RoundingMode.HALF_UP);
+            setProfitMarginAmount(margin.setScale(4, RoundingMode.HALF_UP));
+        }
+    }
+    
+    public Double getTaxRate() { return taxRate != null ? taxRate.doubleValue() : 0.0; }
+    public void setTaxRate(Double taxRate) { this.taxRate = toAmount(taxRate); }
+    public BigDecimal getTaxRateAmount() { return taxRate != null ? taxRate : BigDecimal.ZERO; }
+    public void setTaxRateAmount(BigDecimal taxRate) { this.taxRate = taxRate != null ? taxRate : BigDecimal.ZERO; }
+    
+    public Double getIceRate() { return iceRate != null ? iceRate.doubleValue() : 0.0; }
+    public void setIceRate(Double iceRate) { this.iceRate = toAmount(iceRate); }
+    public BigDecimal getIceRateAmount() { return iceRate != null ? iceRate : BigDecimal.ZERO; }
+    public void setIceRateAmount(BigDecimal iceRate) { this.iceRate = iceRate != null ? iceRate : BigDecimal.ZERO; }
+    
+    public Double getDefaultTaxRate() { return defaultTaxRate != null ? defaultTaxRate.doubleValue() : 16.0; }
+    public void setDefaultTaxRate(Double defaultTaxRate) { this.defaultTaxRate = toAmount(defaultTaxRate); }
+    public BigDecimal getDefaultTaxRateAmount() { return defaultTaxRate != null ? defaultTaxRate : new BigDecimal("16.0000"); }
+    public void setDefaultTaxRateAmount(BigDecimal defaultTaxRate) { this.defaultTaxRate = defaultTaxRate != null ? defaultTaxRate : new BigDecimal("16.0000"); }
+    
+    public Double getDefaultIceRate() { return defaultIceRate != null ? defaultIceRate.doubleValue() : 0.0; }
+    public void setDefaultIceRate(Double defaultIceRate) { this.defaultIceRate = toAmount(defaultIceRate); }
+    public BigDecimal getDefaultIceRateAmount() { return defaultIceRate != null ? defaultIceRate : BigDecimal.ZERO; }
+    public void setDefaultIceRateAmount(BigDecimal defaultIceRate) { this.defaultIceRate = defaultIceRate != null ? defaultIceRate : BigDecimal.ZERO; }
+    
+    /**
+     * Retorna a taxa IVA efectiva: do produto ou o padrão do sistema.
+     */
+    public Double getEffectiveTaxRate() {
+        if (taxRate != null && taxRate.compareTo(BigDecimal.ZERO) > 0) return taxRate.doubleValue();
+        return getDefaultTaxRate();
+    }
+    
+    /**
+     * Retorna a taxa ICE efectiva: do produto ou o padrão do sistema.
+     */
+    public Double getEffectiveIceRate() {
+        if (iceRate != null && iceRate.compareTo(BigDecimal.ZERO) > 0) return iceRate.doubleValue();
+        return getDefaultIceRate();
+    }
+    
+    public String getExpiryDate() { return expiryDate; }
+    public void setExpiryDate(String expiryDate) { this.expiryDate = expiryDate; }
+    
+    public String getDescription() { return description; }
+    public void setDescription(String description) { this.description = description; }
+    
+    public String getSupplierReference() { return supplierReference; }
+    public void setSupplierReference(String supplierReference) { this.supplierReference = supplierReference; }
+    
+    public String getEntryDate() { return entryDate; }
+    public void setEntryDate(String entryDate) { this.entryDate = entryDate; }
+    
+    public String getExitDate() { return exitDate; }
+    public void setExitDate(String exitDate) { this.exitDate = exitDate; }
+    
+    public String getLocation() { return location; }
+    public void setLocation(String location) { this.location = location; }
+    
+    public Double getStockMax() { return stockMax != null ? stockMax.doubleValue() : 0.0; }
+    public void setStockMax(Double stockMax) { this.stockMax = toAmount(stockMax); }
+    public BigDecimal getStockMaxAmount() { return stockMax != null ? stockMax : BigDecimal.ZERO; }
+    public void setStockMaxAmount(BigDecimal stockMax) { this.stockMax = stockMax != null ? stockMax : BigDecimal.ZERO; }
+    
+    public Double getStockMin() { return stockMin != null ? stockMin.doubleValue() : 0.0; }
+    public void setStockMin(Double stockMin) { this.stockMin = toAmount(stockMin); }
+    public BigDecimal getStockMinAmount() { return stockMin != null ? stockMin : BigDecimal.ZERO; }
+    public void setStockMinAmount(BigDecimal stockMin) { this.stockMin = stockMin != null ? stockMin : BigDecimal.ZERO; }
+    
+    public Double getCommissionPercent() { return commissionPercent != null ? commissionPercent.doubleValue() : 0.0; }
+    public void setCommissionPercent(Double commissionPercent) { this.commissionPercent = toAmount(commissionPercent); }
+    public BigDecimal getCommissionPercentAmount() { return commissionPercent != null ? commissionPercent : BigDecimal.ZERO; }
+    public void setCommissionPercentAmount(BigDecimal commissionPercent) { this.commissionPercent = commissionPercent != null ? commissionPercent : BigDecimal.ZERO; }
+    
+    public String getObservations() { return observations; }
+    public void setObservations(String observations) { this.observations = observations; }
+    
+    public LocalDateTime getLastMovementAt() { return lastMovementAt; }
+    public void setLastMovementAt(LocalDateTime lastMovementAt) { this.lastMovementAt = lastMovementAt; }
+    
+    // ─── Utilitários ───────────────────────────────────────────────────────
+    
+    /**
+     * Gera o prefixo do código: 3 primeiras letras do nome (maiúsculas, sem acentos).
+     * Ex: "Água Mineral" → "AGU", "Arroz" → "ARR", "Milho" → "MIL"
+     */
+    public static String generatePrefix(String name) {
+        if (name == null || name.isBlank()) return "PRO";
+        String cleaned = name.toUpperCase()
+                .replaceAll("[ÀÁÂÃÄÅ]", "A")
+                .replaceAll("[ÈÉÊË]", "E")
+                .replaceAll("[ÌÍÎÏ]", "I")
+                .replaceAll("[ÒÓÔÕÖ]", "O")
+                .replaceAll("[ÙÚÛÜ]", "U")
+                .replaceAll("[Ç]", "C")
+                .replaceAll("[Ñ]", "N")
+                .replaceAll("[^A-Z0-9]", "");
+        String prefix = cleaned.length() >= 3 ? cleaned.substring(0, 3) : cleaned;
+        if (prefix.length() < 3) prefix = String.format("%-3s", prefix).replace(' ', 'X');
+        return prefix;
+    }
+
+    /**
+     * Gera código sequencial: prefixo + número de 5 dígitos.
+     * Ex: "Água Mineral" (produto #1) → "AGU-00001"
+     */
+    public static String generateCode(String prefix, long seqNumber) {
+        return prefix + "-" + String.format("%05d", seqNumber);
+    }
+    
+    /**
+     * Verifica se o produto pode ser vendido.
+     * Produtos inactivos (isActive = false) não podem ser vendidos.
+     */
+    public boolean canBeSold() {
+        return Boolean.TRUE.equals(isActive);
+    }
+
+    @Override
+    public String toString() {
+        if (name == null) return "Produto";
+        String status = Boolean.TRUE.equals(isActive) ? "" : " [INACTIVO]";
+        return code != null ? code + " — " + name + status : name + status;
+    }
+}

@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<?import javafx.scene.control.*?>
+<?import javafx.scene.layout.*?>
+<?import javafx.geometry.Insets?>
+<VBox fx:id="rootPane" spacing="0" styleClass="card-pane" style="-fx-padding: 0; -fx-background-radius: 10; -fx-background-color: #ffffff;"
+      xmlns="http://javafx.com/javafx/17" xmlns:fx="http://javafx.com/fxml/1"
+      fx:controller="com.sgv.desktop.CategoryFormController"
+      prefWidth="520" prefHeight="320" stylesheets="@/styles/styles.css">
+
+    <HBox alignment="CENTER_LEFT" spacing="14"
+          style="-fx-background-color: linear-gradient(to right, #1E3A8A, #1D4ED8, #1E40AF); -fx-padding: 18 24; -fx-border-color: #1E293B; -fx-border-width: 0 0 2 0; -fx-background-radius: 10 10 0 0;">
+        <VBox spacing="3">
+            <Label text="📑 Categoria / Família de Artigos" style="-fx-font-size: 18px; -fx-font-weight: 800; -fx-text-fill: #ffffff;"/>
+            <Label text="Agrupamento para catálogo de vendas e relatórios fiscais" style="-fx-font-size: 12px; -fx-text-fill: #94A3B8;"/>
+        </VBox>
+    </HBox>
+
+    <VBox spacing="18" style="-fx-padding: 24; -fx-background-color: #ffffff; -fx-background-radius: 0 0 10 10;">
+        <Label fx:id="errorLabel" textFill="#EF4444" style="-fx-font-size: 12px; -fx-font-weight: 700; -fx-background-color: #FEE2E2; -fx-background-radius: 6; -fx-padding: 8 12; -fx-border-color: #FCA5A5; -fx-border-width: 1; -fx-border-radius: 6;" managed="false" visible="false"/>
+
+        <VBox spacing="6">
+            <Label text="Nome da Categoria / Família *" style="-fx-font-weight: 700; -fx-text-fill: #0F172A; -fx-font-size: 13px;"/>
+            <TextField fx:id="nameField" promptText="Ex: Bebidas &amp; Refrigerantes"
+                       style="-fx-padding: 10 14; -fx-background-radius: 6; -fx-border-color: #CBD5E1; -fx-border-radius: 6; -fx-background-color: #FFFFFF; -fx-text-fill: #0F172A; -fx-font-size: 13px;"/>
+        </VBox>
+
+        <Separator style="-fx-opacity: 0.2;"/>
+        <HBox spacing="12" alignment="CENTER_RIGHT" style="-fx-padding: 8 0 0 0;">
+            <Button fx:id="cancelButton" text="Cancelar" styleClass="btn-secondary-ux"/>
+            <StackPane>
+                <Button fx:id="saveButton" text="✓ Guardar Categoria" styleClass="btn-primary-ux"/>
+                <ProgressIndicator fx:id="saveSpinner" visible="false" managed="false"
+                                   style="-fx-progress-color:white; -fx-max-width:20; -fx-max-height:20;"/>
+            </StackPane>
+        </HBox>
+    </VBox>
+</VBox>

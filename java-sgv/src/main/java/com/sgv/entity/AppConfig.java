@@ -1,0 +1,198 @@
+package com.sgv.entity;
+
+import jakarta.persistence.*;
+import java.math.BigDecimal;
+import java.time.LocalDateTime;
+
+/**
+ * Configuração global da aplicação (uma única linha com id=1).
+ * Usada pelo wizard de configuração inicial e para flags da AT.
+ */
+@Entity
+@Table(name = "app_config")
+public class AppConfig {
+
+    @Id
+    private Long id = 1L;
+
+    // ─── Dados da Empresa (obrigatórios para conformidade AT) ──────────────
+    private String companyName;
+    private String companyNuit;
+    private String companyAddress;
+    private String companyPhone;
+    private String companyEmail;
+    private String companyWebsite;
+
+    // ─── Certificação AT ──────────────────────────────────────────────────────
+    private String softwareCertNumber;
+    private String licenseNumber;
+
+    // ─── Configurações operacionais ───────────────────────────────────────────
+    /** Série inicial (ex: "A") */
+    private String defaultSeries = "A";
+    /** Taxa IVA padrão do sistema (ex: 16.0 para Moçambique) */
+    @Column(name = "default_tax_rate", precision = 9, scale = 4)
+    private BigDecimal defaultTaxRate = new BigDecimal("16.0000");
+    /** Taxa ICE padrão do sistema (ex: 0.0) */
+    @Column(name = "default_ice_rate", precision = 9, scale = 4)
+    private BigDecimal defaultIceRate = BigDecimal.ZERO;
+    /** Número inicial da série (ex: 1) */
+    private Long initialDocumentNumber = 1L;
+    /** Moeda padrão */
+    private String defaultCurrency = "MZN";
+    /** NUIT para consumidor final */
+    private String consumerFinalNuit = "999999999";
+    /** Percentagem para alerta de stock mínimo (ex: 20 = alerta quando stock < 20%) */
+    @Column(name = "stock_min_alert_percent", precision = 9, scale = 4)
+    private BigDecimal stockMinAlertPercent = new BigDecimal("20.0000");
+    /** Desconto máximo permitido (%) */
+    @Column(name = "max_discount_percent", precision = 9, scale = 4)
+    private BigDecimal maxDiscountPercent = new BigDecimal("10.0000");
+
+    // ─── Flags de funcionalidade ───────────────────────────────────────────────
+    private Boolean demoMode = false;
+    private Boolean autoBackupEnabled = true;
+    private Boolean offlineModeEnabled = true;
+    private Boolean duplicateDetectionEnabled = true;
+    /** Janela em segundos para detecção de duplicação */
+    private Integer duplicateWindowSeconds = 60;
+
+    // ─── Canais de envio de recibo ─────────────────────────────────────────────
+    private String whatsappApiKey;
+    private String whatsappPhoneNumber;
+    private String smsApiKey;
+    private String smsSender;
+
+    // ─── Impressora térmica ────────────────────────────────────────────────────
+    private String thermalPrinterName;
+    private Integer thermalPrinterWidth = 80;
+
+    // ─── Taxa de câmbio ─────────────────────────────────────────────────────────
+    @Column(name = "exchange_rate", precision = 19, scale = 4)
+    private BigDecimal exchangeRate = new BigDecimal("74.0000");
+
+    // ─── Agendamento de backups ─────────────────────────────────────────────────
+    private String backupFrequency = "Diario";
+    private String backupHour = "02:00";
+    private Integer backupRetentionDays = 30;
+
+    // ─── Auditoria ─────────────────────────────────────────────────────────────
+    private Boolean setupCompleted = false;
+    private LocalDateTime setupCompletedAt;
+    private LocalDateTime createdAt = LocalDateTime.now();
+    private LocalDateTime updatedAt = LocalDateTime.now();
+
+    // ─── Licenciamento ────────────────────────────────────────────────────────
+    private String licenseKey;
+    private String licenseType;
+    private String licenseExpiry;
+    private LocalDateTime licenseActivatedAt;
+
+    @PreUpdate
+    public void preUpdate() {
+        this.updatedAt = LocalDateTime.now();
+    }
+
+    public Long getId() { return id; }
+    public void setId(Long id) { this.id = id; }
+    public String getCompanyName() { return companyName; }
+    public void setCompanyName(String companyName) { this.companyName = companyName; }
+    public String getCompanyNuit() { return companyNuit; }
+    public void setCompanyNuit(String companyNuit) { this.companyNuit = companyNuit; }
+    public String getCompanyAddress() { return companyAddress; }
+    public void setCompanyAddress(String companyAddress) { this.companyAddress = companyAddress; }
+    public String getCompanyPhone() { return companyPhone; }
+    public void setCompanyPhone(String companyPhone) { this.companyPhone = companyPhone; }
+    public String getCompanyEmail() { return companyEmail; }
+    public void setCompanyEmail(String companyEmail) { this.companyEmail = companyEmail; }
+    public String getCompanyWebsite() { return companyWebsite; }
+    public void setCompanyWebsite(String companyWebsite) { this.companyWebsite = companyWebsite; }
+    public String getSoftwareCertNumber() { return softwareCertNumber; }
+    public void setSoftwareCertNumber(String softwareCertNumber) { this.softwareCertNumber = softwareCertNumber; }
+    public String getLicenseNumber() { return licenseNumber; }
+    public void setLicenseNumber(String licenseNumber) { this.licenseNumber = licenseNumber; }
+    public String getDefaultSeries() { return defaultSeries; }
+    public void setDefaultSeries(String defaultSeries) { this.defaultSeries = defaultSeries; }
+    private static BigDecimal toPercent(Double value) {
+        return value != null ? BigDecimal.valueOf(value) : BigDecimal.ZERO;
+    }
+
+    public Double getDefaultTaxRate() { return defaultTaxRate != null ? defaultTaxRate.doubleValue() : 16.0; }
+    public void setDefaultTaxRate(Double defaultTaxRate) { this.defaultTaxRate = toPercent(defaultTaxRate); }
+    public BigDecimal getDefaultTaxRateAmount() { return defaultTaxRate != null ? defaultTaxRate : new BigDecimal("16.0000"); }
+    public void setDefaultTaxRateAmount(BigDecimal defaultTaxRate) { this.defaultTaxRate = defaultTaxRate != null ? defaultTaxRate : new BigDecimal("16.0000"); }
+    public Double getDefaultIceRate() { return defaultIceRate != null ? defaultIceRate.doubleValue() : 0.0; }
+    public void setDefaultIceRate(Double defaultIceRate) { this.defaultIceRate = toPercent(defaultIceRate); }
+    public BigDecimal getDefaultIceRateAmount() { return defaultIceRate != null ? defaultIceRate : BigDecimal.ZERO; }
+    public void setDefaultIceRateAmount(BigDecimal defaultIceRate) { this.defaultIceRate = defaultIceRate != null ? defaultIceRate : BigDecimal.ZERO; }
+    public Long getInitialDocumentNumber() { return initialDocumentNumber; }
+    public void setInitialDocumentNumber(Long initialDocumentNumber) { this.initialDocumentNumber = initialDocumentNumber; }
+    public String getDefaultCurrency() { return defaultCurrency; }
+    public void setDefaultCurrency(String defaultCurrency) { this.defaultCurrency = defaultCurrency; }
+    public String getConsumerFinalNuit() { return consumerFinalNuit; }
+    public void setConsumerFinalNuit(String consumerFinalNuit) { this.consumerFinalNuit = consumerFinalNuit; }
+    public Boolean getDemoMode() { return demoMode; }
+    public void setDemoMode(Boolean demoMode) { this.demoMode = demoMode; }
+    public Boolean getAutoBackupEnabled() { return autoBackupEnabled; }
+    public void setAutoBackupEnabled(Boolean autoBackupEnabled) { this.autoBackupEnabled = autoBackupEnabled; }
+    public Boolean getOfflineModeEnabled() { return offlineModeEnabled; }
+    public void setOfflineModeEnabled(Boolean offlineModeEnabled) { this.offlineModeEnabled = offlineModeEnabled; }
+    public Boolean getDuplicateDetectionEnabled() { return duplicateDetectionEnabled; }
+    public void setDuplicateDetectionEnabled(Boolean duplicateDetectionEnabled) { this.duplicateDetectionEnabled = duplicateDetectionEnabled; }
+    public Integer getDuplicateWindowSeconds() { return duplicateWindowSeconds; }
+    public void setDuplicateWindowSeconds(Integer duplicateWindowSeconds) { this.duplicateWindowSeconds = duplicateWindowSeconds; }
+    public String getWhatsappApiKey() { return whatsappApiKey; }
+    public void setWhatsappApiKey(String whatsappApiKey) { this.whatsappApiKey = whatsappApiKey; }
+    public String getWhatsappPhoneNumber() { return whatsappPhoneNumber; }
+    public void setWhatsappPhoneNumber(String whatsappPhoneNumber) { this.whatsappPhoneNumber = whatsappPhoneNumber; }
+    public String getSmsApiKey() { return smsApiKey; }
+    public void setSmsApiKey(String smsApiKey) { this.smsApiKey = smsApiKey; }
+    public String getSmsSender() { return smsSender; }
+    public void setSmsSender(String smsSender) { this.smsSender = smsSender; }
+    public String getThermalPrinterName() { return thermalPrinterName; }
+    public void setThermalPrinterName(String thermalPrinterName) { this.thermalPrinterName = thermalPrinterName; }
+    public Integer getThermalPrinterWidth() { return thermalPrinterWidth; }
+    public void setThermalPrinterWidth(Integer thermalPrinterWidth) { this.thermalPrinterWidth = thermalPrinterWidth; }
+    public Boolean getSetupCompleted() { return setupCompleted; }
+    public void setSetupCompleted(Boolean setupCompleted) { this.setupCompleted = setupCompleted; }
+    public LocalDateTime getSetupCompletedAt() { return setupCompletedAt; }
+    public void setSetupCompletedAt(LocalDateTime setupCompletedAt) { this.setupCompletedAt = setupCompletedAt; }
+    public LocalDateTime getCreatedAt() { return createdAt; }
+    public void setCreatedAt(LocalDateTime createdAt) { this.createdAt = createdAt; }
+    public LocalDateTime getUpdatedAt() { return updatedAt; }
+    public void setUpdatedAt(LocalDateTime updatedAt) { this.updatedAt = updatedAt; }
+    
+    // ─── Operacionais: Stock e Desconto ─────────────────────────────────────
+    public Double getStockMinAlertPercent() { return stockMinAlertPercent != null ? stockMinAlertPercent.doubleValue() : 20.0; }
+    public void setStockMinAlertPercent(Double stockMinAlertPercent) { this.stockMinAlertPercent = toPercent(stockMinAlertPercent); }
+    public BigDecimal getStockMinAlertPercentAmount() { return stockMinAlertPercent != null ? stockMinAlertPercent : new BigDecimal("20.0000"); }
+    public void setStockMinAlertPercentAmount(BigDecimal stockMinAlertPercent) { this.stockMinAlertPercent = stockMinAlertPercent != null ? stockMinAlertPercent : new BigDecimal("20.0000"); }
+    
+    public Double getMaxDiscountPercent() { return maxDiscountPercent != null ? maxDiscountPercent.doubleValue() : 10.0; }
+    public void setMaxDiscountPercent(Double maxDiscountPercent) { this.maxDiscountPercent = toPercent(maxDiscountPercent); }
+    public BigDecimal getMaxDiscountPercentAmount() { return maxDiscountPercent != null ? maxDiscountPercent : new BigDecimal("10.0000"); }
+    public void setMaxDiscountPercentAmount(BigDecimal maxDiscountPercent) { this.maxDiscountPercent = maxDiscountPercent != null ? maxDiscountPercent : new BigDecimal("10.0000"); }
+    
+    public Double getExchangeRate() { return exchangeRate != null ? exchangeRate.doubleValue() : 74.0; }
+    public void setExchangeRate(Double exchangeRate) { this.exchangeRate = toPercent(exchangeRate); }
+    public BigDecimal getExchangeRateAmount() { return exchangeRate != null ? exchangeRate : new BigDecimal("74.0000"); }
+    public void setExchangeRateAmount(BigDecimal exchangeRate) { this.exchangeRate = exchangeRate != null ? exchangeRate : new BigDecimal("74.0000"); }
+    
+    public String getBackupFrequency() { return backupFrequency; }
+    public void setBackupFrequency(String backupFrequency) { this.backupFrequency = backupFrequency; }
+    
+    public String getBackupHour() { return backupHour; }
+    public void setBackupHour(String backupHour) { this.backupHour = backupHour; }
+    
+    public Integer getBackupRetentionDays() { return backupRetentionDays; }
+    public void setBackupRetentionDays(Integer backupRetentionDays) { this.backupRetentionDays = backupRetentionDays; }
+    
+    public String getLicenseKey() { return licenseKey; }
+    public void setLicenseKey(String licenseKey) { this.licenseKey = licenseKey; }
+    public String getLicenseType() { return licenseType; }
+    public void setLicenseType(String licenseType) { this.licenseType = licenseType; }
+    public String getLicenseExpiry() { return licenseExpiry; }
+    public void setLicenseExpiry(String licenseExpiry) { this.licenseExpiry = licenseExpiry; }
+    public LocalDateTime getLicenseActivatedAt() { return licenseActivatedAt; }
+    public void setLicenseActivatedAt(LocalDateTime licenseActivatedAt) { this.licenseActivatedAt = licenseActivatedAt; }
+}

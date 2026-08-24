@@ -1,0 +1,53 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<?import javafx.scene.control.*?>
+<?import javafx.scene.layout.*?>
+<?import javafx.geometry.Insets?>
+<VBox fx:id="rootPane" xmlns="http://javafx.com/javafx/17" xmlns:fx="http://javafx.com/fxml/1"
+      fx:controller="com.sgv.desktop.OpenSessionFormController"
+      spacing="0" styleClass="card-pane" style="-fx-padding:0; -fx-background-radius:10; -fx-background-color:#ffffff;"
+      prefWidth="540" prefHeight="420" stylesheets="@/styles/styles.css">
+
+        <HBox alignment="CENTER_LEFT" spacing="14"
+              style="-fx-background-color: linear-gradient(to right, #1E3A8A, #1D4ED8, #1E40AF); -fx-padding:18 24; -fx-border-color:#1E293B; -fx-border-width:0 0 2 0; -fx-background-radius:10 10 0 0;">
+            <VBox spacing="3">
+                <Label text="💼 Abertura de Caixa &amp; Fundo de Maneio" style="-fx-font-size:18px; -fx-font-weight:800; -fx-text-fill:#ffffff;"/>
+                <Label text="Iniciar novo turno de vendas no balcão" style="-fx-font-size:12px; -fx-text-fill:#94A3B8;"/>
+            </VBox>
+        </HBox>
+
+        <VBox spacing="18" style="-fx-padding:24; -fx-background-color:#ffffff; -fx-background-radius:0 0 10 10;">
+            <!-- Painel de Operador e Filial -->
+            <HBox spacing="16" alignment="CENTER_LEFT"
+                  style="-fx-background-color:#F8FAFC; -fx-padding:12 16; -fx-background-radius:8; -fx-border-color:#E2E8F0; -fx-border-width:1; -fx-border-radius:8;">
+                <VBox spacing="2" HBox.hgrow="ALWAYS">
+                    <Label text="OPERADOR" style="-fx-font-size:10px; -fx-font-weight:800; -fx-text-fill:#64748B;"/>
+                    <Label fx:id="operatorLabel" text="—" style="-fx-font-size:14px; -fx-font-weight:800; -fx-text-fill:#0F172A;"/>
+                </VBox>
+                <Separator orientation="VERTICAL"/>
+                <VBox spacing="2" HBox.hgrow="ALWAYS">
+                    <Label text="ESTABELECIMENTO / FILIAL" style="-fx-font-size:10px; -fx-font-weight:800; -fx-text-fill:#64748B;"/>
+                    <Label fx:id="branchLabel" text="—" style="-fx-font-size:14px; -fx-font-weight:800; -fx-text-fill:#0F172A;"/>
+                </VBox>
+            </HBox>
+
+            <Label fx:id="errorLabel" text=""
+                   style="-fx-text-fill:#EF4444; -fx-font-size:12px; -fx-font-weight:700; -fx-background-color:#FEE2E2; -fx-background-radius:6; -fx-padding:8 12; -fx-border-color:#FCA5A5; -fx-border-width:1; -fx-border-radius:6;"
+                   managed="false" visible="false"/>
+
+            <VBox spacing="6">
+                <Label text="Fundo de Maneio Inicial (MT) *" style="-fx-font-weight:700; -fx-text-fill:#0F172A; -fx-font-size:13px;"/>
+                <TextField fx:id="initialValueField" promptText="0.00"
+                           style="-fx-padding:10 14; -fx-background-radius:6; -fx-border-color:#10B981; -fx-border-radius:6; -fx-font-size:18px; -fx-font-weight:800; -fx-text-fill:#15803D; -fx-background-color:#FFFFFF;"/>
+            </VBox>
+
+            <Separator style="-fx-opacity:0.2;"/>
+            <HBox spacing="12" alignment="CENTER_RIGHT">
+                <Button fx:id="cancelButton" text="Cancelar" styleClass="btn-secondary-ux"/>
+                <StackPane>
+                    <Button fx:id="saveButton" text="✓ Abrir Caixa" styleClass="btn-success-ux"/>
+                    <ProgressIndicator fx:id="saveSpinner" visible="false" managed="false"
+                                       style="-fx-progress-color:white; -fx-max-width:20; -fx-max-height:20;"/>
+                </StackPane>
+            </HBox>
+        </VBox>
+    </VBox>

@@ -1,0 +1,16 @@
+# Ignore build artifacts and IDE files in Docker build context
+# This file is in java-sgv/ (the Docker build context root)
+target/
+*.class
+*.log
+.git/
+.gitignore
+*.md
+!.mvn/wrapper/maven-wrapper.jar
+node_modules/
+.idea/
+*.iml
+.DS_Store
+Thumbs.db
+backups/
+data/

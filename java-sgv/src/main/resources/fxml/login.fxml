@@ -1,0 +1,67 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<?import javafx.scene.control.*?>
+<?import javafx.scene.layout.*?>
+<?import javafx.geometry.Insets?>
+
+<StackPane xmlns="http://javafx.com/javafx/17" xmlns:fx="http://javafx.com/fxml/1"
+           fx:controller="com.sgv.desktop.LoginController"
+           style="-fx-background-color: linear-gradient(from 0% 0% to 100% 100%, #090E17, #0F172A, #172554);">
+
+    <VBox alignment="CENTER" spacing="16" style="-fx-padding: 30;">
+        
+        <!-- CARD DE LOGIN COM EFEITO ELEVADO -->
+        <VBox alignment="CENTER" spacing="22" maxWidth="420"
+              style="-fx-background-color: linear-gradient(to right, #1E3A8A, #1D4ED8, #1E40AF); -fx-background-radius: 16; -fx-padding: 40 36; -fx-border-color: #1E293B; -fx-border-width: 1.5; -fx-border-radius: 16; -fx-effect: dropshadow(gaussian, rgba(0,0,0,0.6), 25, 0.2, 0, 8);">
+
+            <!-- CABEÇALHO DO CARD -->
+            <VBox alignment="CENTER" spacing="6">
+                <HBox alignment="CENTER" spacing="8">
+                    <Label text="⚡" style="-fx-font-size: 28px; -fx-text-fill: #38BDF8;"/>
+                    <Label text="SGV" style="-fx-font-size: 38px; -fx-font-weight: 900; -fx-text-fill: #FFFFFF; -fx-font-family: 'Segoe UI', sans-serif;"/>
+                </HBox>
+                <Label text="SISTEMA DE GESTÃO DE VENDAS &amp; FACTURAÇÃO"
+                       style="-fx-font-size: 10px; -fx-font-weight: 800; -fx-text-fill: #38BDF8;"/>
+                <Label text="Aceda com as suas credenciais para iniciar o turno"
+                       style="-fx-font-size: 12px; -fx-text-fill: #94A3B8; -fx-padding: 4 0 0 0;"/>
+            </VBox>
+
+            <!-- LABEL DE ERRO DINÂMICO -->
+            <Label fx:id="errorLabel" text=""
+                   style="-fx-text-fill: #FCA5A5; -fx-font-size: 12px; -fx-font-weight: 700; -fx-background-color: #450A0A; -fx-background-radius: 6; -fx-padding: 8 14; -fx-border-color: #EF4444; -fx-border-width: 1; -fx-border-radius: 6; -fx-max-width: Infinity; -fx-alignment: center;"
+                   managed="false" visible="false"/>
+
+            <!-- FORMULÁRIO -->
+            <VBox spacing="14" maxWidth="Infinity">
+                <VBox spacing="6">
+                    <Label text="👤  Nome de Utilizador / Login"
+                           style="-fx-font-weight: 700; -fx-text-fill: #E2E8F0; -fx-font-size: 12px;"/>
+                    <TextField fx:id="usernameField" promptText="Ex: admin ou caixa1"
+                               style="-fx-padding: 10 14; -fx-background-radius: 6; -fx-border-color: #334155; -fx-border-radius: 6; -fx-font-size: 13px; -fx-font-weight: 600; -fx-background-color: #1E293B; -fx-text-fill: #FFFFFF; -fx-prompt-text-fill: #64748B;"/>
+                </VBox>
+
+                <VBox spacing="6">
+                    <Label text="🔒  Palavra-passe"
+                           style="-fx-font-weight: 700; -fx-text-fill: #E2E8F0; -fx-font-size: 12px;"/>
+                    <PasswordField fx:id="passwordField" promptText="Introduza a sua senha"
+                                   style="-fx-padding: 10 14; -fx-background-radius: 6; -fx-border-color: #334155; -fx-border-radius: 6; -fx-font-size: 13px; -fx-font-weight: 600; -fx-background-color: #1E293B; -fx-text-fill: #FFFFFF; -fx-prompt-text-fill: #64748B;"/>
+                </VBox>
+            </VBox>
+
+            <!-- BOTÃO DE LOGIN -->
+            <VBox spacing="8" maxWidth="Infinity">
+                <Button fx:id="loginButton" text="ENTRAR NO SISTEMA"
+                        style="-fx-background-color: linear-gradient(to right, #2563EB, #1D4ED8); -fx-text-fill: white; -fx-font-weight: 800; -fx-font-size: 13px; -fx-padding: 12 0; -fx-background-radius: 6; -fx-max-width: Infinity; -fx-cursor: hand; -fx-effect: dropshadow(gaussian, rgba(37,99,235,0.35), 8, 0, 0, 2);"/>
+            </VBox>
+
+            <!-- DADOS DE CONFORMIDADE -->
+            <HBox spacing="8" alignment="CENTER">
+                <Label text="🔒 Certificado Fiscal AT" style="-fx-font-size: 10px; -fx-font-weight: 700; -fx-text-fill: #38BDF8; -fx-background-color: #1E293B; -fx-padding: 3 8; -fx-background-radius: 10;"/>
+                <Label text="🇲🇿 Moçambique (CIVA 16%)" style="-fx-font-size: 10px; -fx-font-weight: 700; -fx-text-fill: #94A3B8; -fx-background-color: #1E293B; -fx-padding: 3 8; -fx-background-radius: 10;"/>
+            </HBox>
+        </VBox>
+
+        <!-- RODAPÉ -->
+        <Label text="© 2026 SGV Enterprise • Sistema de Gestão Comercial 100% Offline"
+               style="-fx-text-fill: #64748B; -fx-font-size: 11px; -fx-font-weight: 600;"/>
+    </VBox>
+</StackPane>
