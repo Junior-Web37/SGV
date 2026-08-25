@@ -35,7 +35,6 @@ public class ReportsController {
     /** Registo único dos relatórios disponíveis — alimenta o menu superior e a navegação. */
     public static final List<ReportDef> REPORTS = List.of(
             new ReportDef("vendas",         "📊", "Mapa de Vendas",      "Mapa Geral de Vendas",          "Consolidação de vendas por período, loja e indicadores de desempenho", "mapa_vendas"),
-            new ReportDef("reposicao",      "⚠️", "Artigos em Falta",    "Artigos para Reposição",        "Produtos esgotados ou abaixo do stock mínimo por filial",             "artigos_reposicao"),
             new ReportDef("maisvendidos",   "🔥", "Mais Vendidos",       "Artigos Mais Vendidos",         "Ranking de produtos por quantidade vendida e receita gerada",         "mais_vendidos"),
             new ReportDef("iva",            "🏛️", "Apuramento IVA",     "Apuramento de IVA (16%)",       "Modelo 19 — base tributável, isenta e IVA liquidado do período",     "apuramento_iva"),
             new ReportDef("devedores",      "👥", "Contas Correntes",    "Contas Correntes / Devedores",  "Contas a receber com antiguidade de saldo (aging 30/60/90 dias)",    "contas_correntes"),
@@ -152,7 +151,6 @@ public class ReportsController {
     public Node buildReport(String key) {
         return switch (key) {
             case "vendas"         -> buildVendasContent();
-            case "reposicao"      -> buildProdutosEmFaltaContent();
             case "maisvendidos"   -> buildMaisVendidosContent();
             case "iva"            -> buildIvaContent();
             case "devedores"      -> buildAccountsReceivableContent();
@@ -336,88 +334,6 @@ public class ReportsController {
         daily.forEach((d, v) -> series.getData().add(new XYChart.Data<>(
                 d.format(DateTimeFormatter.ofPattern("dd/MM")), v)));
         vendasChart.getData().setAll(List.of(series));
-    }
-
-    // ── MAPA 2: PRODUTOS EM FALTA ─────────────────────
-
-    public ScrollPane buildProdutosEmFaltaContent() {
-
-        ScrollPane sp = new ScrollPane();
-        sp.setFitToWidth(true);
-        sp.setStyle("-fx-background:#F8FAFC;");
-
-        VBox content = new VBox(16);
-        content.setStyle("-fx-padding:20;");
-        content.setMaxWidth(1100);
-
-        TableView<LowStockRow> table = new TableView<>();
-        table.setStyle("-fx-font-size:13px; -fx-background-color:#ffffff;");
-        table.setColumnResizePolicy(TableView.UNCONSTRAINED_RESIZE_POLICY);
-
-        TableColumn<LowStockRow, String> c1 = col("Código", 100);
-        TableColumn<LowStockRow, String> c2 = col("Produto", 220);
-        TableColumn<LowStockRow, String> c3 = col("Categoria", 140);
-        TableColumn<LowStockRow, String> c4 = col("Stock Actual", 110);
-        TableColumn<LowStockRow, String> c5 = col("Mínimo", 90);
-        TableColumn<LowStockRow, String> c6 = col("Filial", 140);
-
-        c1.setCellValueFactory(r -> sv(r.getValue().getCode()));
-        c2.setCellValueFactory(r -> sv(r.getValue().getName()));
-        c3.setCellValueFactory(r -> sv(r.getValue().getCategory()));
-        c4.setCellValueFactory(r -> sv(r.getValue().getStockCurrent()));
-        c5.setCellValueFactory(r -> sv(r.getValue().getStockMin()));
-        c6.setCellValueFactory(r -> sv(r.getValue().getBranch()));
-
-        table.getColumns().addAll(List.of(c1, c2, c3, c4, c5, c6));
-        table.setPlaceholder(new Label("Nenhum produto em falta"));
-
-        Label count = new Label("0 produtos em falta");
-        count.setStyle("-fx-font-size:12px; -fx-font-weight:600; -fx-text-fill:#475569;");
-
-        Button refresh = btn("Actualizar", "#2563EB");
-        refresh.setOnAction(e -> {
-            List<LowStockRow> r = buildLowStockRows();
-            table.setItems(FXCollections.observableArrayList(r));
-            count.setText(r.size() + " produtos em falta");
-        });
-        Button exportar = btn("⬇ Exportar Excel", "#10B981");
-        exportar.setOnAction(e -> ExportUtil.exportTableToExcel(
-                exportar.getScene() != null ? exportar.getScene().getWindow() : null,
-                "artigos_reposicao.xlsx", "Artigos em Falta", table));
-
-        Region spacer = new Region();
-        HBox.setHgrow(spacer, Priority.ALWAYS);
-        HBox toolbar = new HBox(8);
-        toolbar.getChildren().addAll(count, spacer, refresh, exportar);
-
-        // Load initial data
-        List<LowStockRow> initial = buildLowStockRows();
-        table.setItems(FXCollections.observableArrayList(initial));
-        count.setText(initial.size() + " produtos em falta");
-
-        VBox card = card("PRODUTOS COM STOCK INSUFICIENTE", new VBox(toolbar, table));
-
-        content.getChildren().addAll(card);
-        sp.setContent(content);
-        return sp;
-    }
-
-    /** Builds LowStockRow items: artigos físicos esgotados, abaixo do mínimo ou sem ficha. */
-    private List<LowStockRow> buildLowStockRows() {
-        List<LowStockRow> rows = new ArrayList<>();
-        for (com.sgv.service.StockBranchService.StockAlert alert : stockBranchService.listStockAlerts(null)) {
-            Product p = alert.product();
-            if (p == null) continue;
-            rows.add(new LowStockRow(
-                    p.getCode(),
-                    p.getName(),
-                    p.getCategory() != null ? p.getCategory().getName() : "—",
-                    fmtD(alert.current()),
-                    fmtD(alert.min()),
-                    alert.branch() != null ? alert.branch().getName() : "—"
-            ));
-        }
-        return rows;
     }
 
     // ── MAPA 3: MAIS VENDIDOS ────────────────────────────
@@ -1477,20 +1393,6 @@ public class ReportsController {
         public String getCategory()  { return category; }
         public List<String> getBranchQty() { return branchQty; }
         public String getTotalQty()  { return totalQty; }
-    }
-
-    public static class LowStockRow {
-        private final String code, name, category, stockCurrent, stockMin, branch;
-        public LowStockRow(String code, String name, String cat, String stock, String min, String branch) {
-            this.code = code; this.name = name; this.category = cat;
-            this.stockCurrent = stock; this.stockMin = min; this.branch = branch;
-        }
-        public String getCode()        { return code; }
-        public String getName()        { return name; }
-        public String getCategory()    { return category; }
-        public String getStockCurrent(){ return stockCurrent; }
-        public String getStockMin()   { return stockMin; }
-        public String getBranch()      { return branch; }
     }
 
     public static class TransferRow {

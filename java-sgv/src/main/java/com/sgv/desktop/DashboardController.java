@@ -77,7 +77,6 @@ public class DashboardController {
 
     // Mapas & Relatórios — um botão por mapa
     @FXML private Button navMenuRepVendas;
-    @FXML private Button navMenuRepReposicao;
     @FXML private Button navMenuRepMaisVendidos;
     @FXML private Button navMenuRepIva;
     @FXML private Button navMenuRepDevedores;
@@ -224,6 +223,7 @@ public class DashboardController {
     private final TrainingModeService trainingModeService;
     private final AppConfigService appConfigService;
     private final FilterPresetService filterPresetService;
+    private final NotificationsCenterDialog notificationsCenter;
 
     private User currentUser;
     private VBox productFilterPanel;
@@ -249,7 +249,8 @@ public class DashboardController {
                                 ApplicationContext applicationContext,
                                 TrainingModeService trainingModeService,
                                 AppConfigService appConfigService,
-                                FilterPresetService filterPresetService) {
+                                FilterPresetService filterPresetService,
+                                NotificationsCenterDialog notificationsCenter) {
         this.navManager = navManager;
         this.crudManager = crudManager;
         this.kpiManager = kpiManager;
@@ -260,6 +261,7 @@ public class DashboardController {
         this.trainingModeService = trainingModeService;
         this.appConfigService = appConfigService;
         this.filterPresetService = filterPresetService;
+        this.notificationsCenter = notificationsCenter;
     }
 
     // ═══════════════════════════════════════════════════════════════════════════
@@ -325,7 +327,7 @@ public class DashboardController {
         setVisible(navModArmazens, canArmazens || canTransferir || canCompras);
         setVisible(navModAdministracao, canCatalogos || canRelatorios || canSistema);
         // Mapas & Relatórios + Logs
-        setVisible(navMenuRepVendas, canRelatorios); setVisible(navMenuRepReposicao, canRelatorios);
+        setVisible(navMenuRepVendas, canRelatorios);
         setVisible(navMenuRepMaisVendidos, canRelatorios); setVisible(navMenuRepIva, canRelatorios);
         setVisible(navMenuRepDevedores, canRelatorios); setVisible(navMenuRepKardex, canRelatorios);
         setVisible(navMenuRepStockArmazem, canRelatorios); setVisible(navMenuRepTransferencias, canRelatorios);
@@ -390,7 +392,6 @@ public class DashboardController {
         if (navMenuProducao != null) UiUtils.attachSafe(navMenuProducao, () -> { if (ensurePermission("PRODUCAO", "VIEW", "Produção")) showProducaoPane(); }, systemLogService, "NAV_PRODUCAO");
         // Mapas & Relatórios — um botão por mapa
         if (navMenuRepVendas != null) UiUtils.attachSafe(navMenuRepVendas, () -> { if (ensurePermission("RELATORIOS", "VIEW", "Mapa de Vendas")) showReportPane("vendas", navMenuRepVendas); }, systemLogService, "NAV_REP_VENDAS");
-        if (navMenuRepReposicao != null) UiUtils.attachSafe(navMenuRepReposicao, () -> { if (ensurePermission("RELATORIOS", "VIEW", "Artigos em Falta")) showReportPane("reposicao", navMenuRepReposicao); }, systemLogService, "NAV_REP_REPOSICAO");
         if (navMenuRepMaisVendidos != null) UiUtils.attachSafe(navMenuRepMaisVendidos, () -> { if (ensurePermission("RELATORIOS", "VIEW", "Mais Vendidos")) showReportPane("maisvendidos", navMenuRepMaisVendidos); }, systemLogService, "NAV_REP_MAISVENDIDOS");
         if (navMenuRepIva != null) UiUtils.attachSafe(navMenuRepIva, () -> { if (ensurePermission("RELATORIOS", "VIEW", "Apuramento IVA")) showReportPane("iva", navMenuRepIva); }, systemLogService, "NAV_REP_IVA");
         if (navMenuRepDevedores != null) UiUtils.attachSafe(navMenuRepDevedores, () -> { if (ensurePermission("RELATORIOS", "VIEW", "Contas Correntes")) showReportPane("devedores", navMenuRepDevedores); }, systemLogService, "NAV_REP_DEVEDORES");
@@ -433,7 +434,7 @@ public class DashboardController {
             expensesTable.setPlaceholder(new Label("Nenhuma despesa registada."));
         }
 
-        if (notificationBellButton != null) notificationBellButton.setOnAction(e -> kpiManager.showNotificationPopup(notificationBellButton));
+        if (notificationBellButton != null) notificationBellButton.setOnAction(e -> openNotificationsCenter());
 
         showSummaryPane();
     }
@@ -654,6 +655,34 @@ public class DashboardController {
         }
     }
 
+    // ═══════════════════════════════════════════════════════════════════════════
+    // CENTRO DE NOTIFICAÇÕES
+    // ═══════════════════════════════════════════════════════════════════════════
+
+    /** Actualiza o badge do sino com o total de notificações activas. */
+    public void refreshNotificationBadge() {
+        if (notificationBadge == null) return;
+        try {
+            int total = notificationsCenter.countAll();
+            notificationBadge.setText(String.valueOf(total));
+            notificationBadge.setVisible(total > 0);
+            notificationBadge.setManaged(total > 0);
+        } catch (Exception ex) {
+            log.error("Erro ao actualizar badge de notificações", ex);
+        }
+    }
+
+    /** Abre o Centro de Notificações agregando stock, operações, licença e sistema. */
+    private void openNotificationsCenter() {
+        notificationsCenter.show(notificationBellButton,
+                Runnable::run,
+                this::showStockPane,
+                () -> { if (ensurePermission("TRANSFERENCIAS", "VIEW", "Transferências")) showTransfersPane(); },
+                () -> { if (ensurePermission("SISTEMA", "VIEW", "Licenciamento")) showLicencaPane(); },
+                this::disableTrainingFromBanner);
+        refreshNotificationBadge();
+    }
+
     /**
      * Reavalia o estado da sessão (permissões dos menus + banner de treino)
      * sem exigir novo login. Chamado após alterar perfis/permissões ou modo treino.
@@ -683,7 +712,7 @@ public class DashboardController {
             navMenuStock, navMenuArmazens, navMenuStockArmazem, navMenuTransferir, navMenuFornecedores, navMenuCatalogos,
             navMenuCaixa, navMenuCompras, navMenuPagamentos, navMenuDespesas,
             navLogsRoot,
-            navMenuRepVendas, navMenuRepReposicao, navMenuRepMaisVendidos, navMenuRepIva,
+            navMenuRepVendas, navMenuRepMaisVendidos, navMenuRepIva,
             navMenuRepDevedores, navMenuRepKardex, navMenuRepStockArmazem, navMenuRepTransferencias,
             navMenuRepPagamentos,
             navMenuSistema, navMenuBackups, navMenuTreinamento, navMenuLicenca, navMenuSeguranca};
@@ -701,7 +730,7 @@ public class DashboardController {
         pageSubtitleLabel.setText("Visão geral das operações, vendas e tesouraria");
         Long branchId = currentUser != null && !currentUser.isSuperAdmin() && currentUser.getBranch() != null ? currentUser.getBranch().getId() : null;
         kpiManager.loadStats(currentUser, branchId, salesLabel, productsLabel, customersLabel, branchesLabel, salesLineChart, salesPieChart,
-            () -> kpiManager.checkAlerts(notificationBadge), this::animateEntrance);
+            this::refreshNotificationBadge, this::animateEntrance);
         updateCashBadge();
     }
 
@@ -1001,7 +1030,7 @@ public class DashboardController {
     private void loadStats() {
         Long branchId = currentUser != null && !currentUser.isSuperAdmin() && currentUser.getBranch() != null ? currentUser.getBranch().getId() : null;
         kpiManager.loadStats(currentUser, branchId, salesLabel, productsLabel, customersLabel, branchesLabel, salesLineChart, salesPieChart,
-            () -> kpiManager.checkAlerts(notificationBadge), this::animateEntrance);
+            this::refreshNotificationBadge, this::animateEntrance);
     }
 
     private void loadSales() { crudManager.loadSales(navManager.getSalesTable(), saleFilter, saleStateFilter, saleDocTypeFilter, saleStartDate, saleEndDate, currentUser); }

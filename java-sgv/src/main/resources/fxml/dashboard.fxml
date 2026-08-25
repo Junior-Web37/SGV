@@ -88,7 +88,6 @@
                         <!-- 5. Mapas & Relatórios: um botão por mapa (sem abas) -->
                         <HBox fx:id="navRelatoriosItems" spacing="4" alignment="CENTER_LEFT" visible="false" managed="false">
                             <Button fx:id="navMenuRepVendas"         text="📊 Mapa de Vendas"      styleClass="nav-btn"/>
-                            <Button fx:id="navMenuRepReposicao"     text="⚠️ Artigos em Falta"    styleClass="nav-btn"/>
                             <Button fx:id="navMenuRepMaisVendidos"  text="🔥 Mais Vendidos"       styleClass="nav-btn"/>
                             <Button fx:id="navMenuRepIva"           text="🏛️ Apuramento IVA"     styleClass="nav-btn"/>
                             <Button fx:id="navMenuRepDevedores"     text="👥 Contas Correntes"    styleClass="nav-btn"/>

@@ -744,43 +744,35 @@ public class DashboardCrudManager {
     public void openProductStockHistory(Product product, Window owner) {
         try {
             List<StockMovement> movements = stockMovementRepository.findByProductIdOrderByCreatedAtDesc(product.getId());
-            TableView<StockMovement> table = new TableView<>();
-            table.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY_ALL_COLUMNS);
 
-            TableColumn<StockMovement, String> colDate = new TableColumn<>("Data / Hora");
-            colDate.setCellValueFactory(d -> new SimpleStringProperty(
-                    d.getValue().getCreatedAt() != null ? d.getValue().getCreatedAt().format(DATE_FORMATTER) : "—"));
-            TableColumn<StockMovement, String> colType = new TableColumn<>("Tipo");
-            colType.setCellValueFactory(d -> new SimpleStringProperty(d.getValue().getType() != null ? d.getValue().getType() : "—"));
-            TableColumn<StockMovement, String> colQty = new TableColumn<>("Qtd.");
-            colQty.setCellValueFactory(d -> new SimpleStringProperty(
-                    d.getValue().getQtyAmount() != null ? d.getValue().getQtyAmount().toPlainString() : "0"));
-            TableColumn<StockMovement, String> colBefore = new TableColumn<>("Stock Antes");
-            colBefore.setCellValueFactory(d -> new SimpleStringProperty(
-                    d.getValue().getStockBeforeAmount() != null ? d.getValue().getStockBeforeAmount().toPlainString() : "0"));
-            TableColumn<StockMovement, String> colAfter = new TableColumn<>("Stock Depois");
-            colAfter.setCellValueFactory(d -> new SimpleStringProperty(
-                    d.getValue().getStockAfterAmount() != null ? d.getValue().getStockAfterAmount().toPlainString() : "0"));
-            TableColumn<StockMovement, String> colBranch = new TableColumn<>("Filial");
-            colBranch.setCellValueFactory(d -> new SimpleStringProperty(
-                    d.getValue().getBranch() != null ? d.getValue().getBranch().getName() : "—"));
-            TableColumn<StockMovement, String> colRef = new TableColumn<>("Referência");
-            colRef.setCellValueFactory(d -> new SimpleStringProperty(
-                    d.getValue().getReference() != null ? d.getValue().getReference() : "—"));
-            TableColumn<StockMovement, String> colUser = new TableColumn<>("Utilizador");
-            colUser.setCellValueFactory(d -> new SimpleStringProperty(
-                    d.getValue().getUser() != null ? d.getValue().getUser().getUsername() : "—"));
-            table.getColumns().addAll(List.of(colDate, colType, colQty, colBefore, colAfter, colBranch, colRef, colUser));
-            table.setItems(FXCollections.observableArrayList(movements));
+            String[] cols = {"Data", "Tipo", "Qtd", "Antes", "Depois", "Filial", "Referência", "Operador"};
+            List<Map<String, String>> rows = new java.util.ArrayList<>();
+            if (movements != null) {
+                for (StockMovement m : movements.stream().limit(60).toList()) {
+                    Map<String, String> row = new LinkedHashMap<>();
+                    row.put("Data", m.getCreatedAt() != null ? m.getCreatedAt().format(DATE_FORMATTER) : "—");
+                    row.put("Tipo", m.getType() != null ? m.getType() : "—");
+                    row.put("Qtd", m.getQtyAmount() != null ? Formatters.formatNumber(m.getQtyAmount()) : "—");
+                    row.put("Antes", m.getStockBeforeAmount() != null ? Formatters.formatNumber(m.getStockBeforeAmount()) : "—");
+                    row.put("Depois", m.getStockAfterAmount() != null ? Formatters.formatNumber(m.getStockAfterAmount()) : "—");
+                    row.put("Filial", m.getBranch() != null ? m.getBranch().getName() : "—");
+                    row.put("Referência", m.getReference() != null ? m.getReference() : "—");
+                    row.put("Operador", m.getUser() != null ? m.getUser().getUsername() : "—");
+                    rows.add(row);
+                }
+            }
 
-            VBox box = new VBox(12, new Label("Histórico de Stock para " + product.getCode() + " - " + product.getName()), table);
-            box.setStyle("-fx-padding:16; -fx-background-color:#ffffff;");
-            Stage stage = new Stage();
-            stage.initModality(Modality.APPLICATION_MODAL);
-            stage.initOwner(owner);
-            stage.setTitle("Histórico de Stock - " + product.getName());
-            stage.setScene(new Scene(box, 980, 520));
-            stage.show();
+            DetailDialog.create(owner)
+                .title("Histórico de Stock & Kardex")
+                .subtitle(product.getCode() + " - " + product.getName())
+                .icon("📦")
+                .width(980).height(580)
+                .section("Dados do Artigo")
+                .field("Código", product.getCode())
+                .field("Nome", product.getName())
+                .field("Categoria", product.getCategory() != null ? product.getCategory().getName() : "—")
+                .tableSection("Movimentações (" + rows.size() + ")", cols, rows)
+                .show();
         } catch (Exception ex) {
             log.error("Erro inesperado", ex);
         }

@@ -231,16 +231,6 @@ public class DashboardKpiManager {
         }
     }
 
-    public void checkAlerts(Label notificationBadge) {
-        long totalAlerts = stockBranchService.listStockAlerts(null).size();
-
-        if (notificationBadge != null) {
-            notificationBadge.setText(String.valueOf(totalAlerts));
-            notificationBadge.setVisible(totalAlerts > 0);
-            notificationBadge.setManaged(totalAlerts > 0);
-        }
-    }
-
     public void updateCashBadge(Label cashStatusBadge, User currentUser) {
         if (cashStatusBadge == null) return;
         try {
@@ -277,41 +267,6 @@ public class DashboardKpiManager {
         } catch (Exception ex) {
             log.error("Erro ao actualizar estado do caixa no badge", ex);
         }
-    }
-
-    public void showNotificationPopup(Button notificationBellButton) {
-        if (notificationBellButton == null) return;
-        List<StockBranchService.StockAlert> alerts = stockBranchService.listStockAlerts(null);
-
-        ContextMenu menu = new ContextMenu();
-        if (alerts.isEmpty()) {
-            MenuItem item = new MenuItem("✅ Todos os artigos físicos possuem stock regular");
-            item.setStyle("-fx-font-weight: 700; -fx-text-fill: #16A34A; -fx-padding: 6 12;");
-            item.setDisable(true);
-            menu.getItems().add(item);
-        } else {
-            MenuItem header = new MenuItem(String.format("🔔 Alertas de Reposição de Stock (%d)", alerts.size()));
-            header.setStyle("-fx-font-weight: 900; -fx-text-fill: #1E293B; -fx-font-size: 13px; -fx-padding: 6 12;");
-            header.setDisable(true);
-            menu.getItems().add(header);
-            menu.getItems().add(new SeparatorMenuItem());
-
-            int shown = 0;
-            for (StockBranchService.StockAlert alert : alerts) {
-                if (shown >= 20) {
-                    MenuItem more = new MenuItem("… +" + (alerts.size() - shown) + " outros artigos em alerta");
-                    more.setStyle("-fx-font-weight: 700; -fx-text-fill: #64748B; -fx-padding: 4 12;");
-                    menu.getItems().add(more);
-                    break;
-                }
-                String icon = "ESGOTADO".equals(alert.kind()) ? "🔴 " : ("SEM_FICHA".equals(alert.kind()) ? "⚪ " : "🟡 ");
-                MenuItem mi = new MenuItem(icon + alert.label());
-                mi.setStyle("-fx-font-weight: 700; -fx-font-size: 12px; -fx-padding: 4 12;");
-                menu.getItems().add(mi);
-                shown++;
-            }
-        }
-        menu.show(notificationBellButton, javafx.geometry.Side.BOTTOM, 0, 4);
     }
 
     public void updateSalesKPIs(GridPane grid, User currentUser) {
