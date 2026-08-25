@@ -1,96 +1,158 @@
 /* ============================================================
    SGV — Dashboard Theme (Moçambique Professional)
-   Barra Superior em Navy Slate #0F172A com Acabamento Azul #2563EB
+   Barra Superior em Royal Blue Corporativo com Divisões e Bordas Claras
    ============================================================ */
 
 /* ── Barra de Navegação Superior ──────────────────────────── */
 .top-nav-bar {
-    -fx-background-color: #0F172A;
-    -fx-border-color: #1E293B;
+    -fx-background-color: linear-gradient(to right, #1E3A8A, #1D4ED8, #1E40AF);
+    -fx-border-color: #172554;
     -fx-border-width: 0 0 2 0;
 }
 
 /* ── Botões de Módulo Principal ───────────────────────────── */
 .nav-btn {
     -fx-background-color: transparent;
-    -fx-text-fill: #E2E8F0;
-    -fx-font-size: 13px;
-    -fx-font-weight: 700;
-    -fx-padding: 8 16;
+    -fx-border-color: transparent;
+    -fx-border-width: 1;
+    -fx-border-radius: 6;
     -fx-background-radius: 6;
+    -fx-text-fill: #E2E8F0;
+    -fx-font-size: 11.5px;
+    -fx-font-weight: 800;
+    -fx-padding: 6 10;
     -fx-cursor: hand;
     -fx-font-family: 'Segoe UI', Arial, sans-serif;
 }
 
 .nav-btn:hover {
-    -fx-background-color: #1E293B;
+    -fx-background-color: rgba(255, 255, 255, 0.18);
+    -fx-border-color: rgba(255, 255, 255, 0.35);
     -fx-text-fill: #FFFFFF;
-    -fx-scale-x: 1.02;
-    -fx-scale-y: 1.02;
 }
 
-.nav-btn:active {
-    -fx-background-color: #334155;
-    -fx-scale-x: 0.98;
-    -fx-scale-y: 0.98;
+.nav-btn:pressed {
+    -fx-background-color: rgba(255, 255, 255, 0.28);
+    -fx-border-color: rgba(255, 255, 255, 0.50);
 }
 
 .nav-btn.active {
-    -fx-background-color: #2563EB;
-    -fx-text-fill: #FFFFFF;
-    -fx-font-weight: 800;
+    -fx-background-color: #FFFFFF;
+    -fx-border-color: #FFFFFF;
+    -fx-text-fill: #1E40AF;
+    -fx-font-weight: 900;
 }
 
 /* Botão Home / Painel Geral */
 .nav-btn-home {
-    -fx-background-color: #1E293B;
-    -fx-text-fill: #FFFFFF;
-    -fx-font-size: 13px;
-    -fx-font-weight: 800;
-    -fx-padding: 8 16;
-    -fx-background-radius: 6;
-    -fx-cursor: hand;
-    -fx-border-color: #334155;
+    -fx-background-color: rgba(255, 255, 255, 0.15);
+    -fx-border-color: rgba(255, 255, 255, 0.30);
+    -fx-border-width: 1;
     -fx-border-radius: 6;
+    -fx-background-radius: 6;
+    -fx-text-fill: #FFFFFF;
+    -fx-font-size: 11.5px;
+    -fx-font-weight: 900;
+    -fx-padding: 6 12;
+    -fx-cursor: hand;
+    -fx-font-family: 'Segoe UI', Arial, sans-serif;
 }
 
 .nav-btn-home:hover {
-    -fx-background-color: #2563EB;
+    -fx-background-color: rgba(255, 255, 255, 0.25);
+    -fx-border-color: #FFFFFF;
+    -fx-text-fill: #FFFFFF;
 }
 
-/* Botões de Ícones (Notificações, Logout) */
-.nav-icon-btn {
-    -fx-background-color: transparent;
-    -fx-text-fill: #CBD5E1;
-    -fx-font-size: 12px;
-    -fx-font-weight: 700;
+.nav-btn-home.active {
+    -fx-background-color: #FFFFFF;
+    -fx-border-color: #FFFFFF;
+    -fx-text-fill: #1E40AF;
+    -fx-font-weight: 900;
+}
+
+/* Botão Voltar (Sub-navegação) */
+.nav-btn-back {
+    -fx-background-color: rgba(255, 255, 255, 0.20);
+    -fx-border-color: #93C5FD;
+    -fx-border-width: 1;
+    -fx-border-radius: 6;
+    -fx-background-radius: 6;
+    -fx-text-fill: #FFFFFF;
+    -fx-font-size: 11.5px;
+    -fx-font-weight: 900;
+    -fx-padding: 5 10;
+    -fx-cursor: hand;
+}
+
+.nav-btn-back:hover {
+    -fx-background-color: #FFFFFF;
+    -fx-text-fill: #1E40AF;
+    -fx-border-color: #FFFFFF;
+}
+
+/* Botão de Notificações / Alertas */
+.nav-bell-btn {
+    -fx-background-color: rgba(0, 0, 0, 0.25);
+    -fx-border-color: rgba(255, 255, 255, 0.20);
+    -fx-border-width: 1;
+    -fx-border-radius: 8;
+    -fx-background-radius: 8;
+    -fx-text-fill: #FFFFFF;
+    -fx-font-size: 11px;
+    -fx-font-weight: 800;
+    -fx-padding: 6 10;
+    -fx-cursor: hand;
+}
+
+.nav-bell-btn:hover {
+    -fx-background-color: rgba(255, 255, 255, 0.20);
+    -fx-border-color: #60A5FA;
+    -fx-text-fill: #FFFFFF;
+}
+
+/* Botão Sair / Logout */
+.logout-btn {
+    -fx-background-color: rgba(239, 68, 68, 0.22);
+    -fx-border-color: rgba(239, 68, 68, 0.55);
+    -fx-border-width: 1;
+    -fx-border-radius: 8;
+    -fx-background-radius: 8;
+    -fx-text-fill: #FCA5A5;
+    -fx-font-size: 11px;
+    -fx-font-weight: 800;
     -fx-padding: 6 12;
     -fx-cursor: hand;
+}
+
+.logout-btn:hover {
+    -fx-background-color: #EF4444;
+    -fx-border-color: #DC2626;
+    -fx-text-fill: #FFFFFF;
+}
+
+/* ── ContextMenu & Notificações Popups ────────────────────────── */
+.context-menu {
+    -fx-background-color: #FFFFFF;
+    -fx-border-color: #CBD5E1;
+    -fx-border-width: 1;
+    -fx-border-radius: 8;
+    -fx-background-radius: 8;
+    -fx-padding: 6 4;
+    -fx-effect: dropshadow(gaussian, rgba(0,0,0,0.18), 12, 0, 0, 4);
+}
+
+.context-menu .menu-item {
+    -fx-padding: 6 12;
     -fx-background-radius: 6;
 }
 
-.nav-icon-btn:hover {
-    -fx-background-color: #1E293B;
-    -fx-text-fill: #FFFFFF;
+.context-menu .menu-item:hover, .context-menu .menu-item:focused {
+    -fx-background-color: #EFF6FF;
 }
 
-/* ── Indicador de Turno de Caixa ──────────────────────────── */
-.cash-badge-open {
-    -fx-background-color: #10B981;
-    -fx-text-fill: #FFFFFF;
-    -fx-padding: 5 14;
-    -fx-background-radius: 20;
+.context-menu .menu-item .label {
+    -fx-text-fill: #1E293B;
     -fx-font-size: 12px;
-    -fx-font-weight: 800;
-    -fx-cursor: hand;
-}
-
-.cash-badge-closed {
-    -fx-background-color: #EF4444;
-    -fx-text-fill: #FFFFFF;
-    -fx-padding: 5 14;
-    -fx-background-radius: 20;
-    -fx-font-size: 12px;
-    -fx-font-weight: 800;
-    -fx-cursor: hand;
+    -fx-font-weight: 600;
 }

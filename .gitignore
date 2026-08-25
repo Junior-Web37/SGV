@@ -13,6 +13,13 @@ target/
 *.iml
 .idea/
 
+# Exportações e cópias de segurança locais
+backups/
+
+# Pacotes de distribuição (publicados nas Releases do GitHub)
+dist/
+*.zip
+
 # Logs
 *.log
 *.gz

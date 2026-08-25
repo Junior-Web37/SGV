@@ -115,6 +115,10 @@ public class ProductFormController extends BaseFormController {
     @FXML
     public void initialize() {
         initCommonFields();
+        UiUtils.hardenComboBox(categoryCombo);
+        UiUtils.hardenComboBox(supplierCombo);
+        UiUtils.hardenComboBox(unitField);
+        UiUtils.hardenComboBox(unitBulkField);
         loadDefaultRates();
         
         categoryCombo.setItems(javafx.collections.FXCollections.observableArrayList(
@@ -665,22 +669,15 @@ public class ProductFormController extends BaseFormController {
             long count = checkTask.getValue();
             if (count > 0) {
                 javafx.application.Platform.runLater(() -> {
-                    Alert warn = new Alert(Alert.AlertType.WARNING,
-                        "Não é possível apagar este produto.\n\nO produto possui " + count + " registro(s) em vendas. " +
-                        "Em vez disso, desative o produto na edição.");
-                    warn.setTitle("Produto não pode ser apagado");
-                    warn.setHeaderText(null);
-                    warn.showAndWait();
+                    SgvDialog.warning("Produto não pode ser apagado",
+                        "Não é possível apagar este produto.\n\nO produto possui " + count + " registo(s) em vendas. "
+                        + "Em vez disso, desactive o produto na edição.");
                 });
                 return;
             }
             javafx.application.Platform.runLater(() -> {
-                Alert alert = new Alert(Alert.AlertType.CONFIRMATION,
-                        "Tem certeza que deseja apagar este produto?", ButtonType.YES, ButtonType.NO);
-                alert.setHeaderText(null);
-                alert.setTitle("Confirmar Eliminação");
-                java.util.Optional<ButtonType> result = alert.showAndWait();
-                if (result.isEmpty() || result.get() != ButtonType.YES) return;
+                if (!SgvDialog.confirmDanger("Confirmar Eliminação",
+                        "Tem certeza que deseja apagar este produto?\n\nEsta operação não pode ser revertida.")) return;
 
                 javafx.concurrent.Task<Void> deleteTask = new javafx.concurrent.Task<>() {
                     @Override

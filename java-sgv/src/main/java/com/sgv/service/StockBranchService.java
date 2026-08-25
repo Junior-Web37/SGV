@@ -263,6 +263,39 @@ public class StockBranchService {
         return stockBranchRepository.findAll();
     }
 
+    /**
+     * Alertas de reposição: artigos físicos esgotados, abaixo do mínimo,
+     * ou sem ficha de stock. Serviços nunca entram.
+     */
+    public java.util.List<StockAlert> listStockAlerts(Long branchId) {
+        java.util.List<StockAlert> alerts = new java.util.ArrayList<>();
+        for (StockBranch sb : stockBranchRepository.findStockAlerts(branchId)) {
+            if (sb.getProduct() == null || Boolean.TRUE.equals(sb.getProduct().getService())) continue;
+            BigDecimal cur = sb.getStockCurrentAmount() != null ? sb.getStockCurrentAmount() : BigDecimal.ZERO;
+            BigDecimal min = sb.getStockMinAmount() != null ? sb.getStockMinAmount() : BigDecimal.ZERO;
+            String kind = cur.compareTo(BigDecimal.ZERO) <= 0 ? "ESGOTADO" : "ABAIXO_MINIMO";
+            alerts.add(new StockAlert(sb.getProduct(), sb.getBranch(), cur, min, kind));
+        }
+        for (Product p : stockBranchRepository.findPhysicalProductsWithoutStockRow(branchId)) {
+            if (p == null || Boolean.TRUE.equals(p.getService())) continue;
+            alerts.add(new StockAlert(p, null, BigDecimal.ZERO, BigDecimal.ZERO, "SEM_FICHA"));
+        }
+        return alerts;
+    }
+
+    public record StockAlert(Product product, Branch branch, BigDecimal current, BigDecimal min, String kind) {
+        public String label() {
+            String name = product != null
+                    ? ((product.getCode() != null ? product.getCode() + " — " : "") + (product.getName() != null ? product.getName() : "Artigo"))
+                    : "Artigo";
+            return switch (kind) {
+                case "ESGOTADO" -> name + " — Esgotado (0)";
+                case "SEM_FICHA" -> name + " — Sem stock (sem ficha)";
+                default -> name + " — Abaixo do mínimo (" + current + " / mín " + min + ")";
+            };
+        }
+    }
+
     @Transactional
     public StockBranch initializeStock(Branch branch,
                                        Product product,

@@ -64,14 +64,10 @@ public abstract class BaseFormController {
      */
     protected boolean checkTrainingBlock() {
         if (appConfigService != null && appConfigService.isDemoMode()) {
-            Alert alert = new Alert(Alert.AlertType.WARNING);
-            alert.setTitle("Modo Treinamento Activo");
-            alert.setHeaderText(null);
-            alert.setContentText(
+            SgvDialog.warning("Modo Treinamento Activo",
                 "Não é possível guardar dados no modo treinamento.\n\n" +
                 "Para efectuar alterações reais, desative o modo treino em:\n" +
                 "Sistema > Modo Treinamento > Desactivar");
-            alert.showAndWait();
             return true;
         }
         return false;

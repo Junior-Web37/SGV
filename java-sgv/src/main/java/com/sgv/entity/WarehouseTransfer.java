@@ -45,7 +45,7 @@ public class WarehouseTransfer {
     private LocalDateTime createdAt = LocalDateTime.now();
     private LocalDateTime processedAt;
 
-    @OneToMany(mappedBy = "transfer", cascade = CascadeType.ALL, orphanRemoval = true)
+    @OneToMany(mappedBy = "transfer", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.EAGER)
     private List<WarehouseTransferItem> items = new ArrayList<>();
 
     public Long getId() { return id; }

@@ -8,7 +8,7 @@
 
     <!-- TOP BAR: Cabeçalho PDV -->
     <HBox alignment="CENTER_LEFT" spacing="12"
-          style="-fx-background-color:#0F172A; -fx-padding:10 20; -fx-min-height:54;">
+          style="-fx-background-color: linear-gradient(to right, #1E3A8A, #1D4ED8, #1E40AF); -fx-padding:10 20; -fx-min-height:54;">
         <Label text="⚡ PDV" style="-fx-font-size:16px; -fx-font-weight:800; -fx-text-fill:#ffffff;"/>
         <Separator orientation="VERTICAL" style="-fx-padding:0 8; -fx-background-color:rgba(255,255,255,0.3);"/>
         <Label text="Ponto de Venda &amp; Facturação Rápida" style="-fx-font-size:12px; -fx-text-fill:rgba(255,255,255,0.85);"/>

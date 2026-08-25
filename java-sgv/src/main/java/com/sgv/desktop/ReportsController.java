@@ -29,7 +29,20 @@ import java.util.stream.Collectors;
 @Component
 public class ReportsController {
 
-    @FXML private TabPane reportsTabPane;
+    /** Definição declarativa de um mapa/relatório (menu + título + ficheiro de exportação). */
+    public record ReportDef(String key, String icon, String menuLabel, String pageTitle, String pageSubtitle, String exportFile) {}
+
+    /** Registo único dos relatórios disponíveis — alimenta o menu superior e a navegação. */
+    public static final List<ReportDef> REPORTS = List.of(
+            new ReportDef("vendas",         "📊", "Mapa de Vendas",      "Mapa Geral de Vendas",          "Consolidação de vendas por período, loja e indicadores de desempenho", "mapa_vendas"),
+            new ReportDef("maisvendidos",   "🔥", "Mais Vendidos",       "Artigos Mais Vendidos",         "Ranking de produtos por quantidade vendida e receita gerada",         "mais_vendidos"),
+            new ReportDef("iva",            "🏛️", "Apuramento IVA",     "Apuramento de IVA (16%)",       "Modelo 19 — base tributável, isenta e IVA liquidado do período",     "apuramento_iva"),
+            new ReportDef("devedores",      "👥", "Contas Correntes",    "Contas Correntes / Devedores",  "Contas a receber com antiguidade de saldo (aging 30/60/90 dias)",    "contas_correntes"),
+            new ReportDef("kardex",         "📦", "Kardex",              "Extrato de Movimentos (Kardex)","Histórico completo de entradas e saídas de stock por artigo",        "kardex_movimentos"),
+            new ReportDef("stockarmazem",   "🏢", "Stock por Armazém",   "Stock Central por Armazém",     "Matriz consolidada de stock físico por artigo e filial",             "stock_armazem"),
+            new ReportDef("transferencias", "🔁", "Transferências",      "Guias de Transferência",        "Movimentação de stock entre filiais e respectivos estados",          "guias_transferencia"),
+            new ReportDef("pagamentos",     "📑", "Pag. Fornecedores",   "Pagamentos a Fornecedores",     "Pagamentos efectuados no período e dívida total a fornecedores",     "pagamentos_fornecedores")
+    );
 
     private final SaleRepository saleRepository;
     private final ProductRepository productRepository;
@@ -55,6 +68,7 @@ public class ReportsController {
     private Label kpiIvaLabel;
     private Label kpiLucroLabel;
     private LineChart<String, Number> vendasChart;
+    private List<Sale> lastVendasSales = new ArrayList<>();
 
     // Pagination
     private static final int PAGE_SIZE = 50;
@@ -125,35 +139,32 @@ public class ReportsController {
         this.supplierRepository = supplierRepository;
     }
 
-    @FXML
-    public void initialize() {
-        buildAllTabs();
-    }
-
     // ══════════════════════════════════════════════════
-    // BUILD ALL TABS
+    // REPORT REGISTRY — cada mapa é uma página independente
     // ══════════════════════════════════════════════════
 
-    private void buildAllTabs() {
-        if (reportsTabPane == null) return;
-        reportsTabPane.getTabs().clear();
-        reportsTabPane.getTabs().addAll(
-                buildVendasTab(),
-                buildProdutosEmFaltaTab(),
-                buildMaisVendidosTab(),
-                buildIvaTab(),
-                buildAccountsReceivableTab(),
-                buildStockMovimentosTab(),
-                buildStockMatrixTab(),
-                buildTransferenciasTab(),
-                buildPagamentosFornecedoresTab()
-        );
+    public static ReportDef byKey(String key) {
+        return REPORTS.stream().filter(r -> r.key().equals(key)).findFirst().orElse(null);
     }
 
-    // ── TAB 1: VENDAS CONSOLIDADAS ─────────────────────
+    /** Constrói o conteúdo completo de um relatório pela sua chave. */
+    public Node buildReport(String key) {
+        return switch (key) {
+            case "vendas"         -> buildVendasContent();
+            case "maisvendidos"   -> buildMaisVendidosContent();
+            case "iva"            -> buildIvaContent();
+            case "devedores"      -> buildAccountsReceivableContent();
+            case "kardex"         -> buildStockMovimentosContent();
+            case "stockarmazem"   -> buildStockMatrixContent();
+            case "transferencias" -> buildTransferenciasContent();
+            case "pagamentos"     -> buildPagamentosFornecedoresContent();
+            default -> new Label("Relatório desconhecido: " + key);
+        };
+    }
 
-    private Tab buildVendasTab() {
-        Tab tab = new Tab("📊  Mapa Geral de Vendas");
+    // ── MAPA 1: VENDAS CONSOLIDADAS ─────────────────────
+
+    public ScrollPane buildVendasContent() {
 
         ScrollPane sp = new ScrollPane();
         sp.setFitToWidth(true);
@@ -170,6 +181,7 @@ public class ReportsController {
         vendasAte.setPrefWidth(130);
 
         ComboBox<String> lojaCombo = new ComboBox<>();
+        UiUtils.hardenComboBox(lojaCombo);
         List<String> lojas = new ArrayList<>();
         lojas.add("Todas as Lojas");
         branchRepository.findAll().forEach(b -> { if (b.getName() != null) lojas.add(b.getName()); });
@@ -199,13 +211,32 @@ public class ReportsController {
 
         Region spacer = new Region();
         HBox.setHgrow(spacer, Priority.ALWAYS);
+        Button exportar = btn("⬇ Exportar Excel", "#10B981");
+        exportar.setOnAction(e -> {
+            if (lastVendasSales.isEmpty()) {
+                SgvDialog.warning("Exportar", "Não há dados para exportar — filtre um período com vendas primeiro.");
+                return;
+            }
+            String[] headers = {"Documento", "Data", "Cliente", "Estado", "Subtotal (MT)", "IVA (MT)", "Total (MT)"};
+            Object[][] rows = lastVendasSales.stream().map(s -> new Object[]{
+                    (s.getDocumentType() != null ? s.getDocumentType() : "FT") + " " + s.getSeries() + "/" + s.getDocumentNumber(),
+                    s.getCreatedAt() != null ? s.getCreatedAt().format(DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm")) : "",
+                    s.getCustomerName() != null && !s.getCustomerName().isBlank() ? s.getCustomerName() : "Consumidor Final",
+                    s.getState() != null ? s.getState() : "",
+                    s.getSubtotal() != null ? s.getSubtotal() : 0.0,
+                    s.getTotalTax() != null ? s.getTotalTax() : 0.0,
+                    s.getTotal() != null ? s.getTotal() : 0.0
+            }).toArray(Object[][]::new);
+            ExportUtil.exportRows(exportar.getScene() != null ? exportar.getScene().getWindow() : null,
+                    "mapa_vendas_" + LocalDate.now() + ".xlsx", "Mapa de Vendas", headers, rows);
+        });
         HBox filterBar = new HBox(10);
         filterBar.setAlignment(javafx.geometry.Pos.CENTER_LEFT);
         filterBar.getChildren().addAll(
             label("De:", "12px"), vendasDe,
             label("Até:", "12px"), vendasAte,
             label("Loja:", "12px"), lojaCombo,
-            filtrar, spacer, hoje, mes, ano
+            filtrar, spacer, hoje, mes, ano, exportar
         );
 
         // Wire filter button
@@ -245,8 +276,7 @@ public class ReportsController {
         loadVendasData(vendasDe.getValue(), vendasAte.getValue(), null);
 
         sp.setContent(content);
-        tab.setContent(sp);
-        return tab;
+        return sp;
     }
 
     private void loadVendasData(LocalDate from, LocalDate to, String selectedBranch) {
@@ -268,6 +298,7 @@ public class ReportsController {
             Set<Long> branchIds = branches.stream().map(Branch::getId).collect(Collectors.toSet());
             sales = sales.stream().filter(s -> s.getBranch() != null && branchIds.contains(s.getBranch().getId())).toList();
         }
+        lastVendasSales = sales;
 
         double totalSold = sales.stream().mapToDouble(s -> s.getTotal() != null ? s.getTotal() : 0).sum();
         double ivaCobrado = sales.stream().mapToDouble(s -> s.getTotalTax() != null ? s.getTotalTax() : 0).sum();
@@ -305,89 +336,9 @@ public class ReportsController {
         vendasChart.getData().setAll(List.of(series));
     }
 
-    // ── TAB 2: PRODUTOS EM FALTA ─────────────────────
+    // ── MAPA 3: MAIS VENDIDOS ────────────────────────────
 
-    private Tab buildProdutosEmFaltaTab() {
-        Tab tab = new Tab("⚠️  Artigos para Reposição");
-
-        ScrollPane sp = new ScrollPane();
-        sp.setFitToWidth(true);
-        sp.setStyle("-fx-background:#F8FAFC;");
-
-        VBox content = new VBox(16);
-        content.setStyle("-fx-padding:20;");
-        content.setMaxWidth(1100);
-
-        TableView<LowStockRow> table = new TableView<>();
-        table.setStyle("-fx-font-size:13px; -fx-background-color:#ffffff;");
-        table.setColumnResizePolicy(TableView.UNCONSTRAINED_RESIZE_POLICY);
-
-        TableColumn<LowStockRow, String> c1 = col("Código", 100);
-        TableColumn<LowStockRow, String> c2 = col("Produto", 220);
-        TableColumn<LowStockRow, String> c3 = col("Categoria", 140);
-        TableColumn<LowStockRow, String> c4 = col("Stock Actual", 110);
-        TableColumn<LowStockRow, String> c5 = col("Mínimo", 90);
-        TableColumn<LowStockRow, String> c6 = col("Filial", 140);
-
-        c1.setCellValueFactory(r -> sv(r.getValue().getCode()));
-        c2.setCellValueFactory(r -> sv(r.getValue().getName()));
-        c3.setCellValueFactory(r -> sv(r.getValue().getCategory()));
-        c4.setCellValueFactory(r -> sv(r.getValue().getStockCurrent()));
-        c5.setCellValueFactory(r -> sv(r.getValue().getStockMin()));
-        c6.setCellValueFactory(r -> sv(r.getValue().getBranch()));
-
-        table.getColumns().addAll(List.of(c1, c2, c3, c4, c5, c6));
-        table.setPlaceholder(new Label("Nenhum produto em falta"));
-
-        Label count = new Label("0 produtos em falta");
-        count.setStyle("-fx-font-size:12px; -fx-font-weight:600; -fx-text-fill:#475569;");
-
-        Button refresh = btn("Actualizar", "#2563EB");
-        refresh.setOnAction(e -> {
-            List<LowStockRow> r = buildLowStockRows();
-            table.setItems(FXCollections.observableArrayList(r));
-            count.setText(r.size() + " produtos em falta");
-        });
-
-        Region spacer = new Region();
-        HBox.setHgrow(spacer, Priority.ALWAYS);
-        HBox toolbar = new HBox(8);
-        toolbar.getChildren().addAll(count, spacer, refresh);
-
-        // Load initial data
-        List<LowStockRow> initial = buildLowStockRows();
-        table.setItems(FXCollections.observableArrayList(initial));
-        count.setText(initial.size() + " produtos em falta");
-
-        VBox card = card("PRODUTOS COM STOCK INSUFICIENTE", new VBox(toolbar, table));
-
-        content.getChildren().addAll(card);
-        sp.setContent(content);
-        tab.setContent(sp);
-        return tab;
-    }
-
-    /** Builds LowStockRow items from stock_branch where stockCurrent <= stockMin */
-    private List<LowStockRow> buildLowStockRows() {
-        return stockBranchService.findAll().stream()
-                .filter(sb -> sb.getStockCurrentAmount() != null && sb.getProduct() != null
-                        && !Boolean.TRUE.equals(sb.getProduct().getService())
-                        && sb.getStockCurrentAmount().compareTo(sb.getStockMinAmount() != null ? sb.getStockMinAmount() : BigDecimal.valueOf(5)) <= 0)
-                .map(sb -> new LowStockRow(
-                        sb.getProduct().getCode(),
-                        sb.getProduct().getName(),
-                        sb.getProduct().getCategory() != null ? sb.getProduct().getCategory().getName() : "—",
-                        fmtD(sb.getStockCurrentAmount()),
-                        fmtD(sb.getStockMinAmount()),
-                        sb.getBranch() != null ? sb.getBranch().getName() : "—"
-                ))
-                .collect(Collectors.toList());
-    }
-
-    // ── TAB 3: MAIS VENDIDOS ────────────────────────────
-
-    private Tab buildMaisVendidosTab() {
-        Tab tab = new Tab("🔥  Artigos Mais Vendidos");
+    public ScrollPane buildMaisVendidosContent() {
 
         ScrollPane sp = new ScrollPane();
         sp.setFitToWidth(true);
@@ -419,6 +370,7 @@ public class ReportsController {
         table.getColumns().addAll(List.of(tc1, tc2, tc3, tc4, tc5));
 
         ComboBox<String> periodCombo = new ComboBox<>();
+        UiUtils.hardenComboBox(periodCombo);
         periodCombo.setItems(FXCollections.observableArrayList("Hoje","Esta Semana","Este Mês","Este Ano"));
         periodCombo.getSelectionModel().select("Este Mês");
         periodCombo.setPrefWidth(150);
@@ -427,9 +379,13 @@ public class ReportsController {
         // Toolbar with period selector
         HBox toolbar = new HBox(8);
         Label lbl = label("Período:", "12px");
+        Button exportar = btn("⬇ Exportar Excel", "#10B981");
+        exportar.setOnAction(e -> ExportUtil.exportTableToExcel(
+                exportar.getScene() != null ? exportar.getScene().getWindow() : null,
+                "mais_vendidos.xlsx", "Mais Vendidos", table));
         Region spacer = new Region();
         HBox.setHgrow(spacer, Priority.ALWAYS);
-        toolbar.getChildren().addAll(lbl, periodCombo, spacer);
+        toolbar.getChildren().addAll(lbl, periodCombo, spacer, exportar);
 
         // Initial load
         refreshTopSold("Este Mês", chart, table);
@@ -439,8 +395,7 @@ public class ReportsController {
 
         content.getChildren().addAll(card1, card2);
         sp.setContent(content);
-        tab.setContent(sp);
-        return tab;
+        return sp;
     }
 
     private void refreshTopSold(String period, BarChart<String, Number> chart, TableView<TopSoldRow> table) {
@@ -493,10 +448,9 @@ public class ReportsController {
         chart.getData().setAll(List.of(s));
     }
 
-    // ── TAB 4: RELATÓRIO IVA ──────────────────────────
+    // ── MAPA 4: RELATÓRIO IVA ──────────────────────────
 
-    private Tab buildIvaTab() {
-        Tab tab = new Tab("🏛️  Apuramento de IVA (16%)");
+    public ScrollPane buildIvaContent() {
 
         ScrollPane sp = new ScrollPane();
         sp.setFitToWidth(true);
@@ -595,9 +549,13 @@ public class ReportsController {
                 showAlert("Não foi possível exportar SAF-T: " + ex.getMessage());
             }
         });
+        Button exportarExcel = btn("⬇ Exportar Excel", "#10B981");
+        exportarExcel.setOnAction(e -> ExportUtil.exportTableToExcel(
+                exportarExcel.getScene() != null ? exportarExcel.getScene().getWindow() : null,
+                "apuramento_iva.xlsx", "Apuramento IVA", ivaTable));
         ivaCountLabel = new Label("0 documentos");
         ivaCountLabel.setStyle("-fx-font-size:12px; -fx-font-weight:600; -fx-text-fill:#475569;");
-        toolbar.getChildren().addAll(title, ivaCountLabel, spacer, export);
+        toolbar.getChildren().addAll(title, ivaCountLabel, spacer, exportarExcel, export);
 
         ivaPrevBtn = btn("← Anterior", "#2563EB");
         ivaNextBtn = btn("Próximo →", "#2563EB");
@@ -617,8 +575,7 @@ public class ReportsController {
 
         content.getChildren().addAll(card0, card1, card2);
         sp.setContent(content);
-        tab.setContent(sp);
-        return tab;
+        return sp;
     }
 
     private void loadIvaData() {
@@ -670,10 +627,9 @@ public class ReportsController {
         updatePaginationButtons(ivaPageLabel, ivaPrevBtn, ivaNextBtn, ivaPage, totalPages);
     }
 
-    // ── TAB 5: CONTAS A RECEBER ─────────────────────
+    // ── MAPA 5: CONTAS A RECEBER ─────────────────────
 
-    private Tab buildAccountsReceivableTab() {
-        Tab tab = new Tab("👥  Contas Correntes / Devedores");
+    public ScrollPane buildAccountsReceivableContent() {
 
         ScrollPane sp = new ScrollPane();
         sp.setFitToWidth(true);
@@ -692,13 +648,14 @@ public class ReportsController {
         searchField.setPrefWidth(260);
 
         Button refresh = btn("Filtrar", "#2563EB");
+        Button exportar = btn("⬇ Exportar Excel", "#10B981");
         HBox filterBar = new HBox(10);
         filterBar.setAlignment(javafx.geometry.Pos.CENTER_LEFT);
         filterBar.getChildren().addAll(
                 label("De:", "12px"), fromDate,
                 label("Até:", "12px"), toDate,
                 label("Cliente / Documento:", "12px"), searchField,
-                refresh);
+                refresh, exportar);
 
         Label totalDueLabel = new Label("0,00 MT");
         Label overdue30Label = new Label("0,00 MT");
@@ -734,6 +691,10 @@ public class ReportsController {
         c7.setCellValueFactory(r -> r.getValue().daysOpen);
         c8.setCellValueFactory(r -> r.getValue().bucket);
         table.getColumns().addAll(List.of(c1, c2, c3, c4, c5, c6, c7, c8));
+
+        exportar.setOnAction(e -> ExportUtil.exportTableToExcel(
+                exportar.getScene() != null ? exportar.getScene().getWindow() : null,
+                "contas_correntes.xlsx", "Contas Correntes", table));
 
         Runnable loadAging = () -> {
             LocalDate from = fromDate.getValue() != null ? fromDate.getValue() : LocalDate.now().minusMonths(1);
@@ -772,10 +733,9 @@ public class ReportsController {
         VBox card = card("CONTAS A RECEBER", new VBox(filterBar, kpiH, table));
         content.getChildren().addAll(card);
         sp.setContent(content);
-        tab.setContent(sp);
 
         loadAging.run();
-        return tab;
+        return sp;
     }
 
     private static class ReceivableRow {
@@ -800,10 +760,9 @@ public class ReportsController {
         }
     }
 
-    // ── TAB 6: MOVIMENTOS DE ESTOQUE ─────────────────
+    // ── MAPA 6: MOVIMENTOS DE STOCK ─────────────────
 
-    private Tab buildStockMovimentosTab() {
-        Tab tab = new Tab("📦  Extrato de Movimentos (Kardex)");
+    public ScrollPane buildStockMovimentosContent() {
 
         ScrollPane sp = new ScrollPane();
         sp.setFitToWidth(true);
@@ -851,15 +810,18 @@ public class ReportsController {
         movementsCountLabel.setStyle("-fx-font-size:12px; -fx-font-weight:600; -fx-text-fill:#475569;");
         Region spacer = new Region();
         HBox.setHgrow(spacer, Priority.ALWAYS);
-        toolbar.getChildren().addAll(movementsCountLabel, spacer);
+        Button exportar = btn("⬇ Exportar Excel", "#10B981");
+        exportar.setOnAction(e -> ExportUtil.exportTableToExcel(
+                exportar.getScene() != null ? exportar.getScene().getWindow() : null,
+                "kardex_movimentos.xlsx", "Kardex", movementsTable));
+        toolbar.getChildren().addAll(movementsCountLabel, spacer, exportar);
 
         loadMovementsData();
 
         VBox card = card("HISTÓRICO DE MOVIMENTOS", new VBox(toolbar, movementsTable, movementsPagination));
         content.getChildren().addAll(card);
         sp.setContent(content);
-        tab.setContent(sp);
-        return tab;
+        return sp;
     }
 
     private void loadMovementsData() {
@@ -884,10 +846,9 @@ public class ReportsController {
         updatePaginationButtons(movementsPageLabel, movementsPrevBtn, movementsNextBtn, movementsPage, page.getTotalPages());
     }
 
-    // ── TAB 6: MATRIZ DE STOCK ──────────────────────
+    // ── MAPA 6: MATRIZ DE STOCK ──────────────────────
 
-    private Tab buildStockMatrixTab() {
-        Tab tab = new Tab("🏢  Stock Central por Armazém");
+    public ScrollPane buildStockMatrixContent() {
 
         ScrollPane sp = new ScrollPane();
         sp.setFitToWidth(true);
@@ -932,6 +893,7 @@ public class ReportsController {
 
         // Combo to filter by specific branch
         ComboBox<String> branchFilterCombo = new ComboBox<>();
+        UiUtils.hardenComboBox(branchFilterCombo);
         List<String> filterOpts = new ArrayList<>();
         filterOpts.add("Todas as Filiais");
         filterOpts.addAll(branchNames);
@@ -952,8 +914,12 @@ public class ReportsController {
 
         Region spacer = new Region();
         HBox.setHgrow(spacer, Priority.ALWAYS);
+        Button exportar = btn("⬇ Exportar Excel", "#10B981");
+        exportar.setOnAction(e -> ExportUtil.exportTableToExcel(
+                exportar.getScene() != null ? exportar.getScene().getWindow() : null,
+                "stock_armazem.xlsx", "Stock por Armazém", table));
         HBox toolbar = new HBox(8);
-        toolbar.getChildren().addAll(count, spacer, label("Filtrar filial:", "12px"), branchFilterCombo, refresh);
+        toolbar.getChildren().addAll(count, spacer, label("Filtrar filial:", "12px"), branchFilterCombo, refresh, exportar);
 
         // Initial load
         List<StockMatrixRow> initial = buildStockMatrixRows(null, allBranches, branchNames);
@@ -963,8 +929,7 @@ public class ReportsController {
         VBox card = card("VISÃO DE STOCK POR FILIAL", new VBox(toolbar, table));
         content.getChildren().addAll(card);
         sp.setContent(content);
-        tab.setContent(sp);
-        return tab;
+        return sp;
     }
 
     /**
@@ -1023,10 +988,9 @@ public class ReportsController {
         return rows;
     }
 
-    // ── TAB 7: TRANSFERÊNCIAS ────────────────────────
+    // ── MAPA 7: TRANSFERÊNCIAS ────────────────────────
 
-    private Tab buildTransferenciasTab() {
-        Tab tab = new Tab("🔁  Guias de Transferência");
+    public ScrollPane buildTransferenciasContent() {
 
         ScrollPane sp = new ScrollPane();
         sp.setFitToWidth(true);
@@ -1075,8 +1039,12 @@ public class ReportsController {
 
         Region spacer = new Region();
         HBox.setHgrow(spacer, Priority.ALWAYS);
+        Button exportar = btn("⬇ Exportar Excel", "#10B981");
+        exportar.setOnAction(e -> ExportUtil.exportTableToExcel(
+                exportar.getScene() != null ? exportar.getScene().getWindow() : null,
+                "guias_transferencia.xlsx", "Transferências", table));
         HBox toolbar = new HBox(8);
-        toolbar.getChildren().addAll(label("Estado:", "12px"), statusCombo, spacer, refresh);
+        toolbar.getChildren().addAll(label("Estado:", "12px"), statusCombo, spacer, refresh, exportar);
 
         // Initial load
         List<TransferRow> initial = loadTransferRows("Todas");
@@ -1085,8 +1053,7 @@ public class ReportsController {
         VBox card = card("TRANSFERÊNCIAS ENTRE FILIAIS", new VBox(toolbar, table));
         content.getChildren().addAll(card);
         sp.setContent(content);
-        tab.setContent(sp);
-        return tab;
+        return sp;
     }
 
     private List<TransferRow> loadTransferRows(String statusFilter) {
@@ -1125,10 +1092,9 @@ public class ReportsController {
         return rows;
     }
 
-    // ── TAB 8: PAGAMENTOS A FORNECEDORES ──────────────
+    // ── MAPA 8: PAGAMENTOS A FORNECEDORES ──────────────
 
-    private Tab buildPagamentosFornecedoresTab() {
-        Tab tab = new Tab("📑  Pagamentos a Fornecedores");
+    public ScrollPane buildPagamentosFornecedoresContent() {
 
         ScrollPane sp = new ScrollPane();
         sp.setFitToWidth(true);
@@ -1144,6 +1110,7 @@ public class ReportsController {
         pagAte.setPrefWidth(130);
 
         pagFornecedorCombo = new ComboBox<>();
+        UiUtils.hardenComboBox(pagFornecedorCombo);
         List<String> fornecedores = new ArrayList<>();
         fornecedores.add("Todos os Fornecedores");
         supplierRepository.findAllByOrderByNameAsc().forEach(s -> {
@@ -1225,7 +1192,11 @@ public class ReportsController {
         Region spacer2 = new Region();
         HBox.setHgrow(spacer2, Priority.ALWAYS);
         HBox toolbar = new HBox(8);
-        toolbar.getChildren().addAll(pagCountLabel, spacer2);
+        Button exportar = btn("⬇ Exportar Excel", "#10B981");
+        exportar.setOnAction(e -> ExportUtil.exportTableToExcel(
+                exportar.getScene() != null ? exportar.getScene().getWindow() : null,
+                "pagamentos_fornecedores.xlsx", "Pagamentos Fornecedores", pagTable));
+        toolbar.getChildren().addAll(pagCountLabel, spacer2, exportar);
 
         VBox card1 = card("RESUMO DE PAGAMENTOS", kpiH);
         VBox card2 = card("", new VBox(toolbar, pagTable, pagination));
@@ -1233,10 +1204,9 @@ public class ReportsController {
 
         content.getChildren().addAll(card3, card1, card2);
         sp.setContent(content);
-        tab.setContent(sp);
 
         loadPagamentosData();
-        return tab;
+        return sp;
     }
 
     private void loadPagamentosData() {
@@ -1261,7 +1231,12 @@ public class ReportsController {
 
         BigDecimal debt = BigDecimal.ZERO;
         for (Object[] row : purchaseRepository.findOutstandingBalanceBySupplier()) {
-            if (row[1] != null) debt = debt.add((BigDecimal) row[1]);
+            if (row == null || row.length < 2 || row[1] == null) continue;
+            if (row[1] instanceof BigDecimal bd) {
+                debt = debt.add(bd);
+            } else if (row[1] instanceof Number n) {
+                debt = debt.add(BigDecimal.valueOf(n.doubleValue()));
+            }
         }
         pagKpiDebtLabel.setText(fmt(debt) + " MZN");
 
@@ -1323,15 +1298,15 @@ public class ReportsController {
         VBox box = new VBox(6);
         box.setStyle(
             "-fx-background-color:#ffffff;" +
-            "-fx-padding:16;" +
-            "-fx-background-radius:10;" +
+            "-fx-padding:14 16;" +
+            "-fx-background-radius:8;" +
             "-fx-border-color:#E2E8F0;" +
             "-fx-border-width:1;" +
-            "-fx-border-radius:10;" +
-            "-fx-border-insets:0 0 3 0;");
+            "-fx-border-radius:8;" +
+            "-fx-min-width:140;");
         Label t = new Label(title);
-        t.setStyle("-fx-font-size:11px; -fx-font-weight:600; -fx-text-fill:#64748B;");
-        value.setStyle("-fx-font-size:16px; -fx-font-weight:800; -fx-text-fill:#0F172A;");
+        t.setStyle("-fx-font-size:11px; -fx-font-weight:700; -fx-text-fill:#64748B;");
+        value.setStyle("-fx-font-size:15px; -fx-font-weight:800; -fx-text-fill:#0F172A;");
         box.getChildren().addAll(t, value);
         HBox.setHgrow(box, Priority.ALWAYS);
         return box;
@@ -1420,20 +1395,6 @@ public class ReportsController {
         public String getTotalQty()  { return totalQty; }
     }
 
-    public static class LowStockRow {
-        private final String code, name, category, stockCurrent, stockMin, branch;
-        public LowStockRow(String code, String name, String cat, String stock, String min, String branch) {
-            this.code = code; this.name = name; this.category = cat;
-            this.stockCurrent = stock; this.stockMin = min; this.branch = branch;
-        }
-        public String getCode()        { return code; }
-        public String getName()        { return name; }
-        public String getCategory()    { return category; }
-        public String getStockCurrent(){ return stockCurrent; }
-        public String getStockMin()   { return stockMin; }
-        public String getBranch()      { return branch; }
-    }
-
     public static class TransferRow {
         private final String transferNumber, date, origin, destination, productName, quantity, status;
         public TransferRow(String tn, String d, String o, String dt, String pn, String q, String s) {
@@ -1481,8 +1442,6 @@ public class ReportsController {
     }
 
     private void showAlert(String msg) {
-        Alert a = new Alert(Alert.AlertType.INFORMATION, msg);
-        a.setHeaderText(null);
-        a.showAndWait();
+        SgvDialog.info("Informação", msg);
     }
 }

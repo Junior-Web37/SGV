@@ -47,6 +47,9 @@ public class SupplierPaymentFormController extends BaseFormController {
     @FXML
     public void initialize() {
         initCommonFields();
+        UiUtils.hardenComboBox(supplierCombo);
+        UiUtils.hardenComboBox(purchaseCombo);
+        UiUtils.hardenComboBox(methodCombo);
 
         amountField.textProperty().addListener((obs, oldVal, newVal) -> validateRealTime());
         supplierCombo.valueProperty().addListener((obs, oldVal, newVal) -> {

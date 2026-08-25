@@ -10,7 +10,7 @@
 
     <!-- Header -->
     <HBox alignment="CENTER_LEFT" spacing="16"
-          style="-fx-background-color:#0F172A; -fx-padding:16 24;">
+          style="-fx-background-color: linear-gradient(to right, #1E3A8A, #1D4ED8, #1E40AF); -fx-padding:16 24;">
         <VBox spacing="4">
             <Label text="Sistema"
                    style="-fx-font-size:18px; -fx-font-weight:700; -fx-text-fill:#F8FAFC;"/>
@@ -140,30 +140,30 @@
             </ScrollPane>
         </Tab>
 
-        <!-- ═══ TAB 2: UTILIZADORES ═══ -->
+        <!-- ═══ TAB 2: UTILIZADORES & MATRIZ DE ACESSOS ═══ -->
         <Tab text="👤  Utilizadores &amp; Acessos">
             <VBox spacing="0" VBox.vgrow="ALWAYS">
                 <HBox spacing="10" alignment="CENTER_LEFT"
                       style="-fx-padding:12 24; -fx-background-color:#ffffff; -fx-border-color:#E2E8F0; -fx-border-width:0 0 1 0;">
-                    <TextField fx:id="userSearchField" promptText="Pesquisar utilizador..."
-                               style="-fx-pref-width:300; -fx-padding:8 12; -fx-background-radius:3; -fx-border-color:#E2E8F0; -fx-border-radius:3; -fx-font-size:13px; -fx-background-color:#F8FAFC;"/>
+                    <TextField fx:id="userSearchField" promptText="🔍 Pesquisar utilizador por nome, username..."
+                               style="-fx-pref-width:320; -fx-padding:8 12; -fx-background-radius:6; -fx-border-color:#CBD5E1; -fx-border-radius:6; -fx-font-size:13px; -fx-background-color:#F8FAFC;"/>
                     <Region HBox.hgrow="ALWAYS"/>
-                    <Button fx:id="btnNewUser" text="+  Novo Utilizador"
-                            style="-fx-background-color:#2563EB; -fx-text-fill:#ffffff; -fx-font-weight:700; -fx-padding:8 16; -fx-background-radius:3; -fx-cursor:hand; -fx-font-size:13px;"
+                    <Button fx:id="btnNewUser" text="+ Novo Utilizador"
+                            style="-fx-background-color:#2563EB; -fx-text-fill:#ffffff; -fx-font-weight:700; -fx-padding:8 16; -fx-background-radius:6; -fx-cursor:hand; -fx-font-size:13px;"
                             onAction="#onNewUser"/>
-                    <Button fx:id="btnNewProfile" text="+  Novo Perfil"
-                            style="-fx-background-color:#0F766E; -fx-text-fill:#ffffff; -fx-font-weight:700; -fx-padding:8 16; -fx-background-radius:3; -fx-cursor:hand; -fx-font-size:13px;"
+                    <Button fx:id="btnNewProfile" text="🛡️ Matriz de Permissões &amp; Perfis"
+                            style="-fx-background-color: linear-gradient(to right, #1E3A8A, #1D4ED8); -fx-text-fill:#ffffff; -fx-font-weight:700; -fx-padding:8 16; -fx-background-radius:6; -fx-cursor:hand; -fx-font-size:13px; -fx-border-color: #172554; -fx-border-radius: 6;"
                             onAction="#onNewProfile"/>
                 </HBox>
                 <TableView fx:id="usersTable" VBox.vgrow="ALWAYS"
                            style="-fx-font-size:13px; -fx-background-color:#ffffff; -fx-border-color:#E2E8F0;">
                     <columns>
                         <TableColumn fx:id="userIdCol"     text="ID"        prefWidth="60"/>
-                        <TableColumn fx:id="userNameCol"   text="Nome"      prefWidth="200"/>
+                        <TableColumn fx:id="userNameCol"   text="Nome"      prefWidth="220"/>
                         <TableColumn fx:id="userLoginCol"  text="Username"  prefWidth="140"/>
                         <TableColumn fx:id="userEmailCol"  text="Email"     prefWidth="200"/>
                         <TableColumn fx:id="userBranchCol" text="Filial"   prefWidth="160"/>
-                        <TableColumn fx:id="userRoleCol"   text="Função"   prefWidth="140"/>
+                        <TableColumn fx:id="userRoleCol"   text="Função / Perfil" prefWidth="160"/>
                         <TableColumn fx:id="userStatusCol" text="Estado"   prefWidth="100"/>
                         <TableColumn fx:id="userActCol"    text="Acções"   prefWidth="140"/>
                     </columns>
@@ -171,24 +171,6 @@
                         <Label text="Nenhum utilizador encontrado" style="-fx-text-fill:#94A3B8; -fx-font-style:italic;"/>
                     </placeholder>
                 </TableView>
-                <VBox spacing="12" style="-fx-padding:12 24 24 24; -fx-background-color:#ffffff; -fx-border-color:#E2E8F0; -fx-border-width:1 0 0 0;">
-                    <HBox spacing="10" alignment="CENTER_LEFT">
-                        <Label text="Perfis e permissões" style="-fx-font-size:14px; -fx-font-weight:700; -fx-text-fill:#0F172A;"/>
-                        <Region HBox.hgrow="ALWAYS"/>
-                        <Label text="Formato: PAGINA:ACAO" style="-fx-font-size:12px; -fx-text-fill:#64748B;"/>
-                    </HBox>
-                    <TableView fx:id="profilesTable" prefHeight="220"
-                               style="-fx-font-size:13px; -fx-background-color:#ffffff; -fx-border-color:#E2E8F0;">
-                        <columns>
-                            <TableColumn fx:id="profileNameCol" text="Perfil" prefWidth="160"/>
-                            <TableColumn fx:id="profileDescCol" text="Descrição" prefWidth="240"/>
-                            <TableColumn fx:id="profilePermissionsCol" text="Permissões" prefWidth="320"/>
-                        </columns>
-                        <placeholder>
-                            <Label text="Nenhum perfil encontrado" style="-fx-text-fill:#94A3B8; -fx-font-style:italic;"/>
-                        </placeholder>
-                    </TableView>
-                </VBox>
             </VBox>
         </Tab>
 
@@ -208,13 +190,13 @@
                                    style="-fx-font-size:12px; -fx-text-fill:#D1FAE5; -fx-padding:2 0 0 0;"/>
                         </VBox>
                         <VBox spacing="0" HBox.hgrow="ALWAYS"
-                              style="-fx-background-color:#0F172A; -fx-padding:20; -fx-background-radius:3;">
+                              style="-fx-background-color: linear-gradient(to right, #1E3A8A, #1D4ED8, #1E40AF); -fx-padding:20; -fx-background-radius:3;">
                             <Label text="Próximo Backup Automático" style="-fx-font-size:12px; -fx-font-weight:600; -fx-text-fill:#94A3B8;"/>
                             <Label fx:id="nextBackupLabel" text="Diário às 02:00"
                                    style="-fx-font-size:16px; -fx-font-weight:700; -fx-text-fill:#F8FAFC; -fx-padding:4 0 0 0;"/>
                         </VBox>
                         <VBox spacing="0"
-                              style="-fx-background-color:#0F172A; -fx-padding:20; -fx-background-radius:3;">
+                              style="-fx-background-color: linear-gradient(to right, #1E3A8A, #1D4ED8, #1E40AF); -fx-padding:20; -fx-background-radius:3;">
                             <Label text="Backups Retidos" style="-fx-font-size:12px; -fx-font-weight:600; -fx-text-fill:#94A3B8;"/>
                             <Label fx:id="backupCountLabel" text="0"
                                    style="-fx-font-size:28px; -fx-font-weight:700; -fx-text-fill:#F8FAFC; -fx-padding:4 0 0 0;"/>
@@ -303,7 +285,7 @@
 
                     <!-- Status do Modo -->
                     <VBox spacing="16"
-                          style="-fx-background-color:#0F172A; -fx-padding:24; -fx-background-radius:3; -fx-border-color:#334155; -fx-border-radius:3;">
+                          style="-fx-background-color: linear-gradient(to right, #1E3A8A, #1D4ED8, #1E40AF); -fx-padding:24; -fx-background-radius:3; -fx-border-color:#334155; -fx-border-radius:3;">
                         <HBox alignment="CENTER_LEFT" spacing="16">
                             <VBox spacing="4" HBox.hgrow="ALWAYS">
                                 <Label text="MODO TREINAMENTO" style="-fx-font-size:11px; -fx-font-weight:700; -fx-text-fill:#94A3B8;"/>
@@ -365,7 +347,7 @@
 
                     <!-- Info da Licença Actual -->
                     <VBox spacing="12"
-                          style="-fx-background-color:#0F172A; -fx-padding:24; -fx-background-radius:3; -fx-border-color:#334155; -fx-border-radius:3;">
+                          style="-fx-background-color: linear-gradient(to right, #1E3A8A, #1D4ED8, #1E40AF); -fx-padding:24; -fx-background-radius:3; -fx-border-color:#334155; -fx-border-radius:3;">
                         <Label text="LICENÇA ACTUAL" style="-fx-font-size:11px; -fx-font-weight:700; -fx-text-fill:#94A3B8;"/>
                         <GridPane hgap="16" vgap="12">
                             <columnConstraints>

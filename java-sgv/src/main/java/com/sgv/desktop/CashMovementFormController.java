@@ -34,6 +34,8 @@ public class CashMovementFormController extends BaseFormController {
     @FXML
     public void initialize() {
         initCommonFields();
+        UiUtils.hardenComboBox(typeCombo);
+        UiUtils.hardenComboBox(reasonCombo);
         typeCombo.setItems(FXCollections.observableArrayList("ENTRADA", "SAÍDA"));
         reasonCombo.setItems(FXCollections.observableArrayList("SANGRIA", "REFORCO", "OUTRO"));
         UiUtils.attachSafe(saveButton, this::doSave, null, "CASH_MOV_SAVE");

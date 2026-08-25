@@ -83,6 +83,9 @@ public class PurchaseFormController extends BaseFormController {
         isRefreshingProducts = false;
         onSave = null;
         initCommonFields();
+        UiUtils.hardenComboBox(supplierCombo);
+        UiUtils.hardenComboBox(warehouseCombo);
+        UiUtils.hardenComboBox(productCombo);
         setupProductSearch();
         productCombo.setOnAction(e -> {
             Product p = productCombo.getValue();
@@ -172,6 +175,11 @@ public class PurchaseFormController extends BaseFormController {
                 super.updateItem(p, empty);
                 if (empty || p == null) { setText(null); setStyle(""); return; }
                 setText(productDisplayText(p));
+                if (Boolean.TRUE.equals(p.getService())) {
+                    setStyle("-fx-text-fill: #7C3AED; -fx-font-style: italic;");
+                } else {
+                    setStyle("-fx-text-fill: #0F172A; -fx-font-weight: 600;");
+                }
             }
         });
         productCombo.setButtonCell(new ListCell<>() {
@@ -181,24 +189,21 @@ public class PurchaseFormController extends BaseFormController {
             }
         });
 
-        productCombo.getEditor().textProperty().addListener((obs, oldVal, newVal) -> {
+        UiUtils.setupDebounce(productCombo.getEditor(), () -> {
             if (isRefreshingProducts) return;
-            if (productCombo.isShowing()) return;
-            String currentText = newVal != null ? newVal.trim() : "";
+            String currentText = productCombo.getEditor().getText() != null ? productCombo.getEditor().getText().trim() : "";
             Product selected = productCombo.getSelectionModel().getSelectedItem();
             if (selected != null && productDisplayText(selected).equals(currentText)) {
                 return;
             }
-            if (selected != null && !productDisplayText(selected).equals(currentText)) {
-                if (currentText.length() < 60) {
-                    productCombo.getSelectionModel().clearSelection();
-                } else {
-                    return;
-                }
+            if (selected != null) {
+                productCombo.getSelectionModel().clearSelection();
+                productCombo.setValue(null);
+                lastSelectedProduct = null;
             }
             refreshProductSearchResults();
-            if (!productCombo.isShowing() && productCombo.isFocused()) productCombo.show();
-        });
+            if (productCombo.isFocused()) productCombo.show();
+        }, 140);
 
         productCombo.getEditor().setOnKeyPressed(e -> {
             if (e.getCode() == KeyCode.ENTER) {
@@ -217,7 +222,8 @@ public class PurchaseFormController extends BaseFormController {
     private String productDisplayText(Product p) {
         if (p == null) return "";
         String cost = p.getPriceCost() != null ? String.format(java.util.Locale.US, "%.2f", p.getPriceCost()) : "0.00";
-        return p.getCode() + " - " + p.getName() + " (Custo: " + cost + " MT)";
+        String suffix = Boolean.TRUE.equals(p.getService()) ? " · Serviço" : "";
+        return p.getCode() + " - " + p.getName() + " (Custo: " + cost + " MT)" + suffix;
     }
 
     private String extractCodeFromDisplayText(String text) {
@@ -260,13 +266,21 @@ public class PurchaseFormController extends BaseFormController {
                             .thenComparing(Product::getCode, Comparator.nullsLast(String.CASE_INSENSITIVE_ORDER)))
                     .toList();
 
+            String editorText = productCombo.getEditor() != null ? productCombo.getEditor().getText() : "";
             Product prev = productCombo.getValue();
             if (productCombo.isShowing()) productCombo.hide();
             comboDisplayList.setAll(snapshot);
-            if (prev != null && snapshot.stream().anyMatch(p -> p.getId().equals(prev.getId()))) {
+            boolean keep = prev != null && editorText != null
+                    && productDisplayText(prev).equals(editorText.trim())
+                    && snapshot.stream().anyMatch(p -> p.getId().equals(prev.getId()));
+            if (keep) {
                 productCombo.getSelectionModel().select(prev);
+            } else if (emptySearch) {
+                productCombo.getSelectionModel().clearSelection();
+                productCombo.setValue(null);
+                lastSelectedProduct = null;
             }
-            if (!emptySearch && !productCombo.isShowing() && productCombo.isFocused()) productCombo.show();
+            if (productCombo.isFocused()) productCombo.show();
         } finally {
             isRefreshingProducts = false;
         }

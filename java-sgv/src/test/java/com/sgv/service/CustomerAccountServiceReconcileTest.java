@@ -26,7 +26,7 @@ class CustomerAccountServiceReconcileTest {
         PaymentAllocationRepository paymentAllocationRepository = mock(PaymentAllocationRepository.class);
         SystemLogService systemLogService = mock(SystemLogService.class);
 
-        CustomerAccountService svc = new CustomerAccountService(customerRepository, saleRepository, paymentRepository, paymentAllocationRepository, systemLogService);
+        CustomerAccountService svc = new CustomerAccountService(customerRepository, saleRepository, paymentRepository, paymentAllocationRepository, systemLogService, null);
 
         Customer c = new Customer();
         c.setId(42L);

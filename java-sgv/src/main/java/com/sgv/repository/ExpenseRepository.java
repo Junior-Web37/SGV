@@ -21,7 +21,7 @@ public interface ExpenseRepository extends JpaRepository<Expense, Long> {
            "LOWER(e.category) LIKE LOWER(CONCAT('%',:q,'%'))")
     List<Expense> searchByDescriptionOrCategory(@Param("q") String query);
 
-    @Query("SELECT COALESCE(SUM(e.amount), 0) FROM Expense e " +
+    @Query("SELECT COALESCE(SUM(e.amount), 0.0) FROM Expense e " +
            "WHERE e.dueDate >= :from AND e.dueDate < :to AND e.state IN :states")
     Double sumAmountByDateRangeAndStates(@Param("from") LocalDate from,
                                         @Param("to") LocalDate to,

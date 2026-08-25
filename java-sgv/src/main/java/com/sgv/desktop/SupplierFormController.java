@@ -9,7 +9,6 @@ import javafx.scene.control.*;
 import org.springframework.stereotype.Component;
 
 import javafx.concurrent.Task;
-import java.util.Optional;
 
 @Component
 public class SupplierFormController extends BaseFormController {
@@ -154,12 +153,9 @@ public class SupplierFormController extends BaseFormController {
     private void doDelete() {
         if (editingSupplier == null || editingSupplier.getId() == null) return;
 
-        Alert alert = new Alert(Alert.AlertType.CONFIRMATION,
-                "Tem certeza que deseja apagar o fornecedor \"" + editingSupplier.getName() + "\"?", ButtonType.YES, ButtonType.NO);
-        alert.setHeaderText(null);
-        alert.setTitle("Confirmar Eliminação");
-        Optional<ButtonType> result = alert.showAndWait();
-        if (result.isEmpty() || result.get() != ButtonType.YES) return;
+        boolean confirmed = SgvDialog.confirmDanger("Confirmar Eliminação",
+                "Tem certeza que deseja apagar o fornecedor \"" + editingSupplier.getName() + "\"?\n\nEsta operação não pode ser revertida.");
+        if (!confirmed) return;
 
         javafx.concurrent.Task<Void> deleteTask = new javafx.concurrent.Task<>() {
             @Override

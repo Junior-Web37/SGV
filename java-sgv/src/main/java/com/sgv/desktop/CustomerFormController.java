@@ -7,7 +7,6 @@ import javafx.scene.control.*;
 import javafx.stage.Stage;
 import org.springframework.stereotype.Component;
 
-import java.util.Optional;
 import java.math.BigDecimal;
 import com.sgv.service.SystemLogService;
 
@@ -37,6 +36,7 @@ public class CustomerFormController extends BaseFormController {
     @FXML
     public void initialize() {
         initCommonFields();
+        UiUtils.hardenComboBox(typeCombo);
         typeCombo.setItems(javafx.collections.FXCollections.observableArrayList(
                 "RETALHO", "GROSSO", "EMPRESA", "ISENTO"));
         typeCombo.setValue("RETALHO");
@@ -221,12 +221,9 @@ public class CustomerFormController extends BaseFormController {
     private void doDelete() {
         if (customer == null || customer.getId() == null) return;
 
-        Alert alert = new Alert(Alert.AlertType.CONFIRMATION,
-                "Tem certeza que deseja apagar este cliente?", ButtonType.YES, ButtonType.NO);
-        alert.setHeaderText(null);
-        alert.setTitle("Confirmar Eliminação");
-        Optional<ButtonType> result = alert.showAndWait();
-        if (result.isEmpty() || result.get() != ButtonType.YES) return;
+        boolean confirmed = SgvDialog.confirmDanger("Confirmar Eliminação",
+                "Tem certeza que deseja apagar este cliente?\n\nEsta operação não pode ser revertida.");
+        if (!confirmed) return;
 
         javafx.concurrent.Task<Void> deleteTask = new javafx.concurrent.Task<>() {
             @Override

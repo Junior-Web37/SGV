@@ -35,6 +35,7 @@ public class DetailDialog {
     private String subtitle = "";
     private String statusText = null;
     private String statusColor = null;
+    private String icon = "📋";
     private final List<Section> sections = new ArrayList<>();
     private final List<String> styles = new ArrayList<>();
     private Window owner;
@@ -55,6 +56,8 @@ public class DetailDialog {
     public DetailDialog width(double w) { this.width = w; return this; }
     public DetailDialog height(double h) { this.height = h; return this; }
     public DetailDialog style(String css) { this.styles.add(css); return this; }
+    /** Ícone emoji apresentado no cabeçalho (ex.: "📦", "🧾", "👥"). */
+    public DetailDialog icon(String i) { if (i != null && !i.isBlank()) this.icon = i; return this; }
 
     public DetailDialog section(String header) {
         sections.add(new Section(header, null, null, null, null));
@@ -95,6 +98,7 @@ public class DetailDialog {
     }
 
     public void show() {
+        if ("📋".equals(icon)) icon = inferIcon(title);
         Stage dialog = new Stage();
         dialog.initStyle(StageStyle.UNDECORATED);
         if (owner != null) dialog.initModality(Modality.APPLICATION_MODAL);
@@ -105,31 +109,40 @@ public class DetailDialog {
 
         // ─── HEADER ───────────────────────────────────────────
         VBox headerBox = new VBox(6);
-        headerBox.setStyle("-fx-background-color: linear-gradient(to right, #1E293B, #334155); -fx-padding: 24 28 20 28;");
+        headerBox.setStyle("-fx-background-color: linear-gradient(to right, #1E3A8A, #1D4ED8); -fx-padding: 20 28 18 24;");
         headerBox.setMaxWidth(Double.MAX_VALUE);
 
-        HBox titleRow = new HBox(12);
+        HBox titleRow = new HBox(14);
         titleRow.setAlignment(Pos.CENTER_LEFT);
+
+        StackPane iconPane = new StackPane();
+        iconPane.setStyle("-fx-background-color: rgba(255,255,255,0.16); -fx-background-radius: 12; -fx-min-width: 46; -fx-min-height: 46; -fx-max-width: 46; -fx-max-height: 46;");
+        Label iconLabel = new Label(icon);
+        iconLabel.setStyle("-fx-font-size: 22px;");
+        iconPane.getChildren().add(iconLabel);
+
+        VBox titleText = new VBox(3);
+        HBox.setHgrow(titleText, Priority.ALWAYS);
         Label titleLabel = new Label(title);
-        titleLabel.setStyle("-fx-text-fill: #FFFFFF; -fx-font-size: 20px; -fx-font-weight: 800;");
-        titleRow.getChildren().add(titleLabel);
+        titleLabel.setStyle("-fx-text-fill: #FFFFFF; -fx-font-size: 19px; -fx-font-weight: 800;");
+        Label subtitleLabel = new Label(subtitle == null || subtitle.isBlank() ? " " : subtitle);
+        subtitleLabel.setStyle("-fx-text-fill: #BFDBFE; -fx-font-size: 12.5px; -fx-font-weight: 600;");
+        subtitleLabel.setWrapText(true);
+        titleText.getChildren().addAll(titleLabel, subtitleLabel);
+
+        titleRow.getChildren().addAll(iconPane, titleText);
 
         if (statusText != null && statusColor != null) {
-            Region spacer = new Region();
-            HBox.setHgrow(spacer, Priority.ALWAYS);
             Label badge = new Label(statusText);
             badge.setStyle(String.format(
                 "-fx-background-color: %s; -fx-text-fill: #FFFFFF; -fx-font-size: 11px; " +
-                "-fx-font-weight: 700; -fx-padding: 4 12; -fx-background-radius: 12; -fx-font-family: monospace;",
+                "-fx-font-weight: 800; -fx-padding: 5 14; -fx-background-radius: 12;",
                 statusColor
             ));
-            titleRow.getChildren().addAll(spacer, badge);
+            titleRow.getChildren().add(badge);
         }
 
-        Label subtitleLabel = new Label(subtitle);
-        subtitleLabel.setStyle("-fx-text-fill: #94A3B8; -fx-font-size: 13px; -fx-font-weight: 500;");
-
-        headerBox.getChildren().addAll(titleRow, subtitleLabel);
+        headerBox.getChildren().add(titleRow);
 
         // ─── CONTENT ──────────────────────────────────────────
         VBox content = new VBox(0);
@@ -152,12 +165,19 @@ public class DetailDialog {
                 HBox.setHgrow(secBox, Priority.ALWAYS);
 
                 if (sec.header != null) {
-                    Label secHeader = new Label("  " + sec.header);
-                    secHeader.setStyle("-fx-background-color: #F1F5F9; -fx-padding: 10 16; " +
-                        "-fx-font-size: 12px; -fx-font-weight: 700; -fx-text-fill: #475569; " +
+                    HBox secHeaderRow = new HBox(8);
+                    secHeaderRow.setAlignment(Pos.CENTER_LEFT);
+                    secHeaderRow.setStyle("-fx-background-color: #F1F5F9; -fx-padding: 9 14; " +
                         "-fx-background-radius: 10 10 0 0;");
-                    secHeader.setMaxWidth(Double.MAX_VALUE);
-                    secBox.getChildren().add(secHeader);
+                    Region accentBar = new Region();
+                    accentBar.setStyle("-fx-background-color: #1D4ED8; -fx-min-width: 4; -fx-max-width: 4; -fx-min-height: 14; -fx-background-radius: 2;");
+                    Label secHeader = new Label(sec.header);
+                    secHeader.setStyle("-fx-font-size: 11.5px; -fx-font-weight: 800; -fx-text-fill: #334155;");
+                    Region hSpacer = new Region();
+                    HBox.setHgrow(hSpacer, Priority.ALWAYS);
+                    secHeaderRow.getChildren().addAll(accentBar, secHeader, hSpacer);
+                    secHeaderRow.setMaxWidth(Double.MAX_VALUE);
+                    secBox.getChildren().add(secHeaderRow);
                 }
 
                 GridPane grid = new GridPane();
@@ -213,12 +233,19 @@ public class DetailDialog {
                 HBox.setHgrow(secBox, Priority.ALWAYS);
 
                 if (sec.header != null) {
-                    Label secHeader = new Label("  " + sec.header);
-                    secHeader.setStyle("-fx-background-color: #F1F5F9; -fx-padding: 10 16; " +
-                        "-fx-font-size: 12px; -fx-font-weight: 700; -fx-text-fill: #475569; " +
+                    HBox secHeaderRow = new HBox(8);
+                    secHeaderRow.setAlignment(Pos.CENTER_LEFT);
+                    secHeaderRow.setStyle("-fx-background-color: #F1F5F9; -fx-padding: 9 14; " +
                         "-fx-background-radius: 10 10 0 0;");
-                    secHeader.setMaxWidth(Double.MAX_VALUE);
-                    secBox.getChildren().add(secHeader);
+                    Region accentBar = new Region();
+                    accentBar.setStyle("-fx-background-color: #1D4ED8; -fx-min-width: 4; -fx-max-width: 4; -fx-min-height: 14; -fx-background-radius: 2;");
+                    Label secHeader = new Label(sec.header);
+                    secHeader.setStyle("-fx-font-size: 11.5px; -fx-font-weight: 800; -fx-text-fill: #334155;");
+                    Region hSpacer = new Region();
+                    HBox.setHgrow(hSpacer, Priority.ALWAYS);
+                    secHeaderRow.getChildren().addAll(accentBar, secHeader, hSpacer);
+                    secHeaderRow.setMaxWidth(Double.MAX_VALUE);
+                    secBox.getChildren().add(secHeaderRow);
                 }
 
                 if (sec.rows != null && !sec.rows.isEmpty()) {
@@ -282,20 +309,25 @@ public class DetailDialog {
         scrollPane.setContent(scrollContent);
 
         // ─── FOOTER ───────────────────────────────────────────
-        HBox footer = new HBox();
+        HBox footer = new HBox(12);
         footer.setAlignment(Pos.CENTER_RIGHT);
         footer.setStyle("-fx-background-color: #FFFFFF; -fx-padding: 12 24; " +
             "-fx-border-color: #E2E8F0; -fx-border-width: 1 0 0 0;");
 
-        Button closeBtn = new Button("Fechar (ESC)");
+        Label escHint = new Label("ESC para fechar");
+        escHint.setStyle("-fx-text-fill: #94A3B8; -fx-font-size: 11px; -fx-font-weight: 600;");
+        Region fSpacer = new Region();
+        HBox.setHgrow(fSpacer, Priority.ALWAYS);
+
+        Button closeBtn = new Button("Fechar");
         closeBtn.setStyle(
-            "-fx-background-color: #2563EB; -fx-text-fill: #FFFFFF; -fx-font-size: 13px; " +
-            "-fx-font-weight: 700; -fx-padding: 8 24; -fx-background-radius: 8; -fx-cursor: hand;"
+            "-fx-background-color: #1D4ED8; -fx-text-fill: #FFFFFF; -fx-font-size: 13px; " +
+            "-fx-font-weight: 700; -fx-padding: 8 26; -fx-background-radius: 8; -fx-cursor: hand;"
         );
         closeBtn.setOnAction(e -> dialog.close());
         UiUtils.applyHoverElevation(closeBtn);
         UiUtils.applyPressFeedback(closeBtn);
-        footer.getChildren().add(closeBtn);
+        footer.getChildren().addAll(escHint, fSpacer, closeBtn);
 
         root.getChildren().addAll(headerBox, scrollPane, footer);
 
@@ -312,6 +344,26 @@ public class DetailDialog {
             dialog.setY(owner.getY() + (owner.getHeight() - height) / 2);
         }
         dialog.show();
+    }
+
+    /** Escolhe um ícone adequado com base nas palavras-chave do título. */
+    private static String inferIcon(String t) {
+        if (t == null) return "📋";
+        String s = t.toLowerCase(java.util.Locale.ROOT);
+        if (s.contains("venda") || s.contains("factura") || s.contains("fatura") || s.contains("cotação") || s.contains("nota")) return "🧾";
+        if (s.contains("produto") || s.contains("stock") || s.contains("kardex") || s.contains("artigo")) return "📦";
+        if (s.contains("cliente")) return "👥";
+        if (s.contains("fornecedor")) return "🚚";
+        if (s.contains("compra")) return "🛒";
+        if (s.contains("transferência") || s.contains("transferencia") || s.contains("guia")) return "🔁";
+        if (s.contains("despesa")) return "💸";
+        if (s.contains("produção") || s.contains("producao")) return "🏭";
+        if (s.contains("categoria") || s.contains("família") || s.contains("familia")) return "🏷️";
+        if (s.contains("unidade")) return "📐";
+        if (s.contains("turno") || s.contains("caixa")) return "💰";
+        if (s.contains("log") || s.contains("evento")) return "📜";
+        if (s.contains("armazém") || s.contains("armazem")) return "🏢";
+        return "📋";
     }
 
     private static class Section {

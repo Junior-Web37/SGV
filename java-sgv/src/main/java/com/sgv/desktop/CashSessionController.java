@@ -24,6 +24,7 @@ import org.slf4j.LoggerFactory;
 import java.math.BigDecimal;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 
 @Component
@@ -240,9 +241,7 @@ public class CashSessionController {
     private void showSelectedHistorySession() {
         CashSession selected = historyTable.getSelectionModel().getSelectedItem();
         if (selected == null) {
-            Alert alert = new Alert(Alert.AlertType.WARNING, "Selecione um turno para ver os detalhes.");
-            alert.setHeaderText(null);
-            alert.showAndWait();
+            SgvDialog.warning("Histórico de Turnos", "Selecione um turno para ver os detalhes.");
             return;
         }
         showHistoryDetails(selected);
@@ -250,35 +249,43 @@ public class CashSessionController {
 
     private void showHistoryDetails(CashSession session) {
         List<CashMovement> movements = cashSessionService.getMovements(session);
-        StringBuilder sb = new StringBuilder();
-        sb.append("Operador: ").append(session.getUser() != null ? session.getUser().getFullName() : "-").append("\n");
-        sb.append("Aberto em: ").append(session.getOpenedAt() != null ? session.getOpenedAt().format(DATETIME_FORMATTER) : "-").append("\n");
-        sb.append("Fechado em: ").append(session.getClosedAt() != null ? session.getClosedAt().format(DATETIME_FORMATTER) : "-").append("\n");
-        sb.append("Estado: ").append(session.getState() != null ? session.getState() : "-").append("\n");
-        sb.append("Fundo Inicial: ").append(session.getInitialValue() != null ? String.format("%.2f MT", session.getInitialValue()) : "0.00 MT").append("\n");
-        sb.append("Valor Sistema: ").append(session.getSystemValue() != null ? String.format("%.2f MT", session.getSystemValue()) : "-").append("\n");
-        sb.append("Valor Reportado: ").append(session.getReportedValue() != null ? String.format("%.2f MT", session.getReportedValue()) : "-").append("\n");
-        sb.append("Movimentos: ").append(movements.size()).append("\n\n");
+
+        List<Map<String, String>> movRows = new java.util.ArrayList<>();
+        double totalIn = 0, totalOut = 0;
         for (CashMovement m : movements) {
-            sb.append(m.getCreatedAt() != null ? m.getCreatedAt().format(TIME_FORMATTER) : "-")
-                .append(" - ")
-                .append("IN".equals(m.getType()) ? "ENTRADA" : "SAÍDA")
-                .append(" - ")
-                .append(m.getAmount() != null ? String.format("%.2f MT", m.getAmount()) : "-")
-                .append(" - ")
-                .append(m.getDescription() != null ? m.getDescription() : "-")
-                .append("\n");
+            double amt = m.getAmount() != null ? m.getAmount().doubleValue() : 0.0;
+            boolean isIn = "IN".equals(m.getType());
+            if (isIn) totalIn += amt; else totalOut += amt;
+            Map<String, String> row = new java.util.LinkedHashMap<>();
+            row.put("Hora", m.getCreatedAt() != null ? m.getCreatedAt().format(TIME_FORMATTER) : "-");
+            row.put("Tipo", isIn ? "ENTRADA" : "SAÍDA");
+            row.put("Valor", String.format("%.2f MT", amt));
+            row.put("Descrição", m.getDescription() != null ? m.getDescription() : "-");
+            movRows.add(row);
         }
-        Alert alert = new Alert(Alert.AlertType.INFORMATION);
-        alert.setTitle("Detalhes do Turno");
-        alert.setHeaderText("Turno de Caixa");
-        TextArea detailsArea = new TextArea(sb.toString());
-        detailsArea.setEditable(false);
-        detailsArea.setWrapText(true);
-        detailsArea.setMaxWidth(Double.MAX_VALUE);
-        detailsArea.setMaxHeight(Double.MAX_VALUE);
-        alert.getDialogPane().setContent(detailsArea);
-        alert.showAndWait();
+
+        String estado = session.getState() != null ? session.getState() : "-";
+        boolean aberta = "ABERTA".equalsIgnoreCase(estado);
+
+        javafx.stage.Window owner = historyTable.getScene() != null ? historyTable.getScene().getWindow() : null;
+        DetailDialog.create(owner)
+                .title("Detalhes do Turno")
+                .subtitle("Sessão de Caixa #" + (session.getId() != null ? session.getId() : "—"))
+                .statusBadge(estado, aberta ? "#10B981" : "#64748B")
+                .width(640).height(580)
+                .section("Resumo do Turno")
+                .field("Operador", session.getUser() != null ? session.getUser().getFullName() : "—")
+                .field("Aberto em", session.getOpenedAt() != null ? session.getOpenedAt().format(DATETIME_FORMATTER) : "—")
+                .field("Fechado em", session.getClosedAt() != null ? session.getClosedAt().format(DATETIME_FORMATTER) : "—")
+                .field("Fundo Inicial", session.getInitialValue() != null ? String.format("%.2f MT", session.getInitialValue()) : "0.00 MT")
+                .section("Valores")
+                .field("Valor Sistema", session.getSystemValue() != null ? String.format("%.2f MT", session.getSystemValue()) : "—", "#2563EB")
+                .field("Valor Reportado", session.getReportedValue() != null ? String.format("%.2f MT", session.getReportedValue()) : "—")
+                .field("Total Entradas", String.format("%.2f MT", totalIn), "#10B981")
+                .field("Total Saídas", String.format("%.2f MT", totalOut), "#DC2626")
+                .tableSection("Movimentos de Caixa (" + movements.size() + ")",
+                        new String[]{"Hora", "Tipo", "Valor", "Descrição"}, movRows)
+                .show();
     }
 
     private void openSessionModal() {

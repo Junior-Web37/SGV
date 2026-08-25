@@ -43,7 +43,7 @@ class CustomerAccountServiceTest {
         when(paymentRepository.save(any(Payment.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
         PaymentAllocationRepository paymentAllocationRepository = mock(PaymentAllocationRepository.class);
-        CustomerAccountService service = new CustomerAccountService(customerRepository, saleRepository, paymentRepository, paymentAllocationRepository, systemLogService);
+        CustomerAccountService service = new CustomerAccountService(customerRepository, saleRepository, paymentRepository, paymentAllocationRepository, systemLogService, null);
 
         service.recordReceipt(customer, sale, BigDecimal.valueOf(80), "Dinheiro", null);
 

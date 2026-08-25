@@ -14,7 +14,7 @@
         <VBox spacing="0">
             <!-- Barra Superior com Informações do Caixa -->
             <HBox spacing="16" alignment="CENTER_LEFT"
-                  style="-fx-background-color:#0F172A; -fx-padding:14 24; -fx-border-color:#1E293B; -fx-border-width:0 0 1 0;">
+                  style="-fx-background-color: linear-gradient(to right, #1E3A8A, #1D4ED8, #1E40AF); -fx-padding:14 24; -fx-border-color:#1E293B; -fx-border-width:0 0 1 0;">
                 <VBox spacing="2">
                     <Label text="OPERADOR DE CAIXA" style="-fx-font-size:10px; -fx-font-weight:700; -fx-text-fill:#94A3B8;"/>
                     <Label fx:id="operatorLabel" text="—" style="-fx-font-size:14px; -fx-font-weight:800; -fx-text-fill:#FFFFFF;"/>

@@ -104,8 +104,9 @@ public class OpenSessionFormController extends BaseFormController {
             }
         };
         saveTask.setOnSucceeded(e -> { systemLogService.logUserAction(currentUser != null ? currentUser.getUsername() : "Sistema", "CAIXA_ABERTO", "Turno de caixa aberto com Fundo de Maneio: " + initialValueField.getText() + " MT"); if (onSuccess != null) onSuccess.run(); doCancel(); });
-        saveTask.setOnFailed(e -> { Throwable ex = saveTask.getException(); systemLogService.logError("OPEN_CASH_FAILED", "Erro ao abrir caixa: " + (ex != null ? ex.getMessage() : ""), ex);
+        saveTask.setOnFailed(e -> {
             Throwable ex = saveTask.getException();
+            systemLogService.logError("OPEN_CASH_FAILED", "Erro ao abrir caixa: " + (ex != null ? ex.getMessage() : ""), ex);
             String msg = ex != null && ex.getMessage() != null ? ex.getMessage() : "Erro desconhecido";
             showError(msg);
             hideSaveSpinner();

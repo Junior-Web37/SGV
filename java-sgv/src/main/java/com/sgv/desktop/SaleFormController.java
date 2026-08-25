@@ -11,6 +11,7 @@ import javafx.collections.FXCollections;
 import javafx.fxml.FXML;
 import javafx.scene.control.*;
 import javafx.scene.control.cell.PropertyValueFactory;
+import javafx.scene.layout.VBox;
 import javafx.scene.input.KeyCode;
 import javafx.scene.input.KeyEvent;
 import javafx.application.Platform;
@@ -206,6 +207,13 @@ public class SaleFormController extends BaseFormController {
         if (itemsTable != null) itemsTable.getItems().clear();
         categories.clear();
         initCommonFields();
+        UiUtils.hardenComboBox(documentTypeCombo);
+        UiUtils.hardenComboBox(branchCombo);
+        UiUtils.hardenComboBox(customerCombo);
+        UiUtils.hardenComboBox(productCategoryCombo);
+        UiUtils.hardenComboBox(productSearchCombo);
+        UiUtils.hardenComboBox(paymentMethodCombo);
+        UiUtils.hardenComboBox(currencyCombo);
         
         UiUtils.applyNumericFormatter(quantityField);
         
@@ -233,6 +241,7 @@ public class SaleFormController extends BaseFormController {
         if(!branchCombo.getItems().isEmpty()) branchCombo.getSelectionModel().selectFirst();
         branchCombo.valueProperty().addListener((obs, oldVal, newVal) -> {
             refreshCashSessionAvailability();
+            reloadBranchStockCache();
             refreshPopularProducts();
             refreshProductSearchResults();
         });
@@ -520,6 +529,7 @@ public class SaleFormController extends BaseFormController {
     private ObservableList<Product> allProducts = FXCollections.observableArrayList();
     private FilteredList<Product> filteredProducts;
     private final ObservableList<Product> comboDisplayList = FXCollections.observableArrayList();
+    private final Map<Long, BigDecimal> branchStockCache = new HashMap<>();
     private boolean isRefreshingProducts = false;
     private Product lastSelectedProduct = null;
     private volatile boolean enterProcessingGuard = false;
@@ -527,6 +537,8 @@ public class SaleFormController extends BaseFormController {
     private void setupProductSearch() {
         allProducts.setAll(productService.findAllActive());
         filteredProducts = new FilteredList<>(allProducts, p -> true);
+        reloadBranchStockCache();
+        refreshPopularProducts();
         
         productSearchCombo.setItems(comboDisplayList);
 
@@ -557,11 +569,7 @@ public class SaleFormController extends BaseFormController {
                     return;
                 }
                 setText(productDisplayText(p));
-                if (!isProductAvailableInBranch(p, branchCombo != null ? branchCombo.getValue() : null)) {
-                    setStyle("-fx-text-fill: #9ca3af; -fx-font-style: italic;");
-                } else {
-                    setStyle("");
-                }
+                applyProductRowStyle(this, p);
             }
         });
         productSearchCombo.setButtonCell(new ListCell<>() {
@@ -576,28 +584,24 @@ public class SaleFormController extends BaseFormController {
             }
         });
         
-        productSearchCombo.getEditor().textProperty().addListener((obs, oldVal, newVal) -> {
+        UiUtils.setupDebounce(productSearchCombo.getEditor(), () -> {
             if (isRefreshingProducts) return;
-            if (productSearchCombo.isShowing()) return;
-            String currentText = newVal != null ? newVal.trim() : "";
+            String currentText = productSearchCombo.getEditor().getText() != null
+                    ? productSearchCombo.getEditor().getText().trim() : "";
             Product selected = productSearchCombo.getSelectionModel().getSelectedItem();
             if (selected != null && productDisplayText(selected).equals(currentText)) {
                 return;
             }
-            if (selected != null && !productDisplayText(selected).equals(currentText)) {
-                // Only clear selection if this is a user-typed change (short text),
-                // NOT a ComboBox-internal reformat (long display text).
-                if (currentText.length() < 60) {
-                    productSearchCombo.getSelectionModel().clearSelection();
-                } else {
-                    return;
-                }
+            if (selected != null) {
+                productSearchCombo.getSelectionModel().clearSelection();
+                productSearchCombo.setValue(null);
+                lastSelectedProduct = null;
             }
             refreshProductSearchResults();
-            if (!productSearchCombo.isShowing() && productSearchCombo.isFocused()) {
+            if (productSearchCombo.isFocused()) {
                 productSearchCombo.show();
             }
-        });
+        }, 140);
 
         productSearchCombo.getEditor().addEventFilter(KeyEvent.KEY_PRESSED, e -> {
             if (e.getCode() == KeyCode.ENTER) {
@@ -700,7 +704,7 @@ public class SaleFormController extends BaseFormController {
 
     private String extractCodeFromDisplayText(String text) {
         if (text == null) return null;
-        // Format: "CODE - NAME (PRICE MT)" or "CODE - NAME (PRICE MT) - Fora de estoque (X)"
+        // Format: "CODE - NAME (PRICE MT)" or "CODE - NAME (PRICE MT) - Sem stock"
         int dashIdx = text.indexOf(" - ");
         if (dashIdx > 0) {
             return text.substring(0, dashIdx).trim();
@@ -708,12 +712,15 @@ public class SaleFormController extends BaseFormController {
         return null;
     }
 
+    private int productSortRank(Product p) {
+        if (p == null) return 9;
+        if (Boolean.TRUE.equals(p.getService())) return 1;
+        return hasPhysicalStock(p) ? 0 : 2;
+    }
+
     private int compareProductsForSearch(Product a, Product b) {
         if (a == null || b == null) return a == b ? 0 : a == null ? 1 : -1;
-        Branch branch = branchCombo != null ? branchCombo.getValue() : null;
-        int aAvail = isProductAvailableInBranch(a, branch) ? 1 : 0;
-        int bAvail = isProductAvailableInBranch(b, branch) ? 1 : 0;
-        int cmp = Integer.compare(bAvail, aAvail);
+        int cmp = Integer.compare(productSortRank(a), productSortRank(b));
         if (cmp != 0) return cmp;
         double aScore = productPopularity.getOrDefault(a.getId(), 0.0);
         double bScore = productPopularity.getOrDefault(b.getId(), 0.0);
@@ -727,14 +734,25 @@ public class SaleFormController extends BaseFormController {
     private String productDisplayText(Product p) {
         if (p == null) return "";
         String price = p.getPriceSale() != null ? String.format("%.2f", p.getPriceSale()) : "0.00";
-        String availableText = "";
-        Branch branch = branchCombo != null ? branchCombo.getValue() : null;
-        if (!isProductAvailableInBranch(p, branch)) {
-            Optional<StockBranch> stock = getStockForBranch(p, branch);
-            BigDecimal available = stock.map(sb -> sb.getStockCurrentAmount() != null ? sb.getStockCurrentAmount() : BigDecimal.ZERO).orElse(BigDecimal.ZERO);
-            availableText = " - Fora de estoque (" + String.format("%.2f", available.doubleValue()) + ")";
+        String suffix;
+        if (Boolean.TRUE.equals(p.getService())) {
+            suffix = " · Serviço";
+        } else if (!hasPhysicalStock(p)) {
+            suffix = " · Sem stock";
+        } else {
+            suffix = " · Stock " + String.format("%.1f", cachedStock(p).doubleValue());
         }
-        return p.getCode() + " - " + p.getName() + " (" + price + " MT)" + availableText;
+        return p.getCode() + " - " + p.getName() + " (" + price + " MT)" + suffix;
+    }
+
+    private void applyProductRowStyle(ListCell<Product> cell, Product p) {
+        if (Boolean.TRUE.equals(p.getService())) {
+            cell.setStyle("-fx-text-fill: #7C3AED; -fx-font-style: italic;");
+        } else if (!hasPhysicalStock(p)) {
+            cell.setStyle("-fx-text-fill: #94A3B8; -fx-font-style: italic;");
+        } else {
+            cell.setStyle("-fx-text-fill: #0F172A; -fx-font-weight: 600;");
+        }
     }
 
     private void refreshProductSearchResults() {
@@ -743,13 +761,12 @@ public class SaleFormController extends BaseFormController {
         try {
             String search = productSearchCombo.getEditor() != null ? productSearchCombo.getEditor().getText() : null;
             Category category = productCategoryCombo != null ? productCategoryCombo.getValue() : null;
-            Branch branch = branchCombo != null ? branchCombo.getValue() : null;
 
             boolean emptySearch = search == null || search.isBlank();
             List<Long> topIds = allProducts.stream()
                     .filter(p -> categoryMatches(p, category))
-                    .sorted(Comparator.comparingInt((Product p) -> isProductAvailableInBranch(p, branch) ? 0 : 1)
-                            .thenComparingDouble((Product p) -> productPopularity.getOrDefault(p.getId(), 0.0)).reversed()
+                    .sorted(Comparator.comparingInt(this::productSortRank)
+                            .thenComparing((Product p) -> productPopularity.getOrDefault(p.getId(), 0.0), Comparator.reverseOrder())
                             .thenComparing(Product::getName, Comparator.nullsLast(String.CASE_INSENSITIVE_ORDER)))
                     .limit(POPULAR_PRODUCTS_LIMIT)
                     .map(Product::getId)
@@ -767,6 +784,8 @@ public class SaleFormController extends BaseFormController {
                     .sorted(this::compareProductsForSearch)
                     .collect(Collectors.toList());
 
+            String editorText = productSearchCombo.getEditor() != null
+                    ? productSearchCombo.getEditor().getText() : "";
             Product previousSelection = productSearchCombo.getValue();
 
             if (productSearchCombo.isShowing()) {
@@ -774,15 +793,19 @@ public class SaleFormController extends BaseFormController {
             }
             comboDisplayList.setAll(snapshot);
 
-            if (previousSelection != null) {
-                boolean stillInList = snapshot.stream()
-                        .anyMatch(p -> p.getId().equals(previousSelection.getId()));
-                if (stillInList) {
-                    productSearchCombo.getSelectionModel().select(previousSelection);
-                }
+            boolean keepSelection = previousSelection != null
+                    && editorText != null
+                    && productDisplayText(previousSelection).equals(editorText.trim())
+                    && snapshot.stream().anyMatch(p -> p.getId().equals(previousSelection.getId()));
+            if (keepSelection) {
+                productSearchCombo.getSelectionModel().select(previousSelection);
+            } else if (emptySearch) {
+                productSearchCombo.getSelectionModel().clearSelection();
+                productSearchCombo.setValue(null);
+                lastSelectedProduct = null;
             }
 
-            if (!emptySearch && !productSearchCombo.isShowing() && productSearchCombo.isFocused()) {
+            if (productSearchCombo.isFocused()) {
                 productSearchCombo.show();
             }
         } finally {
@@ -809,18 +832,36 @@ public class SaleFormController extends BaseFormController {
         return isProductAvailableInBranch(p, branch);
     }
 
+    private void reloadBranchStockCache() {
+        branchStockCache.clear();
+        Branch branch = branchCombo != null ? branchCombo.getValue() : null;
+        if (branch == null || branch.getId() == null || allProducts.isEmpty()) return;
+        List<Long> ids = allProducts.stream().map(Product::getId).filter(Objects::nonNull).toList();
+        if (ids.isEmpty()) return;
+        for (StockBranch sb : stockBranchService.loadStockForBranchAndProducts(branch.getId(), ids)) {
+            if (sb.getProduct() != null && sb.getProduct().getId() != null) {
+                branchStockCache.put(sb.getProduct().getId(),
+                        sb.getStockCurrentAmount() != null ? sb.getStockCurrentAmount() : BigDecimal.ZERO);
+            }
+        }
+    }
+
+    private BigDecimal cachedStock(Product p) {
+        if (p == null || p.getId() == null) return BigDecimal.ZERO;
+        return branchStockCache.getOrDefault(p.getId(), BigDecimal.ZERO);
+    }
+
     private boolean isProductAvailableInBranch(Product p, Branch branch) {
         if (branch == null || p == null) return true;
         if (Boolean.TRUE.equals(p.getService())) return true;
-        Optional<StockBranch> stock = getStockForBranch(p, branch);
-        return stock.map(sb -> sb.getStockCurrentAmount() != null && sb.getStockCurrentAmount().compareTo(BigDecimal.ZERO) > 0).orElse(false);
+        return cachedStock(p).compareTo(BigDecimal.ZERO) > 0;
     }
 
     private Optional<StockBranch> getStockForBranch(Product p, Branch branch) {
         if (p == null || p.getId() == null || branch == null || branch.getId() == null) {
             return Optional.empty();
         }
-        java.math.BigDecimal current = stockBranchService.getCurrentStock(branch, p);
+        BigDecimal current = cachedStock(p);
         if (current.compareTo(BigDecimal.ZERO) <= 0) {
             return Optional.empty();
         }
@@ -843,7 +884,7 @@ public class SaleFormController extends BaseFormController {
                 .sum());
 
         if (available.compareTo(existingQty.add(BigDecimal.valueOf(requestedQty))) < 0) {
-            showError("Estoque insuficiente para " + product.getCode() + " na filial " + branch.getName() + ". Disponível: " + String.format("%.2f", available.doubleValue()));
+            showError("Stock insuficiente para " + product.getCode() + " na filial " + branch.getName() + ". Disponível: " + String.format("%.2f", available.doubleValue()));
             return false;
         }
         return true;
@@ -859,7 +900,7 @@ public class SaleFormController extends BaseFormController {
             BigDecimal available = stock.map(sb -> sb.getStockCurrentAmount() != null ? sb.getStockCurrentAmount() : BigDecimal.ZERO).orElse(BigDecimal.ZERO);
             BigDecimal qty = BigDecimal.valueOf(item.getQty() != null ? item.getQty() : 0.0);
             if (available.compareTo(qty) < 0) {
-                showError("Estoque insuficiente para " + product.getCode() + " na filial " + branch.getName() + ". Disponível: " + String.format("%.2f", available.doubleValue()));
+                showError("Stock insuficiente para " + product.getCode() + " na filial " + branch.getName() + ". Disponível: " + String.format("%.2f", available.doubleValue()));
                 return false;
             }
         }
@@ -899,8 +940,30 @@ public class SaleFormController extends BaseFormController {
         LocalDateTime to = LocalDateTime.now();
         Branch branch = branchCombo != null ? branchCombo.getValue() : null;
 
-        List<SaleItem> items = saleItemRepository.findBySaleDateRange(from, to);
         productPopularity.clear();
+        if (true) {
+            Long branchId = branch != null ? branch.getId() : null;
+            try {
+                List<Object[]> rows = saleItemRepository.findTopSellingProductsToday(
+                        from, to, branchId, org.springframework.data.domain.PageRequest.of(0, 80));
+                Map<String, Product> byCode = allProducts.stream()
+                        .filter(p -> p.getCode() != null)
+                        .collect(Collectors.toMap(Product::getCode, p -> p, (a, b) -> a));
+                for (Object[] row : rows) {
+                    if (row == null || row.length < 3) continue;
+                    String code = row[0] != null ? row[0].toString() : null;
+                    Number qty = row[2] instanceof Number n ? n : null;
+                    Product p = code != null ? byCode.get(code) : null;
+                    if (p != null && p.getId() != null && qty != null) {
+                        productPopularity.merge(p.getId(), qty.doubleValue(), Double::sum);
+                    }
+                }
+            } catch (Exception ex) {
+                log.debug("Popularidade de produtos ignorada: {}", ex.getMessage());
+            }
+            return;
+        }
+        List<SaleItem> items = saleItemRepository.findBySaleDateRange(from, to);
         for (SaleItem item : items) {
             if (item.getProduct() == null || item.getProduct().getId() == null) continue;
             if (item.getSale() == null) continue;
@@ -1126,9 +1189,11 @@ public class SaleFormController extends BaseFormController {
         itemsTable.refresh();
         updateTotals();
         
+        lastSelectedProduct = null;
         productSearchCombo.setValue(null);
         productSearchCombo.getEditor().clear();
         quantityField.setText("1");
+        refreshProductSearchResults();
         javafx.application.Platform.runLater(() -> productSearchCombo.requestFocus());
     }
     
@@ -1544,14 +1609,7 @@ public class SaleFormController extends BaseFormController {
                     } catch (Exception ignored) {}
                 }
                 if (stockWarnings.length() > 0) {
-                    javafx.application.Platform.runLater(() -> {
-                        javafx.scene.control.Alert alert = new javafx.scene.control.Alert(
-                            javafx.scene.control.Alert.AlertType.WARNING);
-                        alert.setTitle("Aviso de Stock");
-                        alert.setHeaderText("Stock insuficiente no momento da cotação");
-                        alert.setContentText("Os seguintes produtos podem não ter stock suficiente quando a cotação for convertida em venda:" + stockWarnings);
-                        alert.showAndWait();
-                    });
+                    ToastNotification.showWarning("Aviso de Stock:\nStock insuficiente no momento da cotação\n" + stockWarnings.toString().trim());
                 }
             }
         } else if (dt == com.sgv.model.DocumentType.VENDA || dt == com.sgv.model.DocumentType.FACTURA) {
@@ -1655,5 +1713,15 @@ public class SaleFormController extends BaseFormController {
         } else {
             saveButton.disableProperty().bind(formValidProperty.not());
         }
+    }
+
+    /**
+     * Verifica se o produto tem stock físico disponível na filial seleccionada.
+     * Serviços são sempre considerados disponíveis (não têm stock físico).
+     */
+    private boolean hasPhysicalStock(Product p) {
+        if (p == null) return false;
+        if (Boolean.TRUE.equals(p.getService())) return true;
+        return cachedStock(p).compareTo(BigDecimal.ZERO) > 0;
     }
 }

@@ -12,6 +12,12 @@ public interface WarehouseTransferRepository extends JpaRepository<WarehouseTran
     @Query("SELECT MAX(t.documentNumber) FROM WarehouseTransfer t WHERE t.series = :series AND t.documentYear = :year")
     Long findMaxDocumentNumberBySeriesAndYear(@Param("series") String series, @Param("year") int year);
 
+    @Query("SELECT DISTINCT t FROM WarehouseTransfer t LEFT JOIN FETCH t.items i LEFT JOIN FETCH i.product WHERE t.id = :id")
+    java.util.Optional<WarehouseTransfer> findByIdWithItems(@Param("id") Long id);
+
+    @Query("SELECT DISTINCT t FROM WarehouseTransfer t LEFT JOIN FETCH t.items i LEFT JOIN FETCH i.product LEFT JOIN FETCH t.warehouse LEFT JOIN FETCH t.branch LEFT JOIN FETCH t.requestedBy ORDER BY t.createdAt DESC")
+    List<WarehouseTransfer> findAllWithItemsOrderByCreatedAtDesc();
+
     List<WarehouseTransfer> findAllByOrderByCreatedAtDesc();
     List<WarehouseTransfer> findByStatusOrderByCreatedAtDesc(String status);
 }

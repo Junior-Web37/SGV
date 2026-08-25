@@ -46,7 +46,7 @@ public class DashboardController {
     @FXML private VBox topContainer;
 
     /** Banner de modo treino — inserido no topo quando demoMode=true */
-    private Label trainingBanner;
+    private javafx.scene.layout.HBox trainingBanner;
 
     @FXML private Button navResumo;
     @FXML private Button shortcutPDVButton;
@@ -64,7 +64,7 @@ public class DashboardController {
     @FXML private Button navModAdministracao;
     @FXML private Button navModArmazens;
     @FXML private Button navModRelatorios;
-    @FXML private Button navModLogs;
+    @FXML private Button navLogsRoot;
 
     @FXML private HBox navComercialItems;
     @FXML private HBox navFinanceiroItems;
@@ -73,8 +73,17 @@ public class DashboardController {
     @FXML private HBox navArmazensItems;
     @FXML private HBox navRelatoriosItems;
 
-    @FXML private Button navMenuLogs;
     @FXML private Button navMenuUsers;
+
+    // Mapas & Relatórios — um botão por mapa
+    @FXML private Button navMenuRepVendas;
+    @FXML private Button navMenuRepMaisVendidos;
+    @FXML private Button navMenuRepIva;
+    @FXML private Button navMenuRepDevedores;
+    @FXML private Button navMenuRepKardex;
+    @FXML private Button navMenuRepStockArmazem;
+    @FXML private Button navMenuRepTransferencias;
+    @FXML private Button navMenuRepPagamentos;
 
     @FXML private Button navMenuNovaVenda;
     @FXML private Button navMenuVendas;
@@ -92,8 +101,11 @@ public class DashboardController {
     @FXML private Button navMenuFornecedores;
     @FXML private Button navMenuStockArmazem;
     @FXML private Button navMenuProducao;
-    @FXML private Button navMenuRelatorios;
     @FXML private Button navMenuSistema;
+    @FXML private Button navMenuBackups;
+    @FXML private Button navMenuTreinamento;
+    @FXML private Button navMenuLicenca;
+    @FXML private Button navMenuSeguranca;
 
     @FXML private StackPane contentPane;
     @FXML private VBox summaryPane;
@@ -111,6 +123,10 @@ public class DashboardController {
     @FXML private VBox despesasPane;
     @FXML private VBox reportsPane;
     @FXML private VBox sistemaPane;
+    @FXML private VBox backupsPane;
+    @FXML private VBox treinamentoPane;
+    @FXML private VBox licencaPane;
+    @FXML private VBox segurancaPane;
     @FXML private VBox producaoPane;
     @FXML private VBox warehousesPane;
     @FXML private VBox usersPane;
@@ -207,6 +223,7 @@ public class DashboardController {
     private final TrainingModeService trainingModeService;
     private final AppConfigService appConfigService;
     private final FilterPresetService filterPresetService;
+    private final NotificationsCenterDialog notificationsCenter;
 
     private User currentUser;
     private VBox productFilterPanel;
@@ -232,7 +249,8 @@ public class DashboardController {
                                 ApplicationContext applicationContext,
                                 TrainingModeService trainingModeService,
                                 AppConfigService appConfigService,
-                                FilterPresetService filterPresetService) {
+                                FilterPresetService filterPresetService,
+                                NotificationsCenterDialog notificationsCenter) {
         this.navManager = navManager;
         this.crudManager = crudManager;
         this.kpiManager = kpiManager;
@@ -243,6 +261,7 @@ public class DashboardController {
         this.trainingModeService = trainingModeService;
         this.appConfigService = appConfigService;
         this.filterPresetService = filterPresetService;
+        this.notificationsCenter = notificationsCenter;
     }
 
     // ═══════════════════════════════════════════════════════════════════════════
@@ -299,13 +318,21 @@ public class DashboardController {
         setVisible(navMenuCompras, canCompras); setVisible(navMenuFornecedores, canCompras);
         setVisible(navMenuDespesas, canFinanceiro);
         setVisible(navMenuPagamentos, canFinanceiro); setVisible(navMenuProducao, canProducao);
-        setVisible(navMenuRelatorios, canRelatorios); setVisible(navMenuSistema, canSistema);
+        setVisible(navMenuSistema, canSistema);
+        setVisible(navMenuBackups, canSistema); setVisible(navMenuTreinamento, canSistema);
+        setVisible(navMenuLicenca, canSistema); setVisible(navMenuSeguranca, canSistema);
         setVisible(navModComercial, canVendas || canProdutos || canClientes);
         setVisible(navModFinanceiro, canCaixa || canFinanceiro || canCompras);
         setVisible(navModOperacoes, canStock || canCaixa || canCompras);
         setVisible(navModArmazens, canArmazens || canTransferir || canCompras);
         setVisible(navModAdministracao, canCatalogos || canRelatorios || canSistema);
-        setVisible(navModLogs, canSistema);
+        // Mapas & Relatórios + Logs
+        setVisible(navMenuRepVendas, canRelatorios);
+        setVisible(navMenuRepMaisVendidos, canRelatorios); setVisible(navMenuRepIva, canRelatorios);
+        setVisible(navMenuRepDevedores, canRelatorios); setVisible(navMenuRepKardex, canRelatorios);
+        setVisible(navMenuRepStockArmazem, canRelatorios); setVisible(navMenuRepTransferencias, canRelatorios);
+        setVisible(navMenuRepPagamentos, canRelatorios);
+        setVisible(navLogsRoot, canRelatorios);
 
         setActionButtonPermission(createProductButton, "PRODUTOS", "CREATE");
         setActionButtonPermission(editProductButton, "PRODUTOS", "CREATE");
@@ -363,8 +390,20 @@ public class DashboardController {
         if (navMenuCompras != null) UiUtils.attachSafe(navMenuCompras, () -> { if (ensurePermission("COMPRAS", "VIEW", "Compras")) showComprasPane(); }, systemLogService, "NAV_COMPRAS");
         if (navMenuFornecedores != null) UiUtils.attachSafe(navMenuFornecedores, () -> { if (ensurePermission("COMPRAS", "VIEW", "Fornecedores")) showFornecedoresPane(); }, systemLogService, "NAV_FORNECEDORES");
         if (navMenuProducao != null) UiUtils.attachSafe(navMenuProducao, () -> { if (ensurePermission("PRODUCAO", "VIEW", "Produção")) showProducaoPane(); }, systemLogService, "NAV_PRODUCAO");
-        if (navMenuRelatorios != null) UiUtils.attachSafe(navMenuRelatorios, () -> { if (ensurePermission("RELATORIOS", "VIEW", "Relatórios")) showReportsPane(); }, systemLogService, "NAV_RELATORIOS");
+        // Mapas & Relatórios — um botão por mapa
+        if (navMenuRepVendas != null) UiUtils.attachSafe(navMenuRepVendas, () -> { if (ensurePermission("RELATORIOS", "VIEW", "Mapa de Vendas")) showReportPane("vendas", navMenuRepVendas); }, systemLogService, "NAV_REP_VENDAS");
+        if (navMenuRepMaisVendidos != null) UiUtils.attachSafe(navMenuRepMaisVendidos, () -> { if (ensurePermission("RELATORIOS", "VIEW", "Mais Vendidos")) showReportPane("maisvendidos", navMenuRepMaisVendidos); }, systemLogService, "NAV_REP_MAISVENDIDOS");
+        if (navMenuRepIva != null) UiUtils.attachSafe(navMenuRepIva, () -> { if (ensurePermission("RELATORIOS", "VIEW", "Apuramento IVA")) showReportPane("iva", navMenuRepIva); }, systemLogService, "NAV_REP_IVA");
+        if (navMenuRepDevedores != null) UiUtils.attachSafe(navMenuRepDevedores, () -> { if (ensurePermission("RELATORIOS", "VIEW", "Contas Correntes")) showReportPane("devedores", navMenuRepDevedores); }, systemLogService, "NAV_REP_DEVEDORES");
+        if (navMenuRepKardex != null) UiUtils.attachSafe(navMenuRepKardex, () -> { if (ensurePermission("RELATORIOS", "VIEW", "Kardex")) showReportPane("kardex", navMenuRepKardex); }, systemLogService, "NAV_REP_KARDEX");
+        if (navMenuRepStockArmazem != null) UiUtils.attachSafe(navMenuRepStockArmazem, () -> { if (ensurePermission("RELATORIOS", "VIEW", "Stock por Armazém")) showReportPane("stockarmazem", navMenuRepStockArmazem); }, systemLogService, "NAV_REP_STOCKARMAZEM");
+        if (navMenuRepTransferencias != null) UiUtils.attachSafe(navMenuRepTransferencias, () -> { if (ensurePermission("RELATORIOS", "VIEW", "Transferências")) showReportPane("transferencias", navMenuRepTransferencias); }, systemLogService, "NAV_REP_TRANSFERENCIAS");
+        if (navMenuRepPagamentos != null) UiUtils.attachSafe(navMenuRepPagamentos, () -> { if (ensurePermission("RELATORIOS", "VIEW", "Pagamentos a Fornecedores")) showReportPane("pagamentos", navMenuRepPagamentos); }, systemLogService, "NAV_REP_PAGAMENTOS");
         if (navMenuSistema != null) UiUtils.attachSafe(navMenuSistema, () -> { if (ensurePermission("SISTEMA", "VIEW", "Sistema")) showSistemaPane(); }, systemLogService, "NAV_SISTEMA");
+        if (navMenuBackups != null) UiUtils.attachSafe(navMenuBackups, () -> { if (ensurePermission("SISTEMA", "VIEW", "Cópias de Segurança")) showBackupsPane(); }, systemLogService, "NAV_BACKUPS");
+        if (navMenuTreinamento != null) UiUtils.attachSafe(navMenuTreinamento, () -> { if (ensurePermission("SISTEMA", "VIEW", "Modo Treinamento")) showTreinamentoPane(); }, systemLogService, "NAV_TREINAMENTO");
+        if (navMenuLicenca != null) UiUtils.attachSafe(navMenuLicenca, () -> { if (ensurePermission("SISTEMA", "VIEW", "Licenciamento")) showLicencaPane(); }, systemLogService, "NAV_LICENCA");
+        if (navMenuSeguranca != null) UiUtils.attachSafe(navMenuSeguranca, () -> { if (ensurePermission("SISTEMA", "VIEW", "Segurança")) showSegurancaPane(); }, systemLogService, "NAV_SEGURANCA");
         if (navMenuDespesas != null) UiUtils.attachSafe(navMenuDespesas, this::showDespesasPane, systemLogService, "NAV_DESPESAS");
         if (navMenuPagamentos != null) UiUtils.attachSafe(navMenuPagamentos, this::showPagamentosPane, systemLogService, "NAV_PAGAMENTOS");
 
@@ -374,7 +413,7 @@ public class DashboardController {
         if (navModArmazens != null) UiUtils.attachSafe(navModArmazens, () -> showSubNav("Armazém & Compras", navArmazensItems), systemLogService, "NAV_MOD_ARMAZENS");
         if (navModRelatorios != null) UiUtils.attachSafe(navModRelatorios, () -> showSubNav("Mapas & Relatórios", navRelatoriosItems), systemLogService, "NAV_MOD_RELATORIOS");
         if (navModAdministracao != null) UiUtils.attachSafe(navModAdministracao, () -> showSubNav("Configurações", navAdminItems), systemLogService, "NAV_MOD_ADMIN");
-        if (navMenuLogs != null) UiUtils.attachSafe(navMenuLogs, this::showLogsPane, systemLogService, "NAV_LOGS");
+        if (navLogsRoot != null) UiUtils.attachSafe(navLogsRoot, () -> { if (ensurePermission("RELATORIOS", "VIEW", "Logs & Auditoria")) showLogsPane(); }, systemLogService, "NAV_LOGS");
         if (navMenuUsers != null) UiUtils.attachSafe(navMenuUsers, this::showUsersPane, systemLogService, "NAV_USERS");
         if (navBackButton != null) UiUtils.attachSafe(navBackButton, () -> navManager.drillBack(navRootPane, navSubPane), systemLogService, "NAV_BACK");
 
@@ -395,9 +434,8 @@ public class DashboardController {
             expensesTable.setPlaceholder(new Label("Nenhuma despesa registada."));
         }
 
-        if (notificationBellButton != null) notificationBellButton.setOnAction(e -> kpiManager.showNotificationPopup(notificationBellButton));
+        if (notificationBellButton != null) notificationBellButton.setOnAction(e -> openNotificationsCenter());
 
-        navManager.loadReportsPane(reportsPane);
         showSummaryPane();
     }
 
@@ -415,8 +453,9 @@ public class DashboardController {
                 TableView<Customer> cTbl = navManager.getCustomersTable();
                 Customer sel = cTbl != null ? cTbl.getSelectionModel().getSelectedItem() : null;
                 if (sel != null) {
-                    Alert confirm = new Alert(Alert.AlertType.CONFIRMATION, "Tem certeza que deseja apagar este cliente?", ButtonType.OK, ButtonType.CANCEL);
-                    confirm.showAndWait().ifPresent(res -> { if (res == ButtonType.OK) crudManager.safeDelete(() -> dashboardCrudService.deleteCustomer(sel.getId()), this::loadCustomers, "Cliente", currentUser); });
+                    if (SgvDialog.confirmDanger("Apagar Cliente", "Tem certeza que deseja apagar o cliente \"" + sel.getName() + "\"?\n\nEsta operação não pode ser revertida.")) {
+                        crudManager.safeDelete(() -> dashboardCrudService.deleteCustomer(sel.getId()), this::loadCustomers, "Cliente", currentUser);
+                    }
                 }
             });
         }
@@ -435,8 +474,9 @@ public class DashboardController {
             deletePurchaseButton.setOnAction(e -> {
                 Purchase sel = purchasesTable != null ? purchasesTable.getSelectionModel().getSelectedItem() : null;
                 if (sel != null) {
-                    Alert confirm = new Alert(Alert.AlertType.CONFIRMATION, "Tem certeza que deseja apagar esta compra?", ButtonType.OK, ButtonType.CANCEL);
-                    confirm.showAndWait().ifPresent(res -> { if (res == ButtonType.OK) crudManager.safeDelete(() -> dashboardCrudService.deletePurchase(sel.getId()), this::loadPurchases, "Compra", currentUser); });
+                    if (SgvDialog.confirmDanger("Apagar Compra", "Tem certeza que deseja apagar esta compra?\n\nEsta operação não pode ser revertida.")) {
+                        crudManager.safeDelete(() -> dashboardCrudService.deletePurchase(sel.getId()), this::loadPurchases, "Compra", currentUser);
+                    }
                 }
             });
         }
@@ -447,21 +487,14 @@ public class DashboardController {
             deleteExpenseButton.setOnAction(e -> {
                 Expense sel = expensesTable != null ? expensesTable.getSelectionModel().getSelectedItem() : null;
                 if (sel != null) {
-                    Alert confirm = new Alert(Alert.AlertType.CONFIRMATION, "Tem a certeza que deseja anular a despesa \"" + sel.getDescription() + "\"?", ButtonType.OK, ButtonType.CANCEL);
-                    confirm.setHeaderText(null);
-                    confirm.setTitle("Confirmar Anulação de Despesa");
-                    confirm.showAndWait().ifPresent(res -> {
-                        if (res == ButtonType.OK) {
-                            try {
-                                applicationContext.getBean(com.sgv.service.ExpenseService.class).annulExpense(sel.getId(), currentUser);
-                                loadExpenses();
-                            } catch (Exception ex) {
-                                Alert err = new Alert(Alert.AlertType.ERROR, "Erro ao anular despesa: " + ex.getMessage());
-                                err.setHeaderText(null);
-                                err.showAndWait();
-                            }
+                    if (SgvDialog.confirmAction("Anular Despesa", "Tem a certeza que deseja anular a despesa \"" + sel.getDescription() + "\"?\n\nO documento será marcado como anulado e mantido para auditoria.", "✓ Anular")) {
+                        try {
+                            applicationContext.getBean(com.sgv.service.ExpenseService.class).annulExpense(sel.getId(), currentUser);
+                            loadExpenses();
+                        } catch (Exception ex) {
+                            SgvDialog.error("Erro ao Anular", "Erro ao anular despesa: " + ex.getMessage());
                         }
-                    });
+                    }
                 }
             });
         }
@@ -471,8 +504,9 @@ public class DashboardController {
             deletePaymentButton.setOnAction(e -> {
                 Payment sel = paymentsTable != null ? paymentsTable.getSelectionModel().getSelectedItem() : null;
                 if (sel != null) {
-                    Alert confirm = new Alert(Alert.AlertType.CONFIRMATION, "Tem certeza que deseja apagar este pagamento?", ButtonType.OK, ButtonType.CANCEL);
-                    confirm.showAndWait().ifPresent(res -> { if (res == ButtonType.OK) crudManager.safeDelete(() -> dashboardCrudService.deletePayment(sel.getId()), this::loadFinanceiro, "Pagamento", currentUser); });
+                    if (SgvDialog.confirmDanger("Apagar Pagamento", "Tem certeza que deseja apagar este pagamento?\n\nEsta operação não pode ser revertida.")) {
+                        crudManager.safeDelete(() -> dashboardCrudService.deletePayment(sel.getId()), this::loadFinanceiro, "Pagamento", currentUser);
+                    }
                 }
             });
         }
@@ -497,8 +531,9 @@ public class DashboardController {
             deleteOrderButton.setOnAction(e -> {
                 ProductionOrder sel = ordersTable != null ? ordersTable.getSelectionModel().getSelectedItem() : null;
                 if (sel != null) {
-                    Alert confirm = new Alert(Alert.AlertType.CONFIRMATION, "Tem certeza que deseja apagar esta ordem?", ButtonType.OK, ButtonType.CANCEL);
-                    confirm.showAndWait().ifPresent(res -> { if (res == ButtonType.OK) crudManager.safeDelete(() -> dashboardCrudService.deleteProductionOrder(sel.getId()), this::loadProductionOrders, "Ordem de Produção", currentUser); });
+                    if (SgvDialog.confirmDanger("Apagar Ordem de Produção", "Tem certeza que deseja apagar a ordem seleccionada?\n\nEsta operação não pode ser revertida.")) {
+                        crudManager.safeDelete(() -> dashboardCrudService.deleteProductionOrder(sel.getId()), this::loadProductionOrders, "Ordem de Produção", currentUser);
+                    }
                 }
             });
             if (completeOrderButton != null) {
@@ -553,13 +588,10 @@ public class DashboardController {
     public void setUser(User user) {
         this.currentUser = user;
         loadProfile();
-        loadStats();
-        loadSales();
-        loadProducts();
-        loadCustomers();
         setupFilterPanels();
         applyPermissions();
         updateTrainingBanner();
+        loadStats();
         systemLogService.logSystem("DASHBOARD_LOADED", "Painel carregado para o utilizador: " + (user != null ? user.getUsername() : "?"));
     }
 
@@ -581,17 +613,23 @@ public class DashboardController {
     // TRAINING MODE BANNER
     // ═══════════════════════════════════════════════════════════════════════════
 
-    private void updateTrainingBanner() {
+    public void updateTrainingBanner() {
         boolean active = trainingModeService.isTrainingMode();
         if (active && trainingBanner == null) {
-            trainingBanner = new Label("⚠  MODO TREINAMENTO ACTIVO — Todas as operações são simuladas e não alteram dados reais.");
+            trainingBanner = new javafx.scene.layout.HBox(14);
+            trainingBanner.setAlignment(javafx.geometry.Pos.CENTER_LEFT);
             trainingBanner.setStyle(
                 "-fx-background-color:#F59E0B;" +
-                "-fx-text-fill:#78350F;" +
-                "-fx-font-weight:800;" +
-                "-fx-font-size:12px;" +
-                "-fx-padding:8 20;" +
-                "-fx-alignment:CENTER;");
+                "-fx-padding:8 20;");
+            Label bannerText = new Label("⚠  MODO TREINAMENTO ACTIVO — Todas as operações são simuladas e não alteram dados reais.");
+            bannerText.setStyle("-fx-text-fill:#78350F; -fx-font-weight:800; -fx-font-size:12px;");
+            javafx.scene.layout.Region bannerSpacer = new javafx.scene.layout.Region();
+            HBox.setHgrow(bannerSpacer, javafx.scene.layout.Priority.ALWAYS);
+            Button bannerDisableBtn = new Button("✕  Desactivar Modo");
+            bannerDisableBtn.setStyle("-fx-padding:4 12; -fx-font-size:11px; -fx-font-weight:800;"
+                + " -fx-background-color:#78350F; -fx-text-fill:#FEF3C7; -fx-background-radius:5; -fx-cursor:hand;");
+            bannerDisableBtn.setOnAction(e -> disableTrainingFromBanner());
+            trainingBanner.getChildren().addAll(bannerText, bannerSpacer, bannerDisableBtn);
             if (topContainer != null) {
                 topContainer.getChildren().add(0, trainingBanner);
             }
@@ -601,6 +639,57 @@ public class DashboardController {
             }
             trainingBanner = null;
         }
+    }
+
+    /** Desactiva o modo treino directamente pela barra amarela (atalho rápido). */
+    private void disableTrainingFromBanner() {
+        try {
+            com.sgv.entity.AppConfig cfg = appConfigService.get();
+            cfg.setDemoMode(false);
+            appConfigService.save(cfg);
+            applicationContext.getBean(com.sgv.service.AuditLogService.class).log(null, "DESACTIVAR", "modo_treino", null,
+                "Modo treino desactivado pela barra de aviso por " + (currentUser != null ? currentUser.getUsername() : "?"));
+            updateTrainingBanner();
+        } catch (Exception ex) {
+            log.error("Erro ao desactivar modo treino pela barra", ex);
+        }
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // CENTRO DE NOTIFICAÇÕES
+    // ═══════════════════════════════════════════════════════════════════════════
+
+    /** Actualiza o badge do sino com o total de notificações activas. */
+    public void refreshNotificationBadge() {
+        if (notificationBadge == null) return;
+        try {
+            int total = notificationsCenter.countAll();
+            notificationBadge.setText(String.valueOf(total));
+            notificationBadge.setVisible(total > 0);
+            notificationBadge.setManaged(total > 0);
+        } catch (Exception ex) {
+            log.error("Erro ao actualizar badge de notificações", ex);
+        }
+    }
+
+    /** Abre o Centro de Notificações agregando stock, operações, licença e sistema. */
+    private void openNotificationsCenter() {
+        notificationsCenter.show(notificationBellButton,
+                Runnable::run,
+                this::showStockPane,
+                () -> { if (ensurePermission("TRANSFERENCIAS", "VIEW", "Transferências")) showTransfersPane(); },
+                () -> { if (ensurePermission("SISTEMA", "VIEW", "Licenciamento")) showLicencaPane(); },
+                this::disableTrainingFromBanner);
+        refreshNotificationBadge();
+    }
+
+    /**
+     * Reavalia o estado da sessão (permissões dos menus + banner de treino)
+     * sem exigir novo login. Chamado após alterar perfis/permissões ou modo treino.
+     */
+    public void refreshSessionUiState() {
+        applyPermissions();
+        updateTrainingBanner();
     }
 
     public boolean isTrainingMode() {
@@ -614,14 +703,19 @@ public class DashboardController {
     private VBox[] allPanes() {
         return new VBox[]{summaryPane, salesStatsPane, salesPane, productsPane, customersPane, stockPane,
             turnoCaixaPane, comprasPane, fornecedoresPane, stockArmazemPane, financeiroPane, pagamentosPane, despesasPane, catalogsPane, reportsPane, producaoPane,
-            sistemaPane, usersPane, warehousesPane, transfersPane, logsPane};
+            sistemaPane, backupsPane, treinamentoPane, licencaPane, segurancaPane,
+            usersPane, warehousesPane, transfersPane, logsPane};
     }
 
     private Button[] allNavButtons() {
         return new Button[]{navResumo, navMenuNovaVenda, navMenuVendas, navMenuProdutos, navMenuClientes,
             navMenuStock, navMenuArmazens, navMenuStockArmazem, navMenuTransferir, navMenuFornecedores, navMenuCatalogos,
-            navMenuCaixa, navMenuCompras, navMenuPagamentos, navMenuDespesas, navMenuRelatorios,
-            navMenuSistema};
+            navMenuCaixa, navMenuCompras, navMenuPagamentos, navMenuDespesas,
+            navLogsRoot,
+            navMenuRepVendas, navMenuRepMaisVendidos, navMenuRepIva,
+            navMenuRepDevedores, navMenuRepKardex, navMenuRepStockArmazem, navMenuRepTransferencias,
+            navMenuRepPagamentos,
+            navMenuSistema, navMenuBackups, navMenuTreinamento, navMenuLicenca, navMenuSeguranca};
     }
 
     private void showSubNav(String moduleLabel, HBox targetItems) {
@@ -636,7 +730,7 @@ public class DashboardController {
         pageSubtitleLabel.setText("Visão geral das operações, vendas e tesouraria");
         Long branchId = currentUser != null && !currentUser.isSuperAdmin() && currentUser.getBranch() != null ? currentUser.getBranch().getId() : null;
         kpiManager.loadStats(currentUser, branchId, salesLabel, productsLabel, customersLabel, branchesLabel, salesLineChart, salesPieChart,
-            () -> kpiManager.checkAlerts(notificationBadge), this::animateEntrance);
+            this::refreshNotificationBadge, this::animateEntrance);
         updateCashBadge();
     }
 
@@ -689,9 +783,7 @@ public class DashboardController {
                 if (sel != null) {
                     openCustomerForm(sel);
                 } else {
-                    Alert a = new Alert(Alert.AlertType.WARNING, "Selecione um cliente para editar.");
-                    a.setHeaderText(null);
-                    a.showAndWait();
+                    SgvDialog.warning("Editar Cliente", "Selecione um cliente para editar.");
                 }
             },
             () -> crudManager.deleteSelectedCustomer(navManager.getCustomersTable(), this::loadCustomers, currentUser),
@@ -699,7 +791,7 @@ public class DashboardController {
             () -> {
                 Customer sel = navManager.getCustomersTable() != null ? navManager.getCustomersTable().getSelectionModel().getSelectedItem() : null;
                 if (sel != null) crudManager.openLiquidarDivida(sel, getOwner(), currentUser, this::loadCustomers);
-                else { Alert a = new Alert(Alert.AlertType.WARNING, "Selecione um cliente para liquidar a dívida."); a.setHeaderText(null); a.showAndWait(); }
+                else { SgvDialog.warning("Liquidar Dívida", "Selecione um cliente para liquidar a dívida."); }
             },
             () -> crudManager.reconcileSelectedCustomerCredits(navManager.getCustomersTable(), getOwner(), currentUser));
     }
@@ -713,19 +805,15 @@ public class DashboardController {
             () -> {
                 Warehouse sel = crudManager.getSelectedWarehouse(warehousesPane);
                 if (sel != null) crudManager.openWarehouseForm(sel, getOwner(), loadCards[0]);
-                else { Alert a = new Alert(Alert.AlertType.WARNING, "Selecione um armazém (clique nele)."); a.setHeaderText(null); a.showAndWait(); }
+                else { SgvDialog.warning("Editar Armazém", "Selecione um armazém (clique nele)."); }
             },
             () -> {
                 Warehouse sel = crudManager.getSelectedWarehouse(warehousesPane);
                 if (sel != null) {
-                    Alert confirm = new Alert(Alert.AlertType.CONFIRMATION, "Eliminar armazém \"" + sel.getName() + "\"?", ButtonType.OK, ButtonType.CANCEL);
-                    confirm.setHeaderText(null);
-                    confirm.showAndWait().ifPresent(r -> {
-                        if (r == ButtonType.OK) {
-                            crudManager.safeDelete(() -> dashboardCrudService.deleteWarehouse(sel.getId()), () -> { warehousesPane.getChildren().clear(); loadCards[0].run(); }, "Armazém", currentUser);
-                        }
-                    });
-                } else { Alert a = new Alert(Alert.AlertType.WARNING, "Selecione um armazém (clique nele)."); a.setHeaderText(null); a.showAndWait(); }
+                    if (SgvDialog.confirmDanger("Eliminar Armazém", "Eliminar o armazém \"" + sel.getName() + "\"?\n\nEsta operação não pode ser revertida.")) {
+                        crudManager.safeDelete(() -> dashboardCrudService.deleteWarehouse(sel.getId()), () -> { warehousesPane.getChildren().clear(); loadCards[0].run(); }, "Armazém", currentUser);
+                    }
+                } else { SgvDialog.warning("Eliminar Armazém", "Selecione um armazém (clique nele)."); }
             });
     }
 
@@ -741,7 +829,7 @@ public class DashboardController {
     }
 
     private void showLogsPane() {
-        navManager.showLogsPane(pageTitleLabel, pageSubtitleLabel, logsPane, currentUser, allPanes(), allNavButtons());
+        navManager.showLogsPane(navLogsRoot, pageTitleLabel, pageSubtitleLabel, logsPane, currentUser, allPanes(), allNavButtons());
     }
 
     private void showComprasPane() {
@@ -754,9 +842,7 @@ public class DashboardController {
                 if (sel != null) {
                     navManager.showPurchaseDetails(sel, getOwner());
                 } else {
-                    Alert a = new Alert(Alert.AlertType.WARNING, "Selecione uma compra na lista.");
-                    a.setHeaderText(null);
-                    a.showAndWait();
+                    SgvDialog.warning("Detalhes da Compra", "Selecione uma compra na lista.");
                 }
             },
             () -> {
@@ -772,27 +858,18 @@ public class DashboardController {
                 TableView<Purchase> tbl = navManager.getPurchasesTable();
                 Purchase sel = tbl != null ? tbl.getSelectionModel().getSelectedItem() : null;
                 if (sel != null) {
-                    Alert confirm = new Alert(Alert.AlertType.CONFIRMATION,
-                            "Tem a certeza que deseja anular a Factura de Compra " + (sel.getInvoiceNumber() != null ? sel.getInvoiceNumber() : "#" + sel.getId()) + "?\nO stock correspondente será revertido do armazém.",
-                            ButtonType.YES, ButtonType.NO);
-                    confirm.setHeaderText(null);
-                    confirm.setTitle("Confirmar Anulação de Compra");
-                    confirm.showAndWait().ifPresent(r -> {
-                        if (r == ButtonType.YES) {
-                            try {
-                                applicationContext.getBean(com.sgv.service.PurchaseService.class).annulPurchase(sel.getId(), currentUser);
-                                navManager.reloadPurchases();
-                            } catch (Exception ex) {
-                                Alert err = new Alert(Alert.AlertType.ERROR, "Erro ao anular compra: " + ex.getMessage());
-                                err.setHeaderText(null);
-                                err.showAndWait();
-                            }
+                    if (SgvDialog.confirmAction("Anular Compra",
+                            "Tem a certeza que deseja anular a Factura de Compra " + (sel.getInvoiceNumber() != null ? sel.getInvoiceNumber() : "#" + sel.getId()) + "?\n\nO stock correspondente será revertido do armazém.",
+                            "✓ Anular Compra")) {
+                        try {
+                            applicationContext.getBean(com.sgv.service.PurchaseService.class).annulPurchase(sel.getId(), currentUser);
+                            navManager.reloadPurchases();
+                        } catch (Exception ex) {
+                            SgvDialog.error("Erro ao Anular", "Erro ao anular compra: " + ex.getMessage());
                         }
-                    });
+                    }
                 } else {
-                    Alert a = new Alert(Alert.AlertType.WARNING, "Selecione uma compra na lista.");
-                    a.setHeaderText(null);
-                    a.showAndWait();
+                    SgvDialog.warning("Anular Compra", "Selecione uma compra na lista.");
                 }
             },
             () -> navManager.reloadPurchases());
@@ -808,9 +885,7 @@ public class DashboardController {
                 if (sel != null) {
                     crudManager.openSupplierForm(sel, getOwner(), () -> navManager.reloadSuppliers());
                 } else {
-                    Alert a = new Alert(Alert.AlertType.WARNING, "Selecione um fornecedor na lista.");
-                    a.setHeaderText(null);
-                    a.showAndWait();
+                    SgvDialog.warning("Editar Fornecedor", "Selecione um fornecedor na lista.");
                 }
             },
             () -> {
@@ -819,9 +894,7 @@ public class DashboardController {
                 if (sel != null) {
                     navManager.showSupplierDetails(sel, getOwner());
                 } else {
-                    Alert a = new Alert(Alert.AlertType.WARNING, "Selecione um fornecedor na lista.");
-                    a.setHeaderText(null);
-                    a.showAndWait();
+                    SgvDialog.warning("Detalhes do Fornecedor", "Selecione um fornecedor na lista.");
                 }
             },
             () -> {
@@ -830,28 +903,20 @@ public class DashboardController {
                 if (sel != null) {
                     crudManager.openSupplierPaymentForm(sel, getOwner(), () -> navManager.reloadSuppliers());
                 } else {
-                    Alert a = new Alert(Alert.AlertType.WARNING, "Selecione um fornecedor na lista.");
-                    a.setHeaderText(null);
-                    a.showAndWait();
+                    SgvDialog.warning("Pagamento a Fornecedor", "Selecione um fornecedor na lista.");
                 }
             },
             () -> {
                 TableView<Supplier> tbl = navManager.getSuppliersTable();
                 Supplier sel = tbl != null ? tbl.getSelectionModel().getSelectedItem() : null;
                 if (sel != null) {
-                    Alert confirm = new Alert(Alert.AlertType.CONFIRMATION, "Eliminar fornecedor \"" + sel.getName() + "\"?", ButtonType.OK, ButtonType.CANCEL);
-                    confirm.setHeaderText(null);
-                    confirm.showAndWait().ifPresent(r -> {
-                        if (r == ButtonType.OK) {
-                            crudManager.safeDelete(
-                                () -> applicationContext.getBean(com.sgv.service.SupplierService.class).deleteById(sel.getId()),
-                                () -> navManager.reloadSuppliers(), "Fornecedor", currentUser);
-                        }
-                    });
+                    if (SgvDialog.confirmDanger("Eliminar Fornecedor", "Eliminar o fornecedor \"" + sel.getName() + "\"?\n\nEsta operação não pode ser revertida.")) {
+                        crudManager.safeDelete(
+                            () -> applicationContext.getBean(com.sgv.service.SupplierService.class).deleteById(sel.getId()),
+                            () -> navManager.reloadSuppliers(), "Fornecedor", currentUser);
+                    }
                 } else {
-                    Alert a = new Alert(Alert.AlertType.WARNING, "Selecione um fornecedor na lista.");
-                    a.setHeaderText(null);
-                    a.showAndWait();
+                    SgvDialog.warning("Eliminar Fornecedor", "Selecione um fornecedor na lista.");
                 }
             });
     }
@@ -865,14 +930,34 @@ public class DashboardController {
             () -> crudManager.deleteSelectedProductionOrder(navManager.getOrdersTable(), currentUser, this::loadProductionOrders));
     }
 
-    private void showReportsPane() {
-        navManager.showReportsPane(navMenuRelatorios, pageTitleLabel, pageSubtitleLabel,
-            reportsPane, currentUser, allPanes(), allNavButtons(), this::updateCashBadge);
+    private void showReportPane(String key, Button navBtn) {
+        navManager.showSingleReport(navBtn, key, pageTitleLabel, pageSubtitleLabel,
+            reportsPane, allPanes(), allNavButtons(), this::updateCashBadge);
     }
 
     private void showSistemaPane() {
         navManager.showSistemaPane(navMenuSistema, pageTitleLabel, pageSubtitleLabel,
             sistemaPane, currentUser, allPanes(), allNavButtons(), this::updateCashBadge);
+    }
+
+    private void showBackupsPane() {
+        navManager.showBackupsPane(navMenuBackups, pageTitleLabel, pageSubtitleLabel,
+            backupsPane, currentUser, allPanes(), allNavButtons(), this::updateCashBadge);
+    }
+
+    private void showTreinamentoPane() {
+        navManager.showTreinamentoPane(navMenuTreinamento, pageTitleLabel, pageSubtitleLabel,
+            treinamentoPane, currentUser, allPanes(), allNavButtons(), this::updateCashBadge, this::updateTrainingBanner);
+    }
+
+    private void showLicencaPane() {
+        navManager.showLicencaPane(navMenuLicenca, pageTitleLabel, pageSubtitleLabel,
+            licencaPane, currentUser, allPanes(), allNavButtons(), this::updateCashBadge);
+    }
+
+    private void showSegurancaPane() {
+        navManager.showSegurancaPane(navMenuSeguranca, pageTitleLabel, pageSubtitleLabel,
+            segurancaPane, currentUser, allPanes(), allNavButtons(), this::updateCashBadge);
     }
 
     private void showCatalogsPane() {
@@ -909,7 +994,7 @@ public class DashboardController {
     }
 
     private void showUsersPane() {
-        navManager.showUsersPane(pageTitleLabel, pageSubtitleLabel, usersPane, currentUser, allPanes(), allNavButtons(), this::updateCashBadge);
+        navManager.showUsersPane(pageTitleLabel, pageSubtitleLabel, usersPane, currentUser, allPanes(), allNavButtons(), this::updateCashBadge, this::refreshSessionUiState);
     }
 
     private void showTurnoCaixaPane() {
@@ -928,16 +1013,14 @@ public class DashboardController {
         if (product == null) return;
         long saleCount = applicationContext.getBean(SaleItemRepository.class).countByProductId(product.getId());
         if (saleCount > 0) {
-            Alert warn = new Alert(Alert.AlertType.WARNING,
-                "Não é possível apagar este produto.\n\nO produto possui " + saleCount + " registro(s) em vendas. " +
-                "Em vez disso, desative o produto na edição.");
-            warn.setTitle("Produto não pode ser apagado");
-            warn.setHeaderText(null);
-            warn.showAndWait();
+            SgvDialog.warning("Produto não pode ser apagado",
+                "Não é possível apagar este produto.\n\nO produto possui " + saleCount + " registo(s) em vendas. "
+                + "Em vez disso, desactive o produto na edição.");
             return;
         }
-        Alert confirm = new Alert(Alert.AlertType.CONFIRMATION, "Tem certeza que deseja apagar este produto?", ButtonType.OK, ButtonType.CANCEL);
-        confirm.showAndWait().ifPresent(res -> { if (res == ButtonType.OK) crudManager.safeDelete(() -> dashboardCrudService.deleteProduct(product.getId()), this::loadProducts, "Produto", currentUser); });
+        if (SgvDialog.confirmDanger("Apagar Produto", "Tem certeza que deseja apagar o produto \"" + product.getName() + "\"?\n\nEsta operação não pode ser revertida.")) {
+            crudManager.safeDelete(() -> dashboardCrudService.deleteProduct(product.getId()), this::loadProducts, "Produto", currentUser);
+        }
     }
 
     // ═══════════════════════════════════════════════════════════════════════════
@@ -947,7 +1030,7 @@ public class DashboardController {
     private void loadStats() {
         Long branchId = currentUser != null && !currentUser.isSuperAdmin() && currentUser.getBranch() != null ? currentUser.getBranch().getId() : null;
         kpiManager.loadStats(currentUser, branchId, salesLabel, productsLabel, customersLabel, branchesLabel, salesLineChart, salesPieChart,
-            () -> kpiManager.checkAlerts(notificationBadge), this::animateEntrance);
+            this::refreshNotificationBadge, this::animateEntrance);
     }
 
     private void loadSales() { crudManager.loadSales(navManager.getSalesTable(), saleFilter, saleStateFilter, saleDocTypeFilter, saleStartDate, saleEndDate, currentUser); }
@@ -1042,19 +1125,16 @@ public class DashboardController {
     }
 
     private void showToast(String message) {
-        try {
-            Alert alert = new Alert(Alert.AlertType.INFORMATION);
-            alert.setTitle("Info"); alert.setHeaderText(null); alert.setContentText(message); alert.show();
-            javafx.animation.PauseTransition delay = new javafx.animation.PauseTransition(Duration.seconds(2.5));
-            delay.setOnFinished(ev -> alert.close()); delay.play();
-        } catch (Exception ignored) {
-            log.debug("Não foi possível mostrar toast: {}", ignored.getMessage());
-        }
+        SgvDialog.toast(message);
     }
 
     private void showAlert(Alert.AlertType type, String message) {
-        Alert alert = new Alert(type, message, ButtonType.OK);
-        alert.setHeaderText(null); alert.showAndWait();
+        switch (type) {
+            case ERROR -> SgvDialog.error("Erro", message);
+            case WARNING -> SgvDialog.warning("Atenção", message);
+            case CONFIRMATION -> SgvDialog.confirm("Confirmar", message);
+            default -> SgvDialog.info("Informação", message);
+        }
     }
 }
 // Forçar recompilação

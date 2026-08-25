@@ -22,11 +22,9 @@ public final class SearchBar extends HBox {
         searchField = new TextField();
         searchField.setPromptText(promptText);
         searchField.getStyleClass().addAll("text-field", "search-input");
-        searchField.textProperty().addListener((obs, oldValue, newValue) -> {
-            if (onSearch != null) {
-                onSearch.run();
-            }
-        });
+        if (onSearch != null) {
+            UiUtils.setupDebounce(searchField, onSearch, 250);
+        }
 
         clearButton = new Button("Limpar");
         clearButton.getStyleClass().addAll("button", "secondary-button");

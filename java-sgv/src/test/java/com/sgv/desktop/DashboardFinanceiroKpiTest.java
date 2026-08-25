@@ -70,8 +70,7 @@ class DashboardFinanceiroKpiTest {
         p.setAmount(400.0);
         when(paymentRepository.findAll()).thenReturn(List.of(p));
 
-        DashboardKpiManager kpi = new DashboardKpiManager(saleRepository, null, null, null, null, null,
-                null, null, null, null, null, paymentRepository, null, null);
+        DashboardKpiManager kpi = new DashboardKpiManager(saleRepository, null, null, null, null, null, null, null, null, null, null, paymentRepository, null, null, null, null);
         GridPane grid = financeiroGridLikeFxml();
         kpi.updateFinanceiroKPIs(grid);
 

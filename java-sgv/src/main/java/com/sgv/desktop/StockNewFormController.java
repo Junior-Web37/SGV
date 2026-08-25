@@ -42,6 +42,8 @@ public class StockNewFormController extends BaseFormController {
         currentUser = null;
         onSave = null;
         initCommonFields();
+        UiUtils.hardenComboBox(productCombo);
+        UiUtils.hardenComboBox(branchCombo);
 
         productCombo.setItems(FXCollections.observableArrayList(productRepository.findAllActive()));
         productCombo.setConverter(new javafx.util.StringConverter<>() {

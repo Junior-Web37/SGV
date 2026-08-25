@@ -39,7 +39,7 @@ public class Transfer {
     private LocalDateTime createdAt = LocalDateTime.now();
     private LocalDateTime processedAt;
 
-    @OneToMany(mappedBy = "transfer", cascade = CascadeType.ALL, orphanRemoval = true)
+    @OneToMany(mappedBy = "transfer", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.EAGER)
     private List<TransferItem> items = new ArrayList<>();
 
     // Getters and setters

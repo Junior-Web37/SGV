@@ -33,6 +33,7 @@ public class FilterPanelBuilder {
         searchField.setPrefWidth(300);
 
         ComboBox<String> categoryCombo = new ComboBox<>();
+        UiUtils.hardenComboBox(categoryCombo);
         categoryCombo.setId("productCategoryCombo");
         categoryCombo.setPromptText("Categoria");
         categoryCombo.setPrefWidth(150);
@@ -49,6 +50,10 @@ public class FilterPanelBuilder {
         }, null, "FILTER_PRODUCT_CLEAR"));
 
         filterRow.getChildren().addAll(searchField, categoryCombo, filterButton, clearButton);
+        UiUtils.setupDebounce(searchField, () -> onFilter.accept(new ProductFilterCriteria(
+                searchField.getText(), categoryCombo.getValue())), 220);
+        categoryCombo.valueProperty().addListener((obs, o, n) -> onFilter.accept(
+                new ProductFilterCriteria(searchField.getText(), categoryCombo.getValue())));
 
         HBox presetRow = buildPresetRow(presetService, userId, "PRODUCT", searchField, categoryCombo, null, null,
             () -> onFilter.accept(new ProductFilterCriteria(searchField.getText(), categoryCombo.getValue())));
@@ -67,6 +72,7 @@ public class FilterPanelBuilder {
         searchField.setPrefWidth(300);
 
         ComboBox<String> typeCombo = new ComboBox<>();
+        UiUtils.hardenComboBox(typeCombo);
         typeCombo.setId("customerTypeCombo");
         typeCombo.getItems().addAll("PESSOA_FISICA", "PESSOA_JURIDICA", "EMPRESA");
         typeCombo.setPromptText("Tipo");
@@ -84,6 +90,10 @@ public class FilterPanelBuilder {
         }, null, "FILTER_CUSTOMER_CLEAR"));
 
         filterRow.getChildren().addAll(searchField, typeCombo, filterButton, clearButton);
+        UiUtils.setupDebounce(searchField, () -> onFilter.accept(new CustomerFilterCriteria(
+                searchField.getText(), typeCombo.getValue())), 220);
+        typeCombo.valueProperty().addListener((obs, o, n) -> onFilter.accept(
+                new CustomerFilterCriteria(searchField.getText(), typeCombo.getValue())));
 
         HBox presetRow = buildPresetRow(presetService, userId, "CUSTOMER", searchField, typeCombo, null, null,
             () -> onFilter.accept(new CustomerFilterCriteria(searchField.getText(), typeCombo.getValue())));
@@ -98,6 +108,7 @@ public class FilterPanelBuilder {
                                        ComboBox<String> stateCombo, ComboBox<String> docTypeCombo,
                                        Runnable applyAndFilter) {
         ComboBox<String> presetCombo = new ComboBox<>();
+        UiUtils.hardenComboBox(presetCombo);
         presetCombo.setPromptText("Presets");
         presetCombo.setPrefWidth(200);
 
@@ -126,11 +137,7 @@ public class FilterPanelBuilder {
 
         Button savePresetButton = new Button("Salvar Preset");
         savePresetButton.setOnAction(UiUtils.safeOnAction(() -> {
-            TextInputDialog dialog = new TextInputDialog();
-            dialog.setTitle("Salvar Preset");
-            dialog.setHeaderText(null);
-            dialog.setContentText("Nome do preset:");
-            Optional<String> name = dialog.showAndWait();
+            Optional<String> name = SgvDialog.prompt("Salvar Preset", "Nome do preset:", "");
             if (name.isPresent() && !name.get().isBlank()) {
                 String data = searchField.getText() + SEP +
                         (singleCombo != null ? (singleCombo.getValue() == null ? "" : singleCombo.getValue())

@@ -138,10 +138,10 @@ public class SaleService {
                         .forEach(sb -> stockMap.put(sb.getProduct().getId(), sb));
             }
 
-            // Validate stock
+            // Validate stock (serviços não movimentam existências físicas)
             for (SaleItem item : persistentSale.getItems()) {
                 if (item.getProduct() == null) continue;
-                if (Boolean.TRUE.equals(item.getProduct().getService())) continue;
+                if (isServiceItem(item.getProduct())) continue;
                 if (!Boolean.TRUE.equals(item.getProduct().getIsActive())) {
                     throw new IllegalStateException("Produto inactivo não pode ser vendido: " + item.getProduct().getCode());
                 }
@@ -149,7 +149,7 @@ public class SaleService {
                 java.math.BigDecimal avail = sb != null && sb.getStockCurrentAmount() != null ? sb.getStockCurrentAmount() : java.math.BigDecimal.ZERO;
                 java.math.BigDecimal qty = item.getQtyAmount() != null ? item.getQtyAmount() : java.math.BigDecimal.ZERO;
                 if (avail.compareTo(qty) < 0) {
-                    throw new IllegalStateException("Estoque insuficiente para " + item.getProductCode());
+                    throw new IllegalStateException("Stock insuficiente para " + item.getProductCode());
                 }
             }
         }
@@ -166,7 +166,54 @@ public class SaleService {
             }
         }
 
-        // C4: Register cash movement for immediate payments only for sale/fiscal documents
+        // Abater stock ANTES do movimento de caixa — serviços não entram aqui.
+        com.sgv.model.DocumentType dt = com.sgv.model.DocumentType.fromString(persistentSale.getDocumentType());
+        if (dt == com.sgv.model.DocumentType.VENDA || dt == com.sgv.model.DocumentType.FACTURA || dt == com.sgv.model.DocumentType.RECIBO) {
+            if (persistentSale.getBranch() != null && stockBranchService != null) {
+                List<Long> soldProductIds = saved.getItems().stream()
+                        .filter(i -> i.getProduct() != null
+                                && !isServiceItem(i.getProduct())
+                                && i.getQtyAmount() != null
+                                && i.getQtyAmount().compareTo(java.math.BigDecimal.ZERO) > 0)
+                        .map(i -> i.getProduct().getId())
+                        .distinct()
+                        .collect(java.util.stream.Collectors.toList());
+
+                java.util.Map<Long, StockBranch> stockMap2 = new java.util.HashMap<>();
+                if (!soldProductIds.isEmpty()) {
+                    stockBranchService.loadStockForBranchAndProducts(persistentSale.getBranch().getId(), soldProductIds)
+                            .forEach(sb -> stockMap2.put(sb.getProduct().getId(), sb));
+                }
+
+                for (SaleItem item : saved.getItems()) {
+                    if (item.getProduct() == null) continue;
+                    if (isServiceItem(item.getProduct())) continue;
+                    java.math.BigDecimal qty = item.getQtyAmount() != null ? item.getQtyAmount() : java.math.BigDecimal.ZERO;
+                    if (qty.compareTo(java.math.BigDecimal.ZERO) <= 0) continue;
+
+                    StockBranch sb = stockMap2.get(item.getProduct().getId());
+                    if (sb == null) {
+                        throw new IllegalStateException("Stock insuficiente para " + item.getProduct().getCode()
+                                + " na filial " + persistentSale.getBranch().getName() + " (sem ficha de stock).");
+                    }
+                    java.math.BigDecimal before = sb.getStockCurrentAmount() != null ? sb.getStockCurrentAmount() : java.math.BigDecimal.ZERO;
+                    java.math.BigDecimal after = before.subtract(qty);
+                    if (after.compareTo(java.math.BigDecimal.ZERO) < 0) {
+                        throw new IllegalStateException("Stock insuficiente na filial para o produto: " + item.getProduct().getCode());
+                    }
+                    sb.setStockCurrentAmount(after);
+                    stockBranchService.saveStockBranch(sb);
+
+                    stockBranchService.saveStockMovement(
+                            sb, qty.negate(), before, after, "SAIDA", "VENDA",
+                            "VENDA-" + saved.getDocumentNumber() + "/" + saved.getSeries(),
+                            currentUser
+                    );
+                }
+            }
+        }
+
+        // Caixa só depois do stock — se o abate falhar, não fica movimento órfão no log.
         com.sgv.model.DocumentType paymentDocumentType = com.sgv.model.DocumentType.fromString(persistentSale.getDocumentType());
         if (paymentDocumentType == com.sgv.model.DocumentType.VENDA || paymentDocumentType == com.sgv.model.DocumentType.FACTURA || paymentDocumentType == com.sgv.model.DocumentType.RECIBO) {
             if (!"CREDITO".equalsIgnoreCase(persistentSale.getPaymentMethod())) {
@@ -183,7 +230,6 @@ public class SaleService {
             }
         }
 
-        // C5: Update customer balance for credit sales
         if ("CREDITO".equals(persistentSale.getPaymentMethod()) && persistentSale.getCustomer() != null && customerRepository != null) {
             Customer cust = customerRepository.findById(persistentSale.getCustomer().getId()).orElse(null);
             if (cust != null) {
@@ -191,50 +237,6 @@ public class SaleService {
                 java.math.BigDecimal saleTotal = persistentSale.getTotalAmount() != null ? persistentSale.getTotalAmount() : java.math.BigDecimal.ZERO;
                 cust.setBalanceAmount(currentBalance.add(saleTotal));
                 customerRepository.save(cust);
-            }
-        }
-
-        // Decrement stock for fiscal sales — batch operation
-        com.sgv.model.DocumentType dt = com.sgv.model.DocumentType.fromString(persistentSale.getDocumentType());
-        if (dt == com.sgv.model.DocumentType.VENDA || dt == com.sgv.model.DocumentType.FACTURA || dt == com.sgv.model.DocumentType.RECIBO) {
-            if (persistentSale.getBranch() != null && stockBranchService != null) {
-                List<Long> soldProductIds = saved.getItems().stream()
-                        .filter(i -> i.getProduct() != null && i.getQtyAmount() != null && i.getQtyAmount().compareTo(java.math.BigDecimal.ZERO) > 0)
-                        .map(i -> i.getProduct().getId())
-                        .distinct()
-                        .collect(java.util.stream.Collectors.toList());
-
-                // Re-fetch StockBranch records (they may have changed after save)
-                java.util.Map<Long, StockBranch> stockMap2 = new java.util.HashMap<>();
-                if (!soldProductIds.isEmpty()) {
-                    stockBranchService.loadStockForBranchAndProducts(persistentSale.getBranch().getId(), soldProductIds)
-                            .forEach(sb -> stockMap2.put(sb.getProduct().getId(), sb));
-                }
-
-                for (SaleItem item : saved.getItems()) {
-                    if (item.getProduct() == null) continue;
-                    java.math.BigDecimal qty = item.getQtyAmount() != null ? item.getQtyAmount() : java.math.BigDecimal.ZERO;
-                    if (qty.compareTo(java.math.BigDecimal.ZERO) <= 0) continue;
-
-                    StockBranch sb = stockMap2.get(item.getProduct().getId());
-                    if (sb == null) {
-                        throw new IllegalStateException("Stock da filial não encontrado para o produto: " + item.getProduct().getCode());
-                    }
-                    java.math.BigDecimal before = sb.getStockCurrentAmount() != null ? sb.getStockCurrentAmount() : java.math.BigDecimal.ZERO;
-                    java.math.BigDecimal after = before.subtract(qty);
-                    if (after.compareTo(java.math.BigDecimal.ZERO) < 0) {
-                        throw new IllegalStateException("Stock insuficiente na filial para o produto: " + item.getProduct().getCode());
-                    }
-                    sb.setStockCurrentAmount(after);
-                    stockBranchService.saveStockBranch(sb);
-
-                    // Record movement
-                    stockBranchService.saveStockMovement(
-                            sb, qty.negate(), before, after, "SAIDA", "VENDA",
-                            "VENDA-" + saved.getDocumentNumber() + "/" + saved.getSeries(),
-                            currentUser
-                    );
-                }
             }
         }
         return saved;
@@ -562,6 +564,10 @@ public class SaleService {
         if (sale.getItems() == null || sale.getItems().isEmpty()) {
             throw new IllegalStateException("A venda deve conter ao menos um item.");
         }
+    }
+
+    private static boolean isServiceItem(Product product) {
+        return product != null && Boolean.TRUE.equals(product.getService());
     }
 
     private void requirePermission(User user, String page, String action) {

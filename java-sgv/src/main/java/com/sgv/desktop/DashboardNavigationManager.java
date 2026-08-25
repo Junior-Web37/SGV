@@ -7,6 +7,7 @@ import javafx.animation.FadeTransition;
 import javafx.beans.property.SimpleStringProperty;
 import javafx.collections.FXCollections;
 import javafx.fxml.FXMLLoader;
+import javafx.geometry.Insets;
 import javafx.geometry.Pos;
 import javafx.scene.Node;
 import javafx.scene.Parent;
@@ -27,8 +28,10 @@ import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.function.Consumer;
 
 @Component
@@ -60,9 +63,13 @@ public class DashboardNavigationManager {
     private final CashSessionService cashSessionService;
     private final WarehouseTransferRepository warehouseTransferRepository;
     private final WarehouseTransferService warehouseTransferService;
+    private final SystemSettingsPageManager settingsPageManager;
+    private final ProfilePermissionsDialog profilePermissionsDialog;
+    private final ReportsController reportsController;
 
     private TableView<Product> productsTable;
     private HBox productsStatsCardsBox;
+    private final Map<Long, BigDecimal> productStockById = new HashMap<>();
     private TableView<Sale> salesTable;
     private TableView<Customer> customersTable;
     private TableView<Category> categoriesTable;
@@ -73,9 +80,11 @@ public class DashboardNavigationManager {
     private Map<Long, BigDecimal> supplierBalances = new HashMap<>();
 
     private TableView<Purchase> purchasesTable;
+    private TableView<ProductionOrder> ordersTable;
     private Runnable purchasesLoadRunnable;
 
     public TableView<Product> getProductsTable() { return productsTable; }
+    public TableView<ProductionOrder> getOrdersTable() { return ordersTable; }
     public TableView<Sale> getSalesTable() { return salesTable; }
     public TableView<Customer> getCustomersTable() { return customersTable; }
     public TableView<Category> getCategoriesTable() { return categoriesTable; }
@@ -115,7 +124,10 @@ public class DashboardNavigationManager {
                                        SystemLogService systemLogService,
                                        CashSessionService cashSessionService,
                                        WarehouseTransferRepository warehouseTransferRepository,
-                                       WarehouseTransferService warehouseTransferService) {
+                                       WarehouseTransferService warehouseTransferService,
+                                        SystemSettingsPageManager settingsPageManager,
+                                        ProfilePermissionsDialog profilePermissionsDialog,
+                                        ReportsController reportsController) {
         this.applicationContext = applicationContext;
         this.crudManager = crudManager;
         this.kpiManager = kpiManager;
@@ -139,6 +151,9 @@ public class DashboardNavigationManager {
         this.cashSessionService = cashSessionService;
         this.warehouseTransferRepository = warehouseTransferRepository;
         this.warehouseTransferService = warehouseTransferService;
+        this.settingsPageManager = settingsPageManager;
+        this.profilePermissionsDialog = profilePermissionsDialog;
+        this.reportsController = reportsController;
     }
 
     // ═══════════════════════════════════════════════════════════════════════════
@@ -205,20 +220,6 @@ public class DashboardNavigationManager {
         ft.setFromValue(0.0);
         ft.setToValue(1.0);
         ft.play();
-    }
-
-    public void loadReportsPane(VBox reportsPane) {
-        try {
-            FXMLLoader loader = new FXMLLoader(getClass().getResource("/fxml/reports.fxml"));
-            loader.setControllerFactory(applicationContext::getBean);
-            Node reportsContent = loader.load();
-            if (reportsPane != null) {
-                reportsPane.getChildren().add(reportsContent);
-                VBox.setVgrow(reportsContent, Priority.ALWAYS);
-            }
-        } catch (Exception ex) {
-            log.error("Falha ao carregar painel de relatórios: {}", ex.getMessage(), ex);
-        }
     }
 
     // ═══════════════════════════════════════════════════════════════════════════
@@ -366,13 +367,10 @@ public class DashboardNavigationManager {
                 onShowToast.run();
                 return;
             }
-            Alert confirm = new Alert(Alert.AlertType.CONFIRMATION);
-            confirm.setTitle("Eliminar " + entityName);
-            confirm.setHeaderText("Eliminar este " + entityName + "?");
-            confirm.setContentText("Esta ação não pode ser revertida.");
-            confirm.showAndWait().ifPresent(res -> {
-                if (res == ButtonType.OK) onDelete.run();
-            });
+            if (SgvDialog.confirmDanger("Eliminar " + entityName,
+                    "Eliminar este " + entityName + "?\n\nEsta ação não pode ser revertida.")) {
+                onDelete.run();
+            }
         });
 
         toolbar.getChildren().addAll(searchField, newBtn, editBtn, deleteBtn);
@@ -614,6 +612,7 @@ public class DashboardNavigationManager {
             filterDate.setStyle("-fx-font-size: 12px;");
 
             ComboBox<String> filterDocType = new ComboBox<>();
+            UiUtils.hardenComboBox(filterDocType);
             filterDocType.getItems().addAll("Todos", "VENDA", "FACTURA", "RECIBO", "COTACAO", "ENCOMENDA", "NC", "ND");
             filterDocType.setValue("Todos");
             filterDocType.setPromptText("Tipo");
@@ -621,6 +620,7 @@ public class DashboardNavigationManager {
             filterDocType.setStyle("-fx-font-size: 12px; -fx-padding: 4 8;");
 
             ComboBox<String> filterState = new ComboBox<>();
+            UiUtils.hardenComboBox(filterState);
             filterState.getItems().addAll("Todos", "EMITIDA", "PAGO", "ANULADA", "COTACAO_ABERTA", "COTACAO_PAGA", "ENCOMENDA_ABERTA");
             filterState.setValue("Todos");
             filterState.setPromptText("Estado");
@@ -644,8 +644,8 @@ public class DashboardNavigationManager {
             filterClearBtn.setOnAction(e -> {
                 filterSearch.clear();
                 filterDate.setValue(null);
-                filterDocType.setValue(null);
-                filterState.setValue(null);
+                filterDocType.setValue("Todos");
+                filterState.setValue("Todos");
                 if (onAdvancedFilterClear != null) onAdvancedFilterClear.run();
             });
 
@@ -838,29 +838,33 @@ public class DashboardNavigationManager {
         updateCashBadge.run();
     }
 
-    public void showLogsPane(Label pageTitleLabel, Label pageSubtitleLabel,
+    public void showLogsPane(Button navBtn, Label pageTitleLabel, Label pageSubtitleLabel,
                               VBox logsPane, User currentUser,
                               VBox[] allPanes, Button[] allNavButtons) {
-        setActiveNav(null, allNavButtons);
+        setActiveNav(navBtn, allNavButtons);
         pageTitleLabel.setText("Auditoria & Segurança");
         pageSubtitleLabel.setText("Rastreabilidade de operações, registo de acessos e eventos do sistema");
         setPaneVisibility(logsPane, allPanes);
         logsPane.getChildren().clear();
 
         HBox header = new HBox(16);
-        header.setStyle("-fx-background-color:#1E293B; -fx-padding:16 24; -fx-alignment:CENTER_LEFT;");
-        Label titleLbl = new Label("Logs e Auditoria do Sistema");
-        titleLbl.setStyle("-fx-font-size:18px; -fx-font-weight:700; -fx-text-fill:#ffffff;");
-        Label subLbl = new Label("Registo de todas as ações, erros e eventos");
-        subLbl.setStyle("-fx-font-size:12px; -fx-text-fill:#94A3B8; -fx-padding:2 0 0 8;");
+        header.setStyle("-fx-background-color:#FFFFFF; -fx-padding:14 20; -fx-alignment:CENTER_LEFT; -fx-border-color:#E2E8F0; -fx-border-width:0 0 1 0;");
+        Label iconLbl = new Label("🛡️");
+        iconLbl.setStyle("-fx-font-size:20px;");
+        Label titleLbl = new Label("Logs & Auditoria");
+        titleLbl.setStyle("-fx-font-size:15px; -fx-font-weight:800; -fx-text-fill:#0F172A;");
+        Label subLbl = new Label("Rastreabilidade em tempo real de acessos, vendas e operações");
+        subLbl.setStyle("-fx-font-size:12px; -fx-font-weight:600; -fx-text-fill:#64748B;");
         Region spacer = new Region();
         HBox.setHgrow(spacer, Priority.ALWAYS);
         TextField searchField = new TextField();
-        searchField.setPromptText("Pesquisar logs...");
-        searchField.setStyle("-fx-font-size:13px; -fx-padding:6 12; -fx-background-radius:6; -fx-background-color:#0F172A; -fx-text-fill:#ffffff; -fx-border-color:#334155; -fx-border-radius:6; -fx-min-width:240;");
+        searchField.setPromptText("🔍 Pesquisar eventos, utilizadores...");
+        searchField.setStyle("-fx-font-size:12px; -fx-font-weight:600; -fx-padding:7 14; -fx-background-radius:6; -fx-background-color:#F8FAFC; -fx-text-fill:#0F172A; -fx-border-color:#CBD5E1; -fx-border-radius:6; -fx-min-width:260;");
 
-        Button btnRefresh = makeActionButton("Atualizar", "#475569", "#ffffff");
-        header.getChildren().addAll(titleLbl, subLbl, spacer, searchField, btnRefresh);
+        Button btnRefresh = makeActionButton("🔄 Atualizar", "#2563EB", "#FFFFFF");
+        btnRefresh.setStyle("-fx-background-color:#2563EB; -fx-text-fill:#FFFFFF; -fx-font-weight:800; -fx-font-size:12px; -fx-padding:7 16; -fx-background-radius:6; -fx-cursor:hand;");
+        Button btnExport = makeActionButton("⬇ Exportar Excel", "#10B981", "#FFFFFF");
+        header.getChildren().addAll(iconLbl, titleLbl, subLbl, spacer, searchField, btnExport, btnRefresh);
 
         TabPane tabPane = new TabPane();
         tabPane.setTabClosingPolicy(TabPane.TabClosingPolicy.UNAVAILABLE);
@@ -881,6 +885,15 @@ public class DashboardNavigationManager {
         };
 
         btnRefresh.setOnAction(e -> doSearch.run());
+        btnExport.setOnAction(e -> {
+            Tab selected = tabPane.getSelectionModel().getSelectedItem();
+            if (selected != null && selected.getContent() instanceof TableView<?> tv) {
+                ExportUtil.exportTableToExcel(btnExport.getScene() != null ? btnExport.getScene().getWindow() : null,
+                        "logs_" + ((String) selected.getUserData() != null ? selected.getUserData().toString().toLowerCase() : "todos")
+                                + "_" + java.time.LocalDate.now() + ".xlsx",
+                        "Logs " + selected.getText(), tv);
+            }
+        });
         UiUtils.setupDebounce(searchField, doSearch, 400);
 
         tabPane.getSelectionModel().selectedItemProperty().addListener((obs, oldTab, newTab) -> {
@@ -926,6 +939,68 @@ public class DashboardNavigationManager {
         } catch (Exception ex) {
             log.error("Erro inesperado", ex);
         }
+    }
+
+    /** Janela estilizada SGV para visualizar o stacktrace de um erro registado nos logs. */
+    private void showStacktraceDialog(Button ownerBtn, String action, String stackTrace) {
+        javafx.stage.Stage dialog = new javafx.stage.Stage();
+        dialog.initStyle(javafx.stage.StageStyle.TRANSPARENT);
+        dialog.initModality(javafx.stage.Modality.APPLICATION_MODAL);
+        if (ownerBtn != null && ownerBtn.getScene() != null) {
+            dialog.initOwner(ownerBtn.getScene().getWindow());
+        }
+
+        javafx.scene.layout.VBox root = new javafx.scene.layout.VBox(14);
+        root.setStyle("-fx-background-color:#FFFFFF; -fx-background-radius:12; -fx-border-color:#E2E8F0; -fx-border-radius:12; -fx-padding:22; -fx-min-width:680;");
+        javafx.scene.effect.DropShadow shadow = new javafx.scene.effect.DropShadow();
+        shadow.setRadius(18); shadow.setOffsetY(4);
+        shadow.setColor(javafx.scene.paint.Color.rgb(15, 23, 42, 0.25));
+        root.setEffect(shadow);
+
+        // Accent bar vermelha (erro)
+        javafx.scene.layout.Region accent = new javafx.scene.layout.Region();
+        accent.setStyle("-fx-background-color:#DC2626; -fx-background-radius:8; -fx-min-height:5; -fx-max-height:5;");
+        VBox accentWrap = new VBox(accent);
+        accentWrap.setStyle("-fx-padding:-22 -22 0 -22;");
+
+        HBox titleRow = new HBox(10);
+        titleRow.setAlignment(javafx.geometry.Pos.CENTER_LEFT);
+        Label icon = new Label("🐞");
+        icon.setStyle("-fx-font-size:20px;");
+        Label title = new Label("Stacktrace — " + (action != null ? action : "Erro"));
+        title.setStyle("-fx-font-size:15px; -fx-font-weight:800; -fx-text-fill:#0F172A;");
+        Region spacer = new Region();
+        HBox.setHgrow(spacer, Priority.ALWAYS);
+        Button btnCopy = new Button("📋 Copiar Erro");
+        btnCopy.setStyle("-fx-background-color:#2563EB; -fx-text-fill:#FFFFFF; -fx-font-weight:700; -fx-font-size:12px; -fx-padding:7 14; -fx-background-radius:6; -fx-cursor:hand;");
+        titleRow.getChildren().addAll(icon, title, spacer, btnCopy);
+
+        TextArea area = new TextArea(stackTrace != null ? stackTrace : "");
+        area.setEditable(false);
+        area.setWrapText(true);
+        area.setPrefSize(650, 380);
+        area.setStyle("-fx-font-family:'Consolas','Courier New',monospace; -fx-font-size:11px; -fx-background-color:#F8FAFC;");
+
+        HBox actions = new HBox(10);
+        actions.setAlignment(javafx.geometry.Pos.CENTER_RIGHT);
+        Button btnClose = new Button("Fechar");
+        btnClose.setStyle("-fx-background-color:#F1F5F9; -fx-text-fill:#0F172A; -fx-font-weight:700; -fx-font-size:12px; -fx-padding:7 18; -fx-background-radius:6; -fx-cursor:hand; -fx-border-color:#CBD5E1; -fx-border-radius:6;");
+        btnClose.setOnAction(ev -> dialog.close());
+        actions.getChildren().addAll(btnClose);
+
+        root.getChildren().addAll(accentWrap, titleRow, area, actions);
+
+        javafx.scene.Scene scene = new javafx.scene.Scene(root);
+        scene.setFill(javafx.scene.paint.Color.TRANSPARENT);
+        dialog.setScene(scene);
+        UiUtils.applyHoverElevation(btnCopy);
+        btnCopy.setOnAction(ev -> {
+            javafx.scene.input.ClipboardContent cc = new javafx.scene.input.ClipboardContent();
+            cc.putString(area.getText());
+            javafx.scene.input.Clipboard.getSystemClipboard().setContent(cc);
+            btnCopy.setText("✓ Copiado!");
+        });
+        dialog.showAndWait();
     }
 
     public TableView<AuditLog> buildLogTable() {
@@ -979,26 +1054,8 @@ public class DashboardNavigationManager {
                 Button btn = new Button("Ver");
                 btn.setStyle("-fx-background-color:#6366F1; -fx-text-fill:white; -fx-font-size:10px; -fx-padding:2 6; -fx-background-radius:3; -fx-cursor:hand;");
                 btn.setOnAction(e -> {
-                    AuditLog log = getTableView().getItems().get(getIndex());
-                    TextArea area = new TextArea(log.getStackTrace());
-                    area.setEditable(false);
-                    area.setWrapText(true);
-                    area.setPrefSize(700, 400);
-                    Dialog<Void> dlg = new Dialog<>();
-                    dlg.setTitle("Stacktrace — " + log.getAction());
-                    dlg.getDialogPane().setContent(area);
-                    ButtonType btnCopy = new ButtonType("Copiar Erro");
-                    dlg.getDialogPane().getButtonTypes().addAll(btnCopy, ButtonType.CLOSE);
-                    javafx.scene.Node copyNode = dlg.getDialogPane().lookupButton(btnCopy);
-                    if (copyNode instanceof Button copyBtn) {
-                        copyBtn.setOnAction(ev -> {
-                            javafx.scene.input.ClipboardContent cc = new javafx.scene.input.ClipboardContent();
-                            cc.putString(area.getText());
-                            javafx.scene.input.Clipboard.getSystemClipboard().setContent(cc);
-                            copyBtn.setText("Copiado!");
-                        });
-                    }
-                    dlg.showAndWait();
+                    AuditLog logEntry = getTableView().getItems().get(getIndex());
+                    showStacktraceDialog(btn, logEntry.getAction(), logEntry.getStackTrace());
                 });
                 setGraphic(btn);
                 setText(null);
@@ -1137,8 +1194,10 @@ public class DashboardNavigationManager {
                 }
                 Map<Long, BigDecimal> balances = new HashMap<>();
                 for (Object[] row : purchaseRepository.findOutstandingBalanceBySupplier()) {
-                    Long sid = (Long) row[0];
-                    BigDecimal bal = (BigDecimal) row[1];
+                    if (row == null || row.length < 2) continue;
+                    Long sid = row[0] instanceof Number n ? n.longValue() : null;
+                    BigDecimal bal = row[1] instanceof BigDecimal bd ? bd
+                            : row[1] instanceof Number n ? BigDecimal.valueOf(n.doubleValue()) : null;
                     if (sid != null && bal != null && bal.compareTo(BigDecimal.ZERO) != 0) {
                         balances.put(sid, bal);
                     }
@@ -1150,71 +1209,6 @@ public class DashboardNavigationManager {
             UiUtils.setupDebounce(searchField, suppliersLoadRunnable, 400);
             suppliersLoadRunnable.run();
 
-            // ── Histórico de pagamentos a fornecedores ─────────────────────
-            Label paymentsTitle = new Label("HISTÓRICO DE PAGAMENTOS A FORNECEDORES");
-            paymentsTitle.setStyle("-fx-font-size:11px; -fx-font-weight:700; -fx-text-fill:#475569; -fx-font-family:monospace;");
-            Label paymentsContext = new Label("Pagamentos recentes (todos os fornecedores) — selecione um fornecedor para filtrar");
-            paymentsContext.setStyle("-fx-font-size:12px; -fx-font-weight:600; -fx-text-fill:#64748B;");
-            TableView<SupplierPaymentRow> paymentsTable = new TableView<>();
-            paymentsTable.setPrefHeight(230);
-            paymentsTable.setStyle("-fx-font-size:13px; -fx-background-color:#ffffff; -fx-border-color:#E2E8F0; -fx-border-width:1;");
-            paymentsTable.setPlaceholder(new Label("Sem pagamentos registados"));
-
-            TableColumn<SupplierPaymentRow, String> p1 = new TableColumn<>("Data");
-            p1.setPrefWidth(140);
-            p1.setCellValueFactory(d -> new SimpleStringProperty(d.getValue().getData()));
-            TableColumn<SupplierPaymentRow, String> p2 = new TableColumn<>("Fornecedor");
-            p2.setPrefWidth(200);
-            p2.setCellValueFactory(d -> new SimpleStringProperty(d.getValue().getFornecedor()));
-            TableColumn<SupplierPaymentRow, String> p3 = new TableColumn<>("Compra");
-            p3.setPrefWidth(130);
-            p3.setCellValueFactory(d -> new SimpleStringProperty(d.getValue().getCompra()));
-            TableColumn<SupplierPaymentRow, String> p4 = new TableColumn<>("Valor");
-            p4.setPrefWidth(120);
-            p4.setCellValueFactory(d -> new SimpleStringProperty(d.getValue().getValor()));
-            TableColumn<SupplierPaymentRow, String> p5 = new TableColumn<>("Método");
-            p5.setPrefWidth(160);
-            p5.setCellValueFactory(d -> new SimpleStringProperty(d.getValue().getMetodo()));
-            TableColumn<SupplierPaymentRow, String> p6 = new TableColumn<>("Referência");
-            p6.setPrefWidth(170);
-            p6.setCellValueFactory(d -> new SimpleStringProperty(d.getValue().getReferencia()));
-            paymentsTable.getColumns().addAll(List.of(p1, p2, p3, p4, p5, p6));
-
-            HBox paymentsHeader = new HBox(10);
-            paymentsHeader.getChildren().add(paymentsContext);
-            VBox paymentsCard = new VBox(10);
-            paymentsCard.setStyle("-fx-background-color:#ffffff; -fx-padding:20; -fx-background-radius:6; -fx-border-color:#E2E8F0; -fx-border-width:1; -fx-border-radius:6;");
-            paymentsCard.getChildren().addAll(paymentsTitle, paymentsHeader, paymentsTable);
-
-            suppliersPaymentsLoadRunnable = () -> {
-                Supplier sel = table.getSelectionModel().getSelectedItem();
-                List<SupplierPayment> payments;
-                if (sel != null) {
-                    payments = supplierPaymentRepository.findBySupplierId(sel.getId());
-                    paymentsContext.setText("Pagamentos de " + sel.getName());
-                } else {
-                    payments = supplierPaymentRepository.findAllByOrderByCreatedAtDesc();
-                    paymentsContext.setText("Pagamentos recentes (todos os fornecedores)");
-                }
-                if (payments.size() > 200) {
-                    payments = new ArrayList<>(payments.subList(0, 200));
-                }
-                List<SupplierPaymentRow> rows = payments.stream().map(sp -> new SupplierPaymentRow(
-                        sp.getCreatedAt() != null ? sp.getCreatedAt().format(DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm")) : "—",
-                        sp.getSupplier() != null ? sp.getSupplier().getName() : "—",
-                        sp.getPurchase() != null
-                                ? (sp.getPurchase().getInvoiceNumber() != null ? sp.getPurchase().getInvoiceNumber() : "Compra #" + sp.getPurchase().getId())
-                                : "—",
-                        sp.getAmountValue() != null ? fmtMt(sp.getAmountValue()) : "—",
-                        sp.getMethod() != null ? sp.getMethod() : "—",
-                        sp.getReference() != null ? sp.getReference() : "—"
-                )).toList();
-                paymentsTable.setItems(FXCollections.observableArrayList(rows));
-            };
-            table.getSelectionModel().selectedItemProperty().addListener((obs, o, n) -> {
-                if (suppliersPaymentsLoadRunnable != null) suppliersPaymentsLoadRunnable.run();
-            });
-
             GridPane kpiGrid = buildKPIGrid(
                 new String[]{"Total Fornecedores", "Activos", "Inactivos", "Dívida Total (MT)"},
                 new String[]{"Registos de fornecedores", "Fornecedores activos", "Fornecedores inactivos", "Total a pagar em aberto"},
@@ -1222,7 +1216,7 @@ public class DashboardNavigationManager {
             );
             kpiGrid.setId("suppliersKPI");
 
-            main.getChildren().addAll(kpiGrid, toolbar, table, paymentsCard);
+            main.getChildren().addAll(kpiGrid, toolbar, table);
             fornecedoresPane.getChildren().add(main);
         }
 
@@ -1256,6 +1250,7 @@ public class DashboardNavigationManager {
             Button btnAtualizar = makeActionButton("Atualizar", "#475569", "#ffffff");
 
             ComboBox<Warehouse> warehouseFilter = new ComboBox<>();
+            UiUtils.hardenComboBox(warehouseFilter);
             warehouseFilter.setPromptText("Todos os armazéns");
             warehouseFilter.setPrefWidth(220);
             warehouseFilter.setStyle("-fx-font-size: 13px; -fx-font-weight: 600; -fx-background-color: #F8FAFC;");
@@ -1619,20 +1614,64 @@ public class DashboardNavigationManager {
         updateCashBadge.run();
     }
 
-    public void showReportsPane(Button navRelatorios, Label pageTitleLabel, Label pageSubtitleLabel,
-                                 VBox reportsPane, User currentUser,
-                                 VBox[] allPanes, Button[] allNavButtons,
+    public void showSingleReport(Button navBtn, String key, Label pageTitleLabel, Label pageSubtitleLabel,
+                                 VBox reportsPane, VBox[] allPanes, Button[] allNavButtons,
                                  Runnable updateCashBadge) {
-        setActiveNav(navRelatorios, allNavButtons);
-        pageTitleLabel.setText("Mapas Fiscais & SAF-T MZ");
-        pageSubtitleLabel.setText("Apuramento de IVA (16%), ficheiro SAF-T oficial AT e mapas de vendas");
+        ReportsController.ReportDef def = ReportsController.byKey(key);
+        if (def == null) return;
+        setActiveNav(navBtn, allNavButtons);
+        pageTitleLabel.setText(def.pageTitle());
+        pageSubtitleLabel.setText(def.pageSubtitle());
         setPaneVisibility(reportsPane, allPanes);
 
-        if (reportsPane.getChildren().isEmpty()) {
-            loadReportsPane(reportsPane);
+        try {
+            Node content = reportsController.buildReport(key);
+
+            // Cabeçalho de página no estilo SGV
+            HBox header = new HBox(14);
+            header.setAlignment(javafx.geometry.Pos.CENTER_LEFT);
+            header.setStyle("-fx-background-color:#FFFFFF; -fx-padding:16 24; -fx-border-color:#E2E8F0; -fx-border-width:0 0 1 0;");
+            Label icon = new Label(def.icon());
+            icon.setStyle("-fx-font-size:22px;");
+            Label titleLbl = new Label(def.pageTitle());
+            titleLbl.setStyle("-fx-font-size:16px; -fx-font-weight:800; -fx-text-fill:#0F172A;");
+            Label subLbl = new Label(def.pageSubtitle());
+            subLbl.setStyle("-fx-font-size:12px; -fx-font-weight:600; -fx-text-fill:#64748B;");
+            VBox titleBox = new VBox(2, titleLbl, subLbl);
+            Region spacer = new Region();
+            HBox.setHgrow(spacer, Priority.ALWAYS);
+            Button btnExport = makeActionButton("⬇ Exportar Excel", "#10B981", "#FFFFFF");
+            btnExport.setOnAction(e -> {
+                TableView<?> tbl = findFirstTable(content);
+                if (tbl != null && !tbl.getItems().isEmpty()) {
+                    ExportUtil.exportTableToExcel(btnExport.getScene() != null ? btnExport.getScene().getWindow() : null,
+                            def.exportFile() + "_" + java.time.LocalDate.now() + ".xlsx", def.pageTitle(), tbl);
+                } else {
+                    SgvDialog.warning("Exportar", "Não há dados carregados para exportar neste momento.");
+                }
+            });
+            header.getChildren().addAll(icon, titleBox, spacer, btnExport);
+
+            reportsPane.getChildren().setAll(header, content);
+            VBox.setVgrow(content, Priority.ALWAYS);
+        } catch (Exception ex) {
+            log.error("Erro inesperado", ex);
+            reportsPane.getChildren().setAll(new Label("Erro ao carregar relatório: " + ex.getMessage()));
         }
 
         updateCashBadge.run();
+    }
+
+    /** Encontra a primeira TableView com dados dentro do conteúdo de um relatório. */
+    private TableView<?> findFirstTable(Node node) {
+        if (node instanceof TableView<?> tv) return tv;
+        if (node instanceof javafx.scene.Parent p) {
+            for (javafx.scene.Node child : p.getChildrenUnmodifiable()) {
+                TableView<?> found = findFirstTable(child);
+                if (found != null) return found;
+            }
+        }
+        return null;
     }
 
     public void showSistemaPane(Button navSistema, Label pageTitleLabel, Label pageSubtitleLabel,
@@ -1641,21 +1680,94 @@ public class DashboardNavigationManager {
                                  Runnable updateCashBadge) {
         setActiveNav(navSistema, allNavButtons);
         pageTitleLabel.setText("Parâmetros da Empresa");
-        pageSubtitleLabel.setText("Dados fiscais da empresa, cópias de segurança (backup) e licenciamento");
+        pageSubtitleLabel.setText("Dados fiscais, identificação e conformidade AT/CIVA");
         setPaneVisibility(sistemaPane, allPanes);
 
-        if (sistemaPane.getChildren().isEmpty()) {
-            try {
-                FXMLLoader loader = new FXMLLoader(getClass().getResource("/fxml/sistema_module.fxml"));
-                loader.setControllerFactory(applicationContext::getBean);
-                Parent root = loader.load();
-                SistemaModuleController ctrl = loader.getController();
-                ctrl.setCurrentUser(currentUser);
-                sistemaPane.getChildren().add(root);
-            } catch (Exception ex) {
-                log.error("Erro inesperado", ex);
-                sistemaPane.getChildren().add(new Label("Erro ao carregar módulo Sistema: " + ex.getMessage()));
-            }
+        try {
+            settingsPageManager.buildParametrosPane(sistemaPane, currentUser);
+        } catch (Exception ex) {
+            log.error("Erro ao carregar página Parâmetros", ex);
+            sistemaPane.getChildren().setAll(new Label("Erro ao carregar Parâmetros: " + ex.getMessage()));
+        }
+        updateCashBadge.run();
+    }
+
+    public void showBackupsPane(Button navBackups, Label pageTitleLabel, Label pageSubtitleLabel,
+                                  VBox backupsPane, User currentUser,
+                                  VBox[] allPanes, Button[] allNavButtons,
+                                  Runnable updateCashBadge) {
+        setActiveNav(navBackups, allNavButtons);
+        pageTitleLabel.setText("Cópias de Segurança");
+        pageSubtitleLabel.setText("Histórico de backups, restauro e programação automática");
+        setPaneVisibility(backupsPane, allPanes);
+
+        try {
+            settingsPageManager.buildBackupsPane(backupsPane, currentUser);
+        } catch (Exception ex) {
+            log.error("Erro ao carregar página Backups", ex);
+            backupsPane.getChildren().setAll(new Label("Erro ao carregar Backups: " + ex.getMessage()));
+        }
+        updateCashBadge.run();
+    }
+
+    public void showTreinamentoPane(Button navTreinamento, Label pageTitleLabel, Label pageSubtitleLabel,
+                                      VBox treinamentoPane, User currentUser,
+                                      VBox[] allPanes, Button[] allNavButtons,
+                                      Runnable updateCashBadge) {
+        showTreinamentoPane(navTreinamento, pageTitleLabel, pageSubtitleLabel, treinamentoPane, currentUser,
+            allPanes, allNavButtons, updateCashBadge, null);
+    }
+
+    public void showTreinamentoPane(Button navTreinamento, Label pageTitleLabel, Label pageSubtitleLabel,
+                                      VBox treinamentoPane, User currentUser,
+                                      VBox[] allPanes, Button[] allNavButtons,
+                                      Runnable updateCashBadge, Runnable onTrainingModeChanged) {
+        setActiveNav(navTreinamento, allNavButtons);
+        pageTitleLabel.setText("Modo Treinamento");
+        pageSubtitleLabel.setText("Formação de operadores com dados simulados, sem afectar a produção");
+        setPaneVisibility(treinamentoPane, allPanes);
+
+        try {
+            settingsPageManager.buildTreinamentoPane(treinamentoPane, currentUser, onTrainingModeChanged);
+        } catch (Exception ex) {
+            log.error("Erro ao carregar página Treinamento", ex);
+            treinamentoPane.getChildren().setAll(new Label("Erro ao carregar Treinamento: " + ex.getMessage()));
+        }
+        updateCashBadge.run();
+    }
+
+    public void showLicencaPane(Button navLicenca, Label pageTitleLabel, Label pageSubtitleLabel,
+                                  VBox licencaPane, User currentUser,
+                                  VBox[] allPanes, Button[] allNavButtons,
+                                  Runnable updateCashBadge) {
+        setActiveNav(navLicenca, allNavButtons);
+        pageTitleLabel.setText("Licenciamento do Software");
+        pageSubtitleLabel.setText("Estado da licença, activação e dados da instalação");
+        setPaneVisibility(licencaPane, allPanes);
+
+        try {
+            settingsPageManager.buildLicencaPane(licencaPane, currentUser);
+        } catch (Exception ex) {
+            log.error("Erro ao carregar página Licenciamento", ex);
+            licencaPane.getChildren().setAll(new Label("Erro ao carregar Licenciamento: " + ex.getMessage()));
+        }
+        updateCashBadge.run();
+    }
+
+    public void showSegurancaPane(Button navSeguranca, Label pageTitleLabel, Label pageSubtitleLabel,
+                                    VBox segurancaPane, User currentUser,
+                                    VBox[] allPanes, Button[] allNavButtons,
+                                    Runnable updateCashBadge) {
+        setActiveNav(navSeguranca, allNavButtons);
+        pageTitleLabel.setText("Segurança & Palavra-passe");
+        pageSubtitleLabel.setText("Alteração da palavra-passe e boas práticas de segurança");
+        setPaneVisibility(segurancaPane, allPanes);
+
+        try {
+            settingsPageManager.buildSegurancaPane(segurancaPane, currentUser);
+        } catch (Exception ex) {
+            log.error("Erro ao carregar página Segurança", ex);
+            segurancaPane.getChildren().setAll(new Label("Erro ao carregar Segurança: " + ex.getMessage()));
         }
         updateCashBadge.run();
     }
@@ -1726,24 +1838,16 @@ public class DashboardNavigationManager {
             catDelBtn.setOnAction(e -> {
                 Category sel = categoriesTable.getSelectionModel().getSelectedItem();
                 if (sel != null) {
-                    Alert confirm = new Alert(Alert.AlertType.CONFIRMATION, "Tem a certeza que deseja eliminar a categoria \"" + sel.getName() + "\"?", ButtonType.YES, ButtonType.NO);
-                    confirm.setHeaderText(null);
-                    confirm.showAndWait().ifPresent(res -> {
-                        if (res == ButtonType.YES) {
-                            try {
-                                applicationContext.getBean(com.sgv.service.CategoryService.class).deleteById(sel.getId());
-                                loadCategories.run();
-                            } catch (Exception ex) {
-                                Alert err = new Alert(Alert.AlertType.ERROR, "Erro ao eliminar categoria: " + ex.getMessage());
-                                err.setHeaderText(null);
-                                err.showAndWait();
-                            }
+                    if (SgvDialog.confirmDanger("Eliminar Categoria", "Tem a certeza que deseja eliminar a categoria \"" + sel.getName() + "\"?\n\nEsta operação não pode ser revertida.")) {
+                        try {
+                            applicationContext.getBean(com.sgv.service.CategoryService.class).deleteById(sel.getId());
+                            loadCategories.run();
+                        } catch (Exception ex) {
+                            SgvDialog.error("Erro ao Eliminar", "Erro ao eliminar categoria: " + ex.getMessage());
                         }
-                    });
+                    }
                 } else {
-                    Alert a = new Alert(Alert.AlertType.WARNING, "Selecione uma categoria na lista.");
-                    a.setHeaderText(null);
-                    a.showAndWait();
+                    SgvDialog.warning("Eliminar Categoria", "Selecione uma categoria na lista.");
                 }
             });
 
@@ -1811,24 +1915,16 @@ public class DashboardNavigationManager {
             unitDelBtn.setOnAction(e -> {
                 MetricUnit sel = unitsTable.getSelectionModel().getSelectedItem();
                 if (sel != null) {
-                    Alert confirm = new Alert(Alert.AlertType.CONFIRMATION, "Tem a certeza que deseja eliminar a unidade \"" + sel.getAbbreviation() + "\"?", ButtonType.YES, ButtonType.NO);
-                    confirm.setHeaderText(null);
-                    confirm.showAndWait().ifPresent(res -> {
-                        if (res == ButtonType.YES) {
-                            try {
-                                applicationContext.getBean(com.sgv.service.MetricUnitService.class).deleteUnit(sel.getId());
-                                loadMetricUnits.run();
-                            } catch (Exception ex) {
-                                Alert err = new Alert(Alert.AlertType.ERROR, "Erro ao eliminar unidade: " + ex.getMessage());
-                                err.setHeaderText(null);
-                                err.showAndWait();
-                            }
+                    if (SgvDialog.confirmDanger("Eliminar Unidade", "Tem a certeza que deseja eliminar a unidade \"" + sel.getAbbreviation() + "\"?\n\nEsta operação não pode ser revertida.")) {
+                        try {
+                            applicationContext.getBean(com.sgv.service.MetricUnitService.class).deleteUnit(sel.getId());
+                            loadMetricUnits.run();
+                        } catch (Exception ex) {
+                            SgvDialog.error("Erro ao Eliminar", "Erro ao eliminar unidade: " + ex.getMessage());
                         }
-                    });
+                    }
                 } else {
-                    Alert a = new Alert(Alert.AlertType.WARNING, "Selecione uma unidade na lista.");
-                    a.setHeaderText(null);
-                    a.showAndWait();
+                    SgvDialog.warning("Eliminar Unidade", "Selecione uma unidade na lista.");
                 }
             });
 
@@ -2060,24 +2156,61 @@ public class DashboardNavigationManager {
                                VBox usersPane, User currentUser,
                                VBox[] allPanes, Button[] allNavButtons,
                                Runnable updateCashBadge) {
+        showUsersPane(pageTitleLabel, pageSubtitleLabel, usersPane, currentUser, allPanes, allNavButtons, updateCashBadge, null);
+    }
+
+    public void showUsersPane(Label pageTitleLabel, Label pageSubtitleLabel,
+                               VBox usersPane, User currentUser,
+                               VBox[] allPanes, Button[] allNavButtons,
+                               Runnable updateCashBadge, Runnable onSessionStateChanged) {
         setActiveNav(null, allNavButtons);
         pageTitleLabel.setText("Utilizadores & Acessos");
         pageSubtitleLabel.setText("Operadores de caixa, fiscais, gerentes e perfis de segurança");
         setPaneVisibility(usersPane, allPanes);
 
-        if (usersPane.getChildren().isEmpty()) {
+        try {
             VBox main = new VBox(0);
             main.setStyle("-fx-background-color: #F8FAFC;");
 
+            List<User> users = userRepository.findAll();
+
             GridPane kpiGrid = buildKPIGrid(
-                new String[]{"Utilizadores", "Activos", "Admin", "—"},
-                new String[]{"Total de users", "Users activos", "Users admin", "—"},
-                new String[]{"blue", "green", "orange", "gray"}
+                new String[]{"Utilizadores", "Activos", "Inactivos", "Administradores"},
+                new String[]{"Total de operadores", "Com acesso activo", "Sem acesso ao sistema", "Acesso total ao sistema"},
+                new String[]{"blue", "green", "orange", "purple"}
             );
             kpiGrid.setId("usersKPI");
 
+            VBox tableCard = new VBox(10);
+            tableCard.setStyle("-fx-background-color: #ffffff; -fx-border-color: #E2E8F0; -fx-border-width: 1; -fx-border-radius: 8; -fx-background-radius: 8;");
+            VBox.setVgrow(tableCard, Priority.ALWAYS);
+            VBox.setMargin(tableCard, new Insets(0, 20, 20, 20));
+
+            HBox toolbar = new HBox(12);
+            toolbar.setAlignment(Pos.CENTER_LEFT);
+            toolbar.setStyle("-fx-padding: 16 20 0 20;");
+
+            TextField searchField = new TextField();
+            searchField.setPromptText("🔍 Pesquisar por nome, username ou email…");
+            searchField.setStyle("-fx-font-size: 12px; -fx-padding: 8 12; -fx-background-radius: 6; -fx-border-color: #CBD5E1; -fx-border-radius: 6;");
+            searchField.setPrefWidth(320);
+            HBox.setHgrow(searchField, Priority.ALWAYS);
+
+            Button newUserBtn = new Button("＋ Novo Utilizador");
+            newUserBtn.setStyle("-fx-padding: 8 18; -fx-background-radius: 6; -fx-font-size: 12px; -fx-font-weight: 800; -fx-background-color: #2563EB; -fx-text-fill: #ffffff; -fx-cursor: hand;");
+            UiUtils.applyHoverElevation(newUserBtn);
+            UiUtils.applyPressFeedback(newUserBtn);
+
+            Button profilesBtn = new Button("🛡️ Matriz de Permissões");
+            profilesBtn.setStyle("-fx-padding: 8 18; -fx-background-radius: 6; -fx-font-size: 12px; -fx-font-weight: 800; -fx-background-color: #7C3AED; -fx-text-fill: #ffffff; -fx-cursor: hand;");
+            UiUtils.applyHoverElevation(profilesBtn);
+            UiUtils.applyPressFeedback(profilesBtn);
+
+            toolbar.getChildren().addAll(searchField, newUserBtn, profilesBtn);
+
             TableView<User> usersTable = new TableView<>();
-            usersTable.setStyle("-fx-font-size: 13px; -fx-background-color: #ffffff; -fx-border-color: #E2E8F0; -fx-border-width: 0 1 1 1; -fx-padding: 0 20 20 20;");
+            usersTable.setStyle("-fx-font-size: 13px; -fx-background-color: #ffffff;");
+            usersTable.setPlaceholder(new Label("Nenhum utilizador encontrado."));
 
             TableColumn<User, String> uc1 = new TableColumn<>("Nome Completo");
             uc1.setPrefWidth(200);
@@ -2112,17 +2245,66 @@ public class DashboardNavigationManager {
             });
 
             usersTable.getColumns().addAll(List.of(uc1, uc2, uc3, uc4, uc5, uc6));
-            usersTable.setRowFactory(makeTableRowFactory());
+            VBox.setVgrow(usersTable, Priority.ALWAYS);
 
-            List<User> users = userRepository.findAll();
-            usersTable.setItems(FXCollections.observableArrayList(users));
+            javafx.collections.ObservableList<User> masterList = javafx.collections.FXCollections.observableArrayList(users);
+            usersTable.setItems(masterList);
 
-            main.getChildren().addAll(kpiGrid, usersTable);
-            usersPane.getChildren().add(main);
+            Runnable reload = () -> {
+                if (onSessionStateChanged != null) onSessionStateChanged.run();
+                showUsersPane(pageTitleLabel, pageSubtitleLabel, usersPane, currentUser, allPanes, allNavButtons, updateCashBadge, onSessionStateChanged);
+            };
+
+            UiUtils.setupDebounce(searchField, () -> {
+                String q = searchField.getText() != null ? searchField.getText().toLowerCase() : "";
+                if (q.isBlank()) { usersTable.setItems(masterList); return; }
+                java.util.List<User> filtered = masterList.stream().filter(u ->
+                    (u.getUsername() != null && u.getUsername().toLowerCase().contains(q)) ||
+                    (u.getFullName() != null && u.getFullName().toLowerCase().contains(q)) ||
+                    (u.getEmail() != null && u.getEmail().toLowerCase().contains(q))
+                ).collect(java.util.stream.Collectors.toList());
+                usersTable.setItems(javafx.collections.FXCollections.observableArrayList(filtered));
+            }, 250);
+
+            newUserBtn.setOnAction(e -> {
+                try {
+                    crudManager.openUserForm(null, usersPane.getScene() != null ? usersPane.getScene().getWindow() : null, currentUser, reload);
+                } catch (Exception ex) {
+                    log.error("Erro ao abrir formulário de utilizador", ex);
+                }
+            });
+            profilesBtn.setOnAction(e -> {
+                try {
+                    profilePermissionsDialog.show(null, reload, currentUser);
+                } catch (Exception ex) {
+                    log.error("Erro ao abrir matriz de permissões", ex);
+                }
+            });
+
+            usersTable.setRowFactory(tv -> {
+                TableRow<User> row = this.<User>makeTableRowFactory().call(tv);
+                row.setOnMouseClicked(ev -> {
+                    if (ev.getClickCount() == 2 && !row.isEmpty()) {
+                        try {
+                            crudManager.openUserForm(row.getItem(), usersPane.getScene() != null ? usersPane.getScene().getWindow() : null, currentUser, reload);
+                        } catch (Exception ex) {
+                            log.error("Erro ao editar utilizador", ex);
+                        }
+                    }
+                });
+                return row;
+            });
+
+            tableCard.getChildren().addAll(toolbar, usersTable);
+            main.getChildren().addAll(kpiGrid, tableCard);
+            usersPane.getChildren().setAll(main);
+
+            GridPane kpi = (GridPane) main.lookup("#usersKPI");
+            kpiManager.updateUsersKPIs(kpi);
+        } catch (Exception ex) {
+            log.error("Erro ao carregar página Utilizadores", ex);
+            usersPane.getChildren().setAll(new Label("Erro ao carregar Utilizadores: " + ex.getMessage()));
         }
-
-        GridPane kpi = (GridPane) usersPane.lookup("#usersKPI");
-        kpiManager.updateUsersKPIs(kpi);
         updateCashBadge.run();
     }
 
@@ -2169,6 +2351,7 @@ public void showTurnoCaixaPane(Label pageTitleLabel, Label pageSubtitleLabel,
 
         Runnable loadProductsAndStats = () -> {
             loadProducts.run();
+            refreshProductStockCache(currentUser);
             if (productsStatsCardsBox != null) {
                 loadProductStats(productsStatsCardsBox, currentUser);
             }
@@ -2176,6 +2359,7 @@ public void showTurnoCaixaPane(Label pageTitleLabel, Label pageSubtitleLabel,
 
         Consumer<String> onSearchAndStats = filter -> {
             if (onSearch != null) onSearch.accept(filter);
+            refreshProductStockCache(currentUser);
             if (productsStatsCardsBox != null) {
                 loadProductStats(productsStatsCardsBox, currentUser);
             }
@@ -2300,9 +2484,17 @@ public void showTurnoCaixaPane(Label pageTitleLabel, Label pageSubtitleLabel,
         TableColumn<Product, String> productStockColumn = new TableColumn<>("Stock");
         productStockColumn.setPrefWidth(120);
         productStockColumn.setCellValueFactory(data -> {
+            Product product = data.getValue();
+            if (product != null && Boolean.TRUE.equals(product.getService())) {
+                return new SimpleStringProperty("Serviço");
+            }
             try {
-                if (currentUser != null && currentUser.getBranch() != null && data.getValue().getId() != null) {
-                    return stockBranchService.findByProductIdAndBranchId(data.getValue().getId(), currentUser.getBranch().getId())
+                if (currentUser != null && currentUser.getBranch() != null && product != null && product.getId() != null) {
+                    BigDecimal cached = productStockById.get(product.getId());
+                    if (cached != null) {
+                        return new SimpleStringProperty(String.format("%.1f", cached));
+                    }
+                    return stockBranchService.findByProductIdAndBranchId(product.getId(), currentUser.getBranch().getId())
                         .map(sb -> new SimpleStringProperty(String.format("%.1f", sb.getStockCurrentAmount() != null ? sb.getStockCurrentAmount() : BigDecimal.ZERO)))
                         .orElse(new SimpleStringProperty("0.0"));
                 }
@@ -2316,13 +2508,17 @@ public void showTurnoCaixaPane(Label pageTitleLabel, Label pageSubtitleLabel,
                 if (empty || item == null) { setText(null); setGraphic(null); }
                 else {
                     Label lbl = new Label(item);
-                    try {
-                        double val = Double.parseDouble(item);
-                        if (val <= 0) lbl.setStyle("-fx-font-weight: 700; -fx-text-fill: #EF4444; -fx-background-color: #FEE2E2; -fx-padding: 2 6; -fx-background-radius: 4;");
-                        else if (val < 10) lbl.setStyle("-fx-font-weight: 700; -fx-text-fill: #F59E0B; -fx-background-color: #FEF3C7; -fx-padding: 2 6; -fx-background-radius: 4;");
-                        else lbl.setStyle("-fx-font-weight: 700; -fx-text-fill: #10B981;");
-                    } catch (Exception ex) {
-                        lbl.setStyle("-fx-font-weight: 700; -fx-text-fill: #475569;");
+                    if ("Serviço".equals(item)) {
+                        lbl.setStyle("-fx-font-weight: 700; -fx-text-fill: #7C3AED; -fx-font-style: italic;");
+                    } else {
+                        try {
+                            double val = Double.parseDouble(item);
+                            if (val <= 0) lbl.setStyle("-fx-font-weight: 700; -fx-text-fill: #EF4444; -fx-background-color: #FEE2E2; -fx-padding: 2 6; -fx-background-radius: 4;");
+                            else if (val < 10) lbl.setStyle("-fx-font-weight: 700; -fx-text-fill: #F59E0B; -fx-background-color: #FEF3C7; -fx-padding: 2 6; -fx-background-radius: 4;");
+                            else lbl.setStyle("-fx-font-weight: 700; -fx-text-fill: #10B981;");
+                        } catch (Exception ex) {
+                            lbl.setStyle("-fx-font-weight: 700; -fx-text-fill: #475569;");
+                        }
                     }
                     setGraphic(lbl);
                     setText(null);
@@ -2408,41 +2604,34 @@ public void showTurnoCaixaPane(Label pageTitleLabel, Label pageSubtitleLabel,
         return "📦";
     }
 
+    private void refreshProductStockCache(User currentUser) {
+        productStockById.clear();
+        if (currentUser == null || currentUser.getBranch() == null || currentUser.getBranch().getId() == null) return;
+        if (productsTable == null || productsTable.getItems() == null || productsTable.getItems().isEmpty()) return;
+        List<Long> ids = productsTable.getItems().stream()
+                .map(Product::getId)
+                .filter(Objects::nonNull)
+                .toList();
+        if (ids.isEmpty()) return;
+        for (StockBranch sb : stockBranchService.loadStockForBranchAndProducts(currentUser.getBranch().getId(), ids)) {
+            if (sb.getProduct() != null && sb.getProduct().getId() != null) {
+                productStockById.put(sb.getProduct().getId(),
+                        sb.getStockCurrentAmount() != null ? sb.getStockCurrentAmount() : BigDecimal.ZERO);
+            }
+        }
+        productsTable.refresh();
+    }
+
     public void loadProductStats(HBox cardsBox, User currentUser) {
         if (cardsBox == null || cardsBox.getChildren().size() < 4) return;
         try {
             long total = productRepository.count();
-
-            double avgPrice = 0;
-            try {
-                List<Product> all = productRepository.findAll();
-                avgPrice = all.stream()
-                    .filter(p -> p.getPriceSale() != null && p.getPriceSale() > 0)
-                    .mapToDouble(Product::getPriceSale)
-                    .average().orElse(0);
-            } catch (Exception ex) { log.error("Erro ao calcular KPIs: " + ex.getMessage()); }
-
-            long lowStock = 0;
-            double totalValue = 0;
-            try {
-                List<Product> all = productRepository.findAll();
-                for (Product p : all) {
-                    if (currentUser != null && currentUser.getBranch() != null && p.getId() != null) {
-                        var sb = stockBranchService.findByProductIdAndBranchId(p.getId(), currentUser.getBranch().getId()).orElse(null);
-                        if (sb != null) {
-                            BigDecimal stock = sb.getStockCurrentAmount() != null ? sb.getStockCurrentAmount() : BigDecimal.ZERO;
-                            BigDecimal min = sb.getStockMinAmount() != null ? sb.getStockMinAmount() : BigDecimal.ZERO;
-                            if (stock.compareTo(BigDecimal.ZERO) > 0 && stock.compareTo(min) <= 0) lowStock++;
-                            if (p.getPriceSale() != null) totalValue += stock.doubleValue() * p.getPriceSale();
-                        }
-                    }
-                }
-            } catch (Exception ex) { log.error("Erro ao calcular stock/valor: " + ex.getMessage()); }
-
+            Long branchId = currentUser != null && currentUser.getBranch() != null ? currentUser.getBranch().getId() : null;
+            long lowStock = stockBranchService.listStockAlerts(branchId).size();
             setKpiCardValue(cardsBox, 0, String.valueOf(total));
-            setKpiCardValue(cardsBox, 1, String.format("%.0f MT", avgPrice));
+            setKpiCardValue(cardsBox, 1, "—");
             setKpiCardValue(cardsBox, 2, String.valueOf(lowStock));
-            setKpiCardValue(cardsBox, 3, String.format("%.0f MT", totalValue));
+            setKpiCardValue(cardsBox, 3, "—");
         } catch (Exception ex) {
             log.error("Erro inesperado", ex);
         }
@@ -2492,7 +2681,8 @@ public void showTurnoCaixaPane(Label pageTitleLabel, Label pageSubtitleLabel,
             .field("Stock Máximo (Capacidade)", stockMax);
 
         if (selected.getProduct() != null && selected.getProduct().getId() != null) {
-            List<StockMovement> movements = stockMovementRepository.findByProductIdOrderByCreatedAtDesc(selected.getProduct().getId());
+            List<StockMovement> movements = applicationContext.getBean(StockMovementRepository.class)
+                    .findByProductIdOrderByCreatedAtDesc(selected.getProduct().getId());
             if (movements != null && !movements.isEmpty()) {
                 String[] cols = {"Data", "Tipo", "Subtipo", "Qtd", "Antes", "Depois", "Referência", "Operador"};
                 List<Map<String, String>> rows = new ArrayList<>();
@@ -2513,6 +2703,20 @@ public void showTurnoCaixaPane(Label pageTitleLabel, Label pageSubtitleLabel,
         }
 
         dialog.show();
+    }
+
+    private VBox makeKpiCard(String title, Label valueLabel, String color) {
+        VBox card = new VBox(4);
+        card.setStyle("-fx-background-color: #ffffff; -fx-padding: 14 18; -fx-background-radius: 8; "
+                + "-fx-border-color: #E2E8F0; -fx-border-radius: 8; -fx-min-width: 180;");
+        Label titleLbl = new Label(title);
+        titleLbl.setStyle("-fx-font-size: 11px; -fx-font-weight: 700; -fx-text-fill: #64748B;");
+        if (valueLabel.getText() == null || valueLabel.getText().isBlank()) {
+            valueLabel.setText("0");
+        }
+        valueLabel.setStyle("-fx-font-size: 22px; -fx-font-weight: 900; -fx-text-fill: " + color + ";");
+        card.getChildren().addAll(titleLbl, valueLabel);
+        return card;
     }
 
     public void showTransfersPane(Button navTransferir, Label pageTitleLabel, Label pageSubtitleLabel,
@@ -2555,16 +2759,19 @@ public void showTurnoCaixaPane(Label pageTitleLabel, Label pageSubtitleLabel,
             UiUtils.applyPressFeedback(btnAtualizar);
 
             ComboBox<Warehouse> whFilter = new ComboBox<>();
+            UiUtils.hardenComboBox(whFilter);
             whFilter.setPromptText("Origem: Todos");
             whFilter.setPrefWidth(180);
             whFilter.setStyle("-fx-font-size: 12px; -fx-font-weight: 600;");
 
             ComboBox<Branch> brFilter = new ComboBox<>();
+            UiUtils.hardenComboBox(brFilter);
             brFilter.setPromptText("Destino: Todas");
             brFilter.setPrefWidth(180);
             brFilter.setStyle("-fx-font-size: 12px; -fx-font-weight: 600;");
 
             ComboBox<String> statusFilter = new ComboBox<>();
+            UiUtils.hardenComboBox(statusFilter);
             statusFilter.getItems().addAll("Todos os Estados", "PENDING", "IN_TRANSIT", "COMPLETED", "CANCELLED");
             statusFilter.setValue("Todos os Estados");
             statusFilter.setPrefWidth(160);
@@ -2684,18 +2891,16 @@ public void showTurnoCaixaPane(Label pageTitleLabel, Label pageSubtitleLabel,
                     btnReceber.setOnAction(e -> {
                         WarehouseTransfer t = getTableView().getItems().get(getIndex());
                         if (t != null && !"COMPLETED".equals(t.getStatus()) && !"CANCELLED".equals(t.getStatus())) {
-                            Alert alert = new Alert(Alert.AlertType.CONFIRMATION, "Confirmar receção de mercadoria na filial? O stock será actualizado.", ButtonType.YES, ButtonType.NO);
-                            alert.setHeaderText(null);
-                            alert.showAndWait().ifPresent(response -> {
-                                if (response == ButtonType.YES) {
-                                    try {
-                                        warehouseTransferService.complete(t.getId(), currentUser);
-                                        btnAtualizar.fire();
-                                    } catch (Exception ex) {
-                                        systemLogService.logError("TRANSFER_COMPLETE_FAILED", "Erro ao receber transferência", ex);
-                                    }
+                            if (SgvDialog.confirmAction("Receber Mercadoria",
+                                    "Confirmar receção de mercadoria na filial?\n\nO stock será actualizado.",
+                                    "✓ Confirmar Receção")) {
+                                try {
+                                    warehouseTransferService.complete(t.getId(), currentUser);
+                                    btnAtualizar.fire();
+                                } catch (Exception ex) {
+                                    systemLogService.logError("TRANSFER_COMPLETE_FAILED", "Erro ao receber transferência", ex);
                                 }
-                            });
+                            }
                         }
                     });
                 }
@@ -2718,7 +2923,7 @@ public void showTurnoCaixaPane(Label pageTitleLabel, Label pageSubtitleLabel,
             table.getColumns().addAll(List.of(c1, c2, c3, c4, c5, c6, c7, c8));
 
             Runnable loadTransfers = () -> {
-                List<WarehouseTransfer> all = warehouseTransferRepository.findAllByOrderByCreatedAtDesc();
+                List<WarehouseTransfer> all = warehouseTransferRepository.findAllWithItemsOrderByCreatedAtDesc();
                 long total = all.size();
                 long completed = all.stream().filter(t -> "COMPLETED".equals(t.getStatus())).count();
                 long inTransit = all.stream().filter(t -> "IN_TRANSIT".equals(t.getStatus()) || "PENDING".equals(t.getStatus())).count();
@@ -2750,7 +2955,7 @@ public void showTurnoCaixaPane(Label pageTitleLabel, Label pageSubtitleLabel,
             whFilter.valueProperty().addListener((o, ov, nv) -> loadTransfers.run());
             brFilter.valueProperty().addListener((o, ov, nv) -> loadTransfers.run());
             statusFilter.valueProperty().addListener((o, ov, nv) -> loadTransfers.run());
-            searchField.textProperty().addListener((o, ov, nv) -> loadTransfers.run());
+            UiUtils.setupDebounce(searchField, loadTransfers, 250);
             btnAtualizar.setOnAction(e -> loadTransfers.run());
 
             main.getChildren().addAll(kpiRow, toolbar, table);

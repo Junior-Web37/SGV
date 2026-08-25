@@ -137,42 +137,12 @@ public class DashboardCrudManager {
         if (salesTable == null) return;
         Long branchId = currentUser != null && !currentUser.isSuperAdmin() && currentUser.getBranch() != null
                 ? currentUser.getBranch().getId() : null;
-
-        List<Sale> allSales = saleRepository.findAllWithCustomerAndItems();
-        List<Sale> filtered = allSales.stream()
-                .filter(s -> {
-                    if (branchId == null) return true;
-                    return s.getBranch() != null && branchId.equals(s.getBranch().getId());
-                })
-                .filter(s -> {
-                    if (filter == null || filter.isBlank()) return true;
-                    String term = filter.toLowerCase();
-                    if (s.getDocumentNumber() != null && s.getDocumentNumber().toString().contains(term)) return true;
-                    if (s.getSeries() != null && s.getSeries().toLowerCase().contains(term)) return true;
-                    if (s.getDocumentType() != null && s.getDocumentType().toLowerCase().contains(term)) return true;
-                    if (s.getCustomer() != null && s.getCustomer().getName() != null && s.getCustomer().getName().toLowerCase().contains(term)) return true;
-                    if (s.getCustomerName() != null && s.getCustomerName().toLowerCase().contains(term)) return true;
-                    if (s.getCustomerNuit() != null && s.getCustomerNuit().toLowerCase().contains(term)) return true;
-                    return false;
-                })
-                .filter(s -> {
-                    if (stateFilter == null || "TODOS".equals(stateFilter)) return true;
-                    return stateFilter.equals(s.getState());
-                })
-                .filter(s -> {
-                    if (docTypeFilter == null || "TODOS".equals(docTypeFilter)) return true;
-                    return docTypeFilter.equals(s.getDocumentType());
-                })
-                .filter(s -> {
-                    if (startDate == null && endDate == null) return true;
-                    LocalDateTime dt = s.getCreatedAt();
-                    if (dt == null) return false;
-                    if (startDate != null && dt.isBefore(startDate)) return false;
-                    if (endDate != null && dt.isAfter(endDate)) return false;
-                    return true;
-                })
-                .sorted(Comparator.comparing(Sale::getCreatedAt, Comparator.nullsLast(Comparator.reverseOrder())))
-                .toList();
+        String search = filter != null ? filter.trim() : "";
+        String state = stateFilter != null && !stateFilter.isBlank() ? stateFilter : "TODOS";
+        String docType = docTypeFilter != null && !docTypeFilter.isBlank() ? docTypeFilter : "TODOS";
+        Pageable limit = PageRequest.of(0, 200);
+        List<Sale> filtered = saleRepository.searchForList(
+                search.isEmpty() ? null : search, state, docType, startDate, endDate, branchId, limit);
         salesTable.setItems(FXCollections.observableArrayList(filtered));
     }
 
@@ -183,24 +153,24 @@ public class DashboardCrudManager {
 
     public void loadProducts(TableView<Product> productsTable, String filter, int page) {
         if (productsTable == null) return;
+        String term = filter != null ? filter.trim() : "";
         List<Product> products;
-        if (filter != null && !filter.isEmpty()) {
-            products = productRepository.searchByCodeOrName(filter);
+        if (!term.isEmpty()) {
+            products = productRepository.searchByCodeOrName(term);
         } else {
-            Pageable pageable = PageRequest.of(page, PAGE_SIZE);
-            products = productRepository.findAll(pageable).getContent();
+            products = productRepository.findAllActive();
         }
         productsTable.setItems(FXCollections.observableArrayList(products));
     }
 
     public void loadCustomers(TableView<Customer> customersTable, String filter, int page) {
         if (customersTable == null) return;
+        String term = filter != null ? filter.trim() : "";
         List<Customer> customers;
-        if (filter != null && !filter.isEmpty()) {
-            customers = customerRepository.searchByCodeOrName(filter);
+        if (!term.isEmpty()) {
+            customers = customerRepository.searchByCodeOrName(term);
         } else {
-            Pageable pageable = PageRequest.of(page, PAGE_SIZE);
-            customers = customerRepository.findAll(pageable).getContent();
+            customers = customerRepository.findAll();
         }
         customersTable.setItems(FXCollections.observableArrayList(customers));
     }
@@ -398,6 +368,7 @@ public class DashboardCrudManager {
             stage.initModality(Modality.APPLICATION_MODAL);
             stage.initOwner(owner);
             stage.setTitle(existing != null ? "Editar Armazém" : "Novo Armazém");
+            UiUtils.hardenAllComboBoxes(root);
             stage.setScene(new Scene(root));
             stage.showAndWait();
         } catch (Exception ex) {
@@ -422,6 +393,7 @@ public class DashboardCrudManager {
             stage.initModality(Modality.APPLICATION_MODAL);
             stage.initOwner(owner);
             stage.setTitle("Transferência Armazém → Loja");
+            UiUtils.hardenAllComboBoxes(root);
             stage.setScene(new Scene(root));
             stage.setWidth(900);
             stage.setHeight(620);
@@ -462,6 +434,7 @@ public class DashboardCrudManager {
             scroll.setFitToWidth(true);
             scroll.setFitToHeight(true);
             scroll.setStyle("-fx-background: transparent; -fx-background-color: transparent; -fx-padding: 0;");
+            UiUtils.hardenAllComboBoxes(root);
             Scene scene = new Scene(scroll);
             stage.setScene(scene);
             javafx.geometry.Rectangle2D bounds = javafx.stage.Screen.getPrimary().getVisualBounds();
@@ -649,30 +622,30 @@ public class DashboardCrudManager {
             return;
         }
 
-        Alert confirm = new Alert(Alert.AlertType.CONFIRMATION, "Deseja marcar como concluída e registar o stock da ordem " + selected.getOrderNumber() + "?", ButtonType.YES, ButtonType.NO);
-        confirm.showAndWait().ifPresent(res -> {
-            if (res == ButtonType.YES) {
-                try {
-                    selected.setState("COMPLETED");
-                    selected.setCompletedAt(LocalDateTime.now());
-                    productionOrderRepository.save(selected);
+        if (!SgvDialog.confirmAction("Concluir Ordem de Produção",
+                "Deseja marcar como concluída e registar o stock da ordem " + selected.getOrderNumber() + "?",
+                "✓ Concluir")) {
+            return;
+        }
+        try {
+            selected.setState("COMPLETED");
+            selected.setCompletedAt(LocalDateTime.now());
+            productionOrderRepository.save(selected);
 
-                    // Entrada em stock e consumo de ingredientes
-                    if (selected.getProduct() != null && currentUser != null && currentUser.getBranch() != null) {
-                        BigDecimal qty = selected.getQuantityAmount() != null ? selected.getQuantityAmount() : BigDecimal.ONE;
-                        stockBranchService.increaseStock(currentUser.getBranch(), selected.getProduct(), qty, "PROD-" + selected.getOrderNumber(), "PRODUCAO", currentUser);
-                        stockBranchService.consumeIngredientsForProduction(currentUser.getBranch(), selected.getProduct(), qty, "PROD-" + selected.getOrderNumber(), currentUser);
-                    }
-
-                    systemLogService.logUserAction(currentUser != null ? currentUser.getUsername() : "Sistema", "COMPLETE_PRODUCTION_ORDER", "Ordem de produção concluída: " + selected.getOrderNumber());
-                    onDataChanged.run();
-                    showAlert(Alert.AlertType.INFORMATION, "Ordem de produção concluída com sucesso!");
-                } catch (Exception ex) {
-                    systemLogService.logError("COMPLETE_ORDER_FAILED", "Erro ao concluir ordem de produção", ex);
-                    showAlert(Alert.AlertType.ERROR, "Erro ao concluir: " + ex.getMessage());
-                }
+            // Entrada em stock e consumo de ingredientes
+            if (selected.getProduct() != null && currentUser != null && currentUser.getBranch() != null) {
+                BigDecimal qty = selected.getQuantityAmount() != null ? selected.getQuantityAmount() : BigDecimal.ONE;
+                stockBranchService.increaseStock(currentUser.getBranch(), selected.getProduct(), qty, "PROD-" + selected.getOrderNumber(), "PRODUCAO", currentUser);
+                stockBranchService.consumeIngredientsForProduction(currentUser.getBranch(), selected.getProduct(), qty, "PROD-" + selected.getOrderNumber(), currentUser);
             }
-        });
+
+            systemLogService.logUserAction(currentUser != null ? currentUser.getUsername() : "Sistema", "COMPLETE_PRODUCTION_ORDER", "Ordem de produção concluída: " + selected.getOrderNumber());
+            onDataChanged.run();
+            showAlert(Alert.AlertType.INFORMATION, "Ordem de produção concluída com sucesso!");
+        } catch (Exception ex) {
+            systemLogService.logError("COMPLETE_ORDER_FAILED", "Erro ao concluir ordem de produção", ex);
+            showAlert(Alert.AlertType.ERROR, "Erro ao concluir: " + ex.getMessage());
+        }
     }
 
     public void deleteSelectedProductionOrder(TableView<ProductionOrder> ordersTable, User currentUser, Runnable onDataChanged) {
@@ -771,43 +744,35 @@ public class DashboardCrudManager {
     public void openProductStockHistory(Product product, Window owner) {
         try {
             List<StockMovement> movements = stockMovementRepository.findByProductIdOrderByCreatedAtDesc(product.getId());
-            TableView<StockMovement> table = new TableView<>();
-            table.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY_ALL_COLUMNS);
 
-            TableColumn<StockMovement, String> colDate = new TableColumn<>("Data / Hora");
-            colDate.setCellValueFactory(d -> new SimpleStringProperty(
-                    d.getValue().getCreatedAt() != null ? d.getValue().getCreatedAt().format(DATE_FORMATTER) : "—"));
-            TableColumn<StockMovement, String> colType = new TableColumn<>("Tipo");
-            colType.setCellValueFactory(d -> new SimpleStringProperty(d.getValue().getType() != null ? d.getValue().getType() : "—"));
-            TableColumn<StockMovement, String> colQty = new TableColumn<>("Qtd.");
-            colQty.setCellValueFactory(d -> new SimpleStringProperty(
-                    d.getValue().getQtyAmount() != null ? d.getValue().getQtyAmount().toPlainString() : "0"));
-            TableColumn<StockMovement, String> colBefore = new TableColumn<>("Stock Antes");
-            colBefore.setCellValueFactory(d -> new SimpleStringProperty(
-                    d.getValue().getStockBeforeAmount() != null ? d.getValue().getStockBeforeAmount().toPlainString() : "0"));
-            TableColumn<StockMovement, String> colAfter = new TableColumn<>("Stock Depois");
-            colAfter.setCellValueFactory(d -> new SimpleStringProperty(
-                    d.getValue().getStockAfterAmount() != null ? d.getValue().getStockAfterAmount().toPlainString() : "0"));
-            TableColumn<StockMovement, String> colBranch = new TableColumn<>("Filial");
-            colBranch.setCellValueFactory(d -> new SimpleStringProperty(
-                    d.getValue().getBranch() != null ? d.getValue().getBranch().getName() : "—"));
-            TableColumn<StockMovement, String> colRef = new TableColumn<>("Referência");
-            colRef.setCellValueFactory(d -> new SimpleStringProperty(
-                    d.getValue().getReference() != null ? d.getValue().getReference() : "—"));
-            TableColumn<StockMovement, String> colUser = new TableColumn<>("Utilizador");
-            colUser.setCellValueFactory(d -> new SimpleStringProperty(
-                    d.getValue().getUser() != null ? d.getValue().getUser().getUsername() : "—"));
-            table.getColumns().addAll(List.of(colDate, colType, colQty, colBefore, colAfter, colBranch, colRef, colUser));
-            table.setItems(FXCollections.observableArrayList(movements));
+            String[] cols = {"Data", "Tipo", "Qtd", "Antes", "Depois", "Filial", "Referência", "Operador"};
+            List<Map<String, String>> rows = new java.util.ArrayList<>();
+            if (movements != null) {
+                for (StockMovement m : movements.stream().limit(60).toList()) {
+                    Map<String, String> row = new LinkedHashMap<>();
+                    row.put("Data", m.getCreatedAt() != null ? m.getCreatedAt().format(DATE_FORMATTER) : "—");
+                    row.put("Tipo", m.getType() != null ? m.getType() : "—");
+                    row.put("Qtd", m.getQtyAmount() != null ? Formatters.formatNumber(m.getQtyAmount()) : "—");
+                    row.put("Antes", m.getStockBeforeAmount() != null ? Formatters.formatNumber(m.getStockBeforeAmount()) : "—");
+                    row.put("Depois", m.getStockAfterAmount() != null ? Formatters.formatNumber(m.getStockAfterAmount()) : "—");
+                    row.put("Filial", m.getBranch() != null ? m.getBranch().getName() : "—");
+                    row.put("Referência", m.getReference() != null ? m.getReference() : "—");
+                    row.put("Operador", m.getUser() != null ? m.getUser().getUsername() : "—");
+                    rows.add(row);
+                }
+            }
 
-            VBox box = new VBox(12, new Label("Histórico de Stock para " + product.getCode() + " - " + product.getName()), table);
-            box.setStyle("-fx-padding:16; -fx-background-color:#ffffff;");
-            Stage stage = new Stage();
-            stage.initModality(Modality.APPLICATION_MODAL);
-            stage.initOwner(owner);
-            stage.setTitle("Histórico de Stock - " + product.getName());
-            stage.setScene(new Scene(box, 980, 520));
-            stage.show();
+            DetailDialog.create(owner)
+                .title("Histórico de Stock & Kardex")
+                .subtitle(product.getCode() + " - " + product.getName())
+                .icon("📦")
+                .width(980).height(580)
+                .section("Dados do Artigo")
+                .field("Código", product.getCode())
+                .field("Nome", product.getName())
+                .field("Categoria", product.getCategory() != null ? product.getCategory().getName() : "—")
+                .tableSection("Movimentações (" + rows.size() + ")", cols, rows)
+                .show();
         } catch (Exception ex) {
             log.error("Erro inesperado", ex);
         }
@@ -963,12 +928,8 @@ public class DashboardCrudManager {
             return;
         }
 
-        TextInputDialog dialog = new TextInputDialog();
-        dialog.initOwner(owner);
-        dialog.setTitle("Reconciliação de Crédito");
-        dialog.setHeaderText("Reconciliar crédito para: " + (selected.getName() != null ? selected.getName() : selected.getCode()));
-        dialog.setContentText("Montante a aplicar (por exemplo 150.00):");
-        Optional<String> result = dialog.showAndWait();
+        Optional<String> result = SgvDialog.prompt("Reconciliação de Crédito",
+            "Reconciliar crédito para: " + (selected.getName() != null ? selected.getName() : selected.getCode()) + "\n\nMontante a aplicar (por exemplo 150.00):", "");
         if (result.isPresent()) {
             String txt = result.get();
             try {
@@ -1042,11 +1003,8 @@ public class DashboardCrudManager {
             showAlert(Alert.AlertType.ERROR, "Venda já Anulada: Este documento já se encontra anulado.");
             return;
         }
-        TextInputDialog dialog = new TextInputDialog();
-        dialog.setTitle("Anular Documento Fiscal");
-        dialog.setHeaderText("Anular: " + selected.getDocumentType() + " #" + selected.getDocumentNumber());
-        dialog.setContentText("Por favor, introduza o motivo da anulação:");
-        dialog.showAndWait().ifPresent(reason -> {
+        SgvDialog.prompt("Anular Documento Fiscal",
+            "Anular: " + selected.getDocumentType() + " #" + selected.getDocumentNumber() + "\n\nPor favor, introduza o motivo da anulação:", "").ifPresent(reason -> {
             if (reason.trim().isEmpty()) {
                 showAlert(Alert.AlertType.ERROR, "Erro de Validação: O motivo da anulação é obrigatório por lei.");
                 return;
@@ -1069,11 +1027,8 @@ public class DashboardCrudManager {
         if (trainingModeService.isTrainingMode()) { showTrainingBlockedAlert(); return; }
         Sale selected = salesTable.getSelectionModel().getSelectedItem();
         if (selected == null) { showAlert(Alert.AlertType.WARNING, "Selecione uma venda para criar uma nota de crédito."); return; }
-        TextInputDialog dialog = new TextInputDialog();
-        dialog.setTitle("Emitir Nota de Crédito");
-        dialog.setHeaderText("Emitir NC para: " + selected.getDocumentType() + " #" + selected.getDocumentNumber());
-        dialog.setContentText("Por favor, introduza o motivo da devolução:");
-        dialog.showAndWait().ifPresent(reason -> {
+        SgvDialog.prompt("Emitir Nota de Crédito",
+            "Emitir NC para: " + selected.getDocumentType() + " #" + selected.getDocumentNumber() + "\n\nPor favor, introduza o motivo da devolução:", "").ifPresent(reason -> {
             if (reason.trim().isEmpty()) {
                 showAlert(Alert.AlertType.ERROR, "Erro de Validação: O motivo é obrigatório.");
                 return;
@@ -1286,6 +1241,7 @@ public class DashboardCrudManager {
         colState.setCellValueFactory(d -> new SimpleStringProperty(d.getValue().getState()));
         pendingTable.getColumns().addAll(List.of(colDoc, colDate, colTotal, colPaid, colPend, colState));
 
+        TextField valorField = new TextField();
         pendingTable.getSelectionModel().selectedItemProperty().addListener((obs, oldV, newV) -> {
             if (newV != null) {
                 double tot = newV.getTotal() != null ? newV.getTotal() : 0.0;
@@ -1304,13 +1260,13 @@ public class DashboardCrudManager {
         payRow.setStyle("-fx-background-color:#ffffff; -fx-padding:16 24; -fx-border-color:#E2E8F0; -fx-border-width:1 0 0 0; -fx-alignment:CENTER_LEFT;");
         Label lblValor = new Label("Valor (MT):");
         lblValor.setStyle("-fx-font-weight:700; -fx-text-fill:#0F172A;");
-        TextField valorField = new TextField();
         valorField.setPromptText("0.00");
         valorField.setPrefWidth(130);
         valorField.setStyle("-fx-font-size:14px; -fx-font-weight:700; -fx-padding:6 10; -fx-border-color:#CBD5E1; -fx-border-radius:6; -fx-background-radius:6;");
         Label lblMetodo = new Label("Método:");
         lblMetodo.setStyle("-fx-font-weight:700; -fx-text-fill:#0F172A;");
         ComboBox<String> metodoCombo = new ComboBox<>();
+        UiUtils.hardenComboBox(metodoCombo);
         metodoCombo.getItems().addAll("Numerário", "M-Pesa", "e-Mola", "mKesh", "Cartão (POS)", "Transferência Bancária", "Cheque");
         metodoCombo.setValue("Numerário");
         metodoCombo.setPrefWidth(180);
@@ -1925,6 +1881,7 @@ public class DashboardCrudManager {
             scroll.setFitToWidth(true);
             scroll.setFitToHeight(true);
             scroll.setStyle("-fx-background: transparent; -fx-background-color: transparent; -fx-padding: 0;");
+            UiUtils.hardenAllComboBoxes(root);
             Scene scene = new Scene(scroll);
             stage.setScene(scene);
             javafx.geometry.Rectangle2D bounds = javafx.stage.Screen.getPrimary().getVisualBounds();
@@ -1957,9 +1914,12 @@ public class DashboardCrudManager {
     }
 
     public void showAlert(Alert.AlertType type, String message) {
-        Alert alert = new Alert(type, message, ButtonType.OK);
-        alert.setHeaderText(null);
-        alert.showAndWait();
+        switch (type) {
+            case ERROR -> SgvDialog.error("Erro", message);
+            case WARNING -> SgvDialog.warning("Atenção", message);
+            case CONFIRMATION -> SgvDialog.confirm("Confirmar", message);
+            default -> SgvDialog.info("Informação", message);
+        }
     }
 
     public SaleRepository getSaleRepository() { return saleRepository; }

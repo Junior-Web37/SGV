@@ -58,12 +58,18 @@ public class CashSession {
 
     public BigDecimal getInitialValue() { return initialValue; }
     public void setInitialValue(BigDecimal initialValue) { this.initialValue = initialValue; }
+    public BigDecimal getInitialValueAmount() { return initialValue; }
+    public void setInitialValueAmount(BigDecimal initialValue) { this.initialValue = initialValue; }
 
     public BigDecimal getReportedValue() { return reportedValue; }
     public void setReportedValue(BigDecimal reportedValue) { this.reportedValue = reportedValue; }
+    public BigDecimal getReportedValueAmount() { return reportedValue; }
+    public void setReportedValueAmount(BigDecimal reportedValue) { this.reportedValue = reportedValue; }
 
     public BigDecimal getSystemValue() { return systemValue; }
     public void setSystemValue(BigDecimal systemValue) { this.systemValue = systemValue; }
+    public BigDecimal getSystemValueAmount() { return systemValue; }
+    public void setSystemValueAmount(BigDecimal systemValue) { this.systemValue = systemValue; }
 
     public String getState() { return state; }
     public void setState(String state) { this.state = state; }

@@ -325,14 +325,12 @@ public class DocumentPreviewDialog {
                     if (proceed) {
                         job.print();
                         Platform.runLater(() -> {
-                            Alert alert = new Alert(Alert.AlertType.INFORMATION, "Documento enviado para a impressora com sucesso.");
-                            alert.showAndWait();
+                            SgvDialog.info("Impressão", "Documento enviado para a impressora com sucesso.");
                         });
                     }
                 } catch (Exception ex) {
                     Platform.runLater(() -> {
-                        Alert alert = new Alert(Alert.AlertType.ERROR, "Erro ao imprimir: " + ex.getMessage());
-                        alert.showAndWait();
+                        SgvDialog.error("Erro na Impressão", "Erro ao imprimir: " + ex.getMessage());
                     });
                 } finally {
                     if (document != null) {
@@ -345,17 +343,13 @@ public class DocumentPreviewDialog {
 
         btnWhatsapp.setOnAction(e -> {
             if (sale == null) {
-                Alert alert = new Alert(Alert.AlertType.WARNING, "Dados da venda não disponíveis para partilha directa.");
-                alert.showAndWait();
+                SgvDialog.warning("Partilha por WhatsApp", "Dados da venda não disponíveis para partilha directa.");
                 return;
             }
             String defaultPhone = (sale.getCustomer() != null && sale.getCustomer().getContact() != null)
                     ? sale.getCustomer().getContact() : "";
-            javafx.scene.control.TextInputDialog phoneDialog = new javafx.scene.control.TextInputDialog(defaultPhone);
-            phoneDialog.setTitle("Enviar Recibo por WhatsApp");
-            phoneDialog.setHeaderText("Envio Digital de Recibo / Documento");
-            phoneDialog.setContentText("Número de Telemóvel (+258):");
-            phoneDialog.showAndWait().ifPresent(phone -> {
+            SgvDialog.prompt("Enviar Recibo por WhatsApp",
+                    "Envio Digital de Recibo / Documento\nNúmero de Telemóvel (+258):", defaultPhone).ifPresent(phone -> {
                 if (phone.isBlank()) return;
                 try {
                     String raw = phone.replaceAll("[^0-9+]", "");
@@ -380,8 +374,7 @@ public class DocumentPreviewDialog {
                         Runtime.getRuntime().exec(new String[]{"cmd", "/c", "start", "", url});
                     }
                 } catch (Exception ex) {
-                    Alert alert = new Alert(Alert.AlertType.ERROR, "Erro ao abrir WhatsApp: " + ex.getMessage());
-                    alert.showAndWait();
+                    SgvDialog.error("Erro no WhatsApp", "Erro ao abrir WhatsApp: " + ex.getMessage());
                 }
             });
         });
@@ -395,12 +388,9 @@ public class DocumentPreviewDialog {
             if (dest != null) {
                 try {
                     Files.copy(currentPdf[0].toPath(), dest.toPath(), StandardCopyOption.REPLACE_EXISTING);
-                    Alert alert = new Alert(Alert.AlertType.INFORMATION,
-                        headerText + " guardado com sucesso em:\n" + dest.getAbsolutePath());
-                    alert.showAndWait();
+                    SgvDialog.info("Exportação Concluída", headerText + " guardado com sucesso em:\n" + dest.getAbsolutePath());
                 } catch (Exception ex) {
-                    Alert alert = new Alert(Alert.AlertType.ERROR, "Erro ao guardar: " + ex.getMessage());
-                    alert.showAndWait();
+                    SgvDialog.error("Erro na Exportação", "Erro ao guardar: " + ex.getMessage());
                 }
             }
         });
@@ -436,7 +426,7 @@ public class DocumentPreviewDialog {
 
     // ── Helpers ────────────────────────────────────────────────────────────
 
-    private static String atDefaultFormat(String docType) {
+    public static String atDefaultFormat(String docType) {
         if (docType == null) return FMT_THERMAL_80MM;
         switch (docType.toUpperCase()) {
             case "VENDA":
@@ -546,19 +536,17 @@ public class DocumentPreviewDialog {
             }
         } catch (Exception ex) {
             Platform.runLater(() -> {
-                Alert a = new Alert(Alert.AlertType.ERROR,
+                SgvDialog.error("Erro na Geração de PDF",
                     "Erro a gerar PDF no formato " + fmtLabel(targetFormat) + ":\n" + ex.getMessage());
-                a.showAndWait();
             });
             return;
         }
 
         if (newPdf == null || !newPdf.exists()) {
             Platform.runLater(() -> {
-                Alert a = new Alert(Alert.AlertType.WARNING,
+                SgvDialog.warning("Formato não Disponível",
                     "Não foi possível gerar o PDF no formato " + fmtLabel(targetFormat)
                     + ". A manter o formato actual.");
-                a.showAndWait();
             });
             return;
         }

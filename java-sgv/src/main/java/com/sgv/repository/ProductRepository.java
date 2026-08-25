@@ -25,7 +25,8 @@ public interface ProductRepository extends JpaRepository<Product, Long> {
            + "(:category IS NULL OR LOWER(c.name) LIKE LOWER(CONCAT('%', :category, '%')))")
     List<Product> searchByCodeOrNameAndCategory(@Param("search") String search, @Param("category") String category);
 
-    @Query("SELECT p FROM Product p WHERE p.isActive = true AND p.name IS NOT NULL AND p.name <> ''")
+    @Query("SELECT DISTINCT p FROM Product p LEFT JOIN FETCH p.category LEFT JOIN FETCH p.unit "
+            + "WHERE p.isActive = true AND p.name IS NOT NULL AND p.name <> ''")
     List<Product> findAllActive();
 
     List<Product> findByCategoryId(Long categoryId);

@@ -9,7 +9,7 @@
 
     <!-- HEADER -->
     <HBox alignment="CENTER_LEFT" spacing="14"
-          style="-fx-background-color:#0F172A; -fx-padding:18 24; -fx-border-color:#1E293B; -fx-border-width:0 0 2 0; -fx-background-radius:10 10 0 0;">
+          style="-fx-background-color: linear-gradient(to right, #1E3A8A, #1D4ED8, #1E40AF); -fx-padding:18 24; -fx-border-color:#1E293B; -fx-border-width:0 0 2 0; -fx-background-radius:10 10 0 0;">
         <VBox spacing="3">
             <Label text="🔁 Emissão de Guia de Transferência de Stock (TWA)" style="-fx-font-size:18px; -fx-font-weight:800; -fx-text-fill:#ffffff;"/>
             <Label text="Expedição física de mercadorias do Armazém Central para abastecimento de loja" style="-fx-font-size:12px; -fx-text-fill:#94A3B8;"/>
@@ -40,8 +40,10 @@
             <HBox spacing="10" alignment="CENTER_LEFT">
                 <VBox spacing="2" HBox.hgrow="ALWAYS">
                     <Label text="Produto / Artigo" style="-fx-font-size:10px; -fx-text-fill:#64748B; -fx-font-weight:700;"/>
-                    <ComboBox fx:id="productCombo" editable="true" promptText="Digite ou leia o código de barras..."
-                              style="-fx-pref-width:1000; -fx-background-radius:6; -fx-border-color:#CBD5E1; -fx-border-radius:6; -fx-font-size:13px; -fx-padding:4; -fx-background-color:#FFFFFF;"/>
+                    <TextField fx:id="productSearchField" promptText="Digite o código, o nome ou leia o código de barras..."
+                               style="-fx-pref-width:1000; -fx-background-radius:6; -fx-border-color:#CBD5E1; -fx-border-radius:6; -fx-font-size:13px; -fx-padding:8 10; -fx-background-color:#FFFFFF;"/>
+                    <ListView fx:id="productList" prefHeight="148"
+                              style="-fx-background-radius:6; -fx-border-color:#E2E8F0; -fx-border-radius:6; -fx-font-size:13px;"/>
                 </VBox>
                 <VBox spacing="2">
                     <Label text="Quantidade" style="-fx-font-size:10px; -fx-text-fill:#64748B; -fx-font-weight:700;"/>

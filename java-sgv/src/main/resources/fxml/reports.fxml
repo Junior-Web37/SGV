@@ -1,7 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <?import javafx.scene.layout.*?>
 <?import javafx.scene.control.*?>
-<?import javafx.scene.chart.*?>
 
 <VBox xmlns="http://javafx.com/javafx/17"
       xmlns:fx="http://javafx.com/fxml/1"
@@ -10,22 +9,11 @@
       style="-fx-background-color:#F8FAFC;"
       VBox.vgrow="ALWAYS">
 
-    <!-- Título -->
-    <Label text="RELATÓRIOS E FINANCEIRO"
-           style="-fx-font-size:22px; -fx-font-weight:800; -fx-text-fill:#2563EB;
-                  -fx-font-family:'Segoe UI'; -fx-padding:6 24 4 24;"/>
-
-    <!-- TabPane ocupa todo o espaço restante -->
+    <!-- TabPane responsivo e com visual moderno integrado -->
     <TabPane fx:id="reportsTabPane"
              VBox.vgrow="ALWAYS"
              tabClosingPolicy="UNAVAILABLE"
              prefHeight="600"
-             style="-fx-tab-min-height:44; -fx-tab-max-height:44;
-                    -fx-background-color:#ffffff;
-                    -fx-tab-header-area-background:#0F172A;
-                    -fx-tab-header-background:#0F172A;
-                    -fx-tab-background:#334155;
-                    -fx-text-fill:#CBD5E1;
-                    -fx-selected-text-fill:#FFFFFF;"/>
+             style="-fx-tab-min-height:38; -fx-tab-max-height:38; -fx-background-color:#F8FAFC;"/>
 
 </VBox>
