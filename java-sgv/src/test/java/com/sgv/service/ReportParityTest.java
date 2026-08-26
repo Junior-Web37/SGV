@@ -145,7 +145,10 @@ class ReportParityTest {
         item.setLineTotalAmount(BigDecimal.valueOf(price * qty));
         item.setDescription(p.getName());
         s.setItems(List.of(item));
-        Sale saved = saleService.processAndSave(s, op);
+        // processAndSave devolve o File do documento; a Sale persistida é
+        // devolvida por id (o id é atribuído à instância passada).
+        saleService.processAndSave(s, op);
+        Sale saved = saleRepository.findById(s.getId()).orElseThrow();
         if (annul) {
             saleService.annulSale(saleRepository.findById(saved.getId()).orElseThrow(), "Anulada p/ teste", op);
         }

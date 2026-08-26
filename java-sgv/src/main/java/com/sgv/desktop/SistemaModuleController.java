@@ -865,7 +865,7 @@ public class SistemaModuleController {
                         "MANUAL", currentUser != null ? currentUser.getUsername() : "system");
                 if (out.success()) {
                     auditLogService.log(null, "BACKUP", "sistema", null,
-                        "Backup criado: " + out.file().getFileName() + " (sha256 " + out.sha256() + ")");
+                        "Backup criado: " + out.file().getName() + " (sha256 " + out.sha256() + ")");
                     showAlert(Alert.AlertType.INFORMATION,
                         "Backup criado com sucesso!\n\n" + out.file().getAbsolutePath() + "\n"
                                 + (out.sizeBytes() / 1024) + " KB — SHA-256: " + out.sha256());

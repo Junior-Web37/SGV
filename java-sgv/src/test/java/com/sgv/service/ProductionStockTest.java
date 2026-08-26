@@ -6,7 +6,6 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.test.context.ActiveProfiles;
-import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.util.List;
@@ -25,9 +24,14 @@ import static org.junit.jupiter.api.Assertions.*;
  *    prática sem log) sem verificação de saldo: MP insuficiente → stock
  *    negativo gravado, produção "bem-sucedida" em silêncio).
  */
+// Não é @Transactional de propósito: production_insufficientMp_neverNegativeStock
+// captura a exception lançada pelo service e continua (verifica o estado pós-falha).
+// Numa classe @Transactional essa exception marcava a transação partilhada como
+// rollback-only e o commit final do framework lançava UnexpectedRollbackException,
+// escondendo o resultado real do teste. Cada chamada de service/repositório commita
+// sozinha; os códigos de entidade são únicos por teste (tags "Ok"/"Falta").
 @SpringBootTest
 @ActiveProfiles("test")
-@Transactional
 class ProductionStockTest {
 
     @Autowired private StockBranchService stockBranchService;

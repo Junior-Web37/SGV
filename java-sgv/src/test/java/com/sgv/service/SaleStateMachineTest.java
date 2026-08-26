@@ -121,7 +121,10 @@ class SaleStateMachineTest {
         item.setLineTotalAmount(new BigDecimal("100.00"));
         item.setDescription(p.getName());
         s.setItems(List.of(item));
-        return saleService.processAndSave(s, op);
+        // processAndSave devolve o File do documento; a Sale persistida é
+        // devolvida por id (o id é atribuído à instância passada).
+        saleService.processAndSave(s, op);
+        return saleRepository.findById(s.getId()).orElseThrow();
     }
 
     private void pay(String amount) {

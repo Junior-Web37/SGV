@@ -1,0 +1,211 @@
+From 5d9c67c9b01084bb5ae37893fe3e4885757e198a Mon Sep 17 00:00:00 2001
+From: Junior-Web37 <174463857+Junior-Web37@users.noreply.github.com>
+Date: Wed, 26 Aug 2026 07:06:02 +0000
+Subject: [PATCH] =?UTF-8?q?Corre=C3=A7=C3=B5es=20p=C3=B3s-compila=C3=A7?=
+ =?UTF-8?q?=C3=A3o:=207=20erros=20nos=20testes=20de=20regress=C3=A3o?=
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+Erros javac (a mesma classe dos que bloquearam a compilação em src/main):
+- File.getFileName() -> File.getName() em SystemSettingsPageManager e
+  SistemaModuleController (registo de auditoria do backup).
+- BackupService.restoreFrom: ProcessBuilder.redirectInput só aceita
+  Redirect/File — usar Redirect.from(sqlFile) (mysql < backup.sql).
+- SaleService.processAndSave devolve File (o documento), não Sale:
+  4 helpers de teste faziam return/atribuição para Sale — trocar por
+  saleRepository.findById(s.getId()) após o processAndSave
+  (SaleStateMachineTest, ReportParityTest, FiscalChainTest,
+  CreditCycleE2ETest).
+
+Ajuste de transacionalidade (armadilha UnexpectedRollbackException):
+- ProductionStockTest e CreditCycleE2ETest deixam de ser @Transactional:
+  os testes que capturam a exception do service e continuam marcariam a
+  transação partilhada como rollback-only e o commit final do framework
+  lançaria UnexpectedRollbackException. Cada chamada de
+  service/repositório commita sozinha; códigos de entidade únicos por
+  teste (tags). Verificado: sem cascade nas associações ManyToOne
+  usadas, safe com entidades detached.
+
+Auditoria completa das 12 classes (1484 linhas): assinaturas de
+services/repos/entidades verificadas ponto a ponto; SaleState;
+OperationKind; requirePermission->IllegalStateException;
+application-test.properties (H2 in-memory, create-drop).
+
+Co-authored-by: arena-agent <297053741+arena-agent@users.noreply.github.com>
+---
+ .../com/sgv/desktop/SistemaModuleController.java  |  2 +-
+ .../sgv/desktop/SystemSettingsPageManager.java    |  2 +-
+ .../main/java/com/sgv/service/BackupService.java  |  8 +++-----
+ .../java/com/sgv/service/CreditCycleE2ETest.java  | 15 ++++++++++++---
+ .../java/com/sgv/service/FiscalChainTest.java     |  5 ++++-
+ .../java/com/sgv/service/ProductionStockTest.java |  8 ++++++--
+ .../java/com/sgv/service/ReportParityTest.java    |  5 ++++-
+ .../com/sgv/service/SaleStateMachineTest.java     |  5 ++++-
+ 8 files changed, 35 insertions(+), 15 deletions(-)
+
+diff --git a/java-sgv/src/main/java/com/sgv/desktop/SistemaModuleController.java b/java-sgv/src/main/java/com/sgv/desktop/SistemaModuleController.java
+index ac47934..7cf0528 100644
+--- a/java-sgv/src/main/java/com/sgv/desktop/SistemaModuleController.java
++++ b/java-sgv/src/main/java/com/sgv/desktop/SistemaModuleController.java
+@@ -865,7 +865,7 @@ public class SistemaModuleController {
+                         "MANUAL", currentUser != null ? currentUser.getUsername() : "system");
+                 if (out.success()) {
+                     auditLogService.log(null, "BACKUP", "sistema", null,
+-                        "Backup criado: " + out.file().getFileName() + " (sha256 " + out.sha256() + ")");
++                        "Backup criado: " + out.file().getName() + " (sha256 " + out.sha256() + ")");
+                     showAlert(Alert.AlertType.INFORMATION,
+                         "Backup criado com sucesso!\n\n" + out.file().getAbsolutePath() + "\n"
+                                 + (out.sizeBytes() / 1024) + " KB — SHA-256: " + out.sha256());
+diff --git a/java-sgv/src/main/java/com/sgv/desktop/SystemSettingsPageManager.java b/java-sgv/src/main/java/com/sgv/desktop/SystemSettingsPageManager.java
+index 0b8db59..de6dcd8 100644
+--- a/java-sgv/src/main/java/com/sgv/desktop/SystemSettingsPageManager.java
++++ b/java-sgv/src/main/java/com/sgv/desktop/SystemSettingsPageManager.java
+@@ -428,7 +428,7 @@ public class SystemSettingsPageManager {
+                     "MANUAL", currentUser != null ? currentUser.getUsername() : "system");
+             if (out.success()) {
+                 auditLogService.log(null, "BACKUP", "sistema", null,
+-                        "Backup criado: " + out.file().getFileName() + " (" + out.sizeBytes() + " bytes, sha256 " + out.sha256() + ")");
++                        "Backup criado: " + out.file().getName() + " (" + out.sizeBytes() + " bytes, sha256 " + out.sha256() + ")");
+                 SgvDialog.info("Backup Criado",
+                         "Backup criado com sucesso!\n\n" + out.file().getAbsolutePath() + "\n"
+                                 + (out.sizeBytes() / 1024) + " KB — SHA-256: " + out.sha256());
+diff --git a/java-sgv/src/main/java/com/sgv/service/BackupService.java b/java-sgv/src/main/java/com/sgv/service/BackupService.java
+index 5ffcb04..683827e 100644
+--- a/java-sgv/src/main/java/com/sgv/service/BackupService.java
++++ b/java-sgv/src/main/java/com/sgv/service/BackupService.java
+@@ -226,11 +226,9 @@ public class BackupService {
+                         "--defaults-extra-file=" + optionsFile.getAbsolutePath(),
+                         dbName);
+                 pb.redirectErrorStream(true);
+-                Process process;
+-                try (InputStream in = Files.newInputStream(sqlFile)) {
+-                    pb.redirectInput(in);
+-                    process = pb.start();
+-                }
++                // O dump é a entrada padrão do cliente mysql (mysql < backup.sql)
++                pb.redirectInput(ProcessBuilder.Redirect.from(sqlFile.toFile()));
++                Process process = pb.start();
+                 String output = new String(process.getInputStream().readAllBytes());
+                 int rc = process.waitFor();
+                 if (rc != 0) {
+diff --git a/java-sgv/src/test/java/com/sgv/service/CreditCycleE2ETest.java b/java-sgv/src/test/java/com/sgv/service/CreditCycleE2ETest.java
+index 9e51802..0fb2420 100644
+--- a/java-sgv/src/test/java/com/sgv/service/CreditCycleE2ETest.java
++++ b/java-sgv/src/test/java/com/sgv/service/CreditCycleE2ETest.java
+@@ -6,7 +6,6 @@ import org.junit.jupiter.api.Test;
+ import org.springframework.beans.factory.annotation.Autowired;
+ import org.springframework.boot.test.context.SpringBootTest;
+ import org.springframework.test.context.ActiveProfiles;
+-import org.springframework.transaction.annotation.Transactional;
+ 
+ import java.math.BigDecimal;
+ import java.util.List;
+@@ -27,9 +26,16 @@ import static org.junit.jupiter.api.Assertions.*;
+  *  - creditNoteOnCreditSale_decreasesCustomerBalance: FALHA (BUG-010 — a NC
+  *    devolve stock mas nunca abate `customers.balance`).
+  */
++// Não é @Transactional de propósito: annulCashSale_withoutOpenSession_mustFailAtomically
++// captura a exception da anulação e continua (verifica rollback/estorno pós-falha).
++// Numa classe @Transactional essa exception marcava a transação partilhada como
++// rollback-only e o commit final do framework lançava UnexpectedRollbackException,
++// escondendo o resultado real do teste (problema agravado após a correção do BUG-011,
++// que faz annulSale lançar em vez de engolir o erro). Cada chamada de
++// service/repositório commita sozinha; os códigos de entidade são únicos por teste
++// (tags "Ciclo"/"AnulOK"/"AnulSil"/"NC").
+ @SpringBootTest
+ @ActiveProfiles("test")
+-@Transactional
+ class CreditCycleE2ETest {
+ 
+     @Autowired private SaleService saleService;
+@@ -129,7 +135,10 @@ class CreditCycleE2ETest {
+         item.setLineTotalAmount(BigDecimal.valueOf(unitPrice * qty));
+         item.setDescription(p.getName());
+         s.setItems(List.of(item));
+-        return saleService.processAndSave(s, op);
++        // processAndSave devolve o File do documento; a Sale persistida é
++        // devolvida por id (o id é atribuído à instância passada).
++        saleService.processAndSave(s, op);
++        return saleRepository.findById(s.getId()).orElseThrow();
+     }
+ 
+     private void pay(Sale sale, String amount) throws Exception {
+diff --git a/java-sgv/src/test/java/com/sgv/service/FiscalChainTest.java b/java-sgv/src/test/java/com/sgv/service/FiscalChainTest.java
+index 5b0dc61..0dff223 100644
+--- a/java-sgv/src/test/java/com/sgv/service/FiscalChainTest.java
++++ b/java-sgv/src/test/java/com/sgv/service/FiscalChainTest.java
+@@ -149,7 +149,10 @@ class FiscalChainTest {
+         item.setLineTotalAmount(BigDecimal.valueOf(price));
+         item.setDescription(p.getName());
+         s.setItems(List.of(item));
+-        return saleService.processAndSave(s, op);
++        // processAndSave devolve o File do documento; a Sale persistida é
++        // devolvida por id (o id é atribuído à instância passada).
++        saleService.processAndSave(s, op);
++        return saleRepository.findById(s.getId()).orElseThrow();
+     }
+ 
+     @Test
+diff --git a/java-sgv/src/test/java/com/sgv/service/ProductionStockTest.java b/java-sgv/src/test/java/com/sgv/service/ProductionStockTest.java
+index 0b64ef9..261b331 100644
+--- a/java-sgv/src/test/java/com/sgv/service/ProductionStockTest.java
++++ b/java-sgv/src/test/java/com/sgv/service/ProductionStockTest.java
+@@ -6,7 +6,6 @@ import org.junit.jupiter.api.Test;
+ import org.springframework.beans.factory.annotation.Autowired;
+ import org.springframework.boot.test.context.SpringBootTest;
+ import org.springframework.test.context.ActiveProfiles;
+-import org.springframework.transaction.annotation.Transactional;
+ 
+ import java.math.BigDecimal;
+ import java.util.List;
+@@ -25,9 +24,14 @@ import static org.junit.jupiter.api.Assertions.*;
+  *    prática sem log) sem verificação de saldo: MP insuficiente → stock
+  *    negativo gravado, produção "bem-sucedida" em silêncio).
+  */
++// Não é @Transactional de propósito: production_insufficientMp_neverNegativeStock
++// captura a exception lançada pelo service e continua (verifica o estado pós-falha).
++// Numa classe @Transactional essa exception marcava a transação partilhada como
++// rollback-only e o commit final do framework lançava UnexpectedRollbackException,
++// escondendo o resultado real do teste. Cada chamada de service/repositório commita
++// sozinha; os códigos de entidade são únicos por teste (tags "Ok"/"Falta").
+ @SpringBootTest
+ @ActiveProfiles("test")
+-@Transactional
+ class ProductionStockTest {
+ 
+     @Autowired private StockBranchService stockBranchService;
+diff --git a/java-sgv/src/test/java/com/sgv/service/ReportParityTest.java b/java-sgv/src/test/java/com/sgv/service/ReportParityTest.java
+index 8aca780..45ee32d 100644
+--- a/java-sgv/src/test/java/com/sgv/service/ReportParityTest.java
++++ b/java-sgv/src/test/java/com/sgv/service/ReportParityTest.java
+@@ -145,7 +145,10 @@ class ReportParityTest {
+         item.setLineTotalAmount(BigDecimal.valueOf(price * qty));
+         item.setDescription(p.getName());
+         s.setItems(List.of(item));
+-        Sale saved = saleService.processAndSave(s, op);
++        // processAndSave devolve o File do documento; a Sale persistida é
++        // devolvida por id (o id é atribuído à instância passada).
++        saleService.processAndSave(s, op);
++        Sale saved = saleRepository.findById(s.getId()).orElseThrow();
+         if (annul) {
+             saleService.annulSale(saleRepository.findById(saved.getId()).orElseThrow(), "Anulada p/ teste", op);
+         }
+diff --git a/java-sgv/src/test/java/com/sgv/service/SaleStateMachineTest.java b/java-sgv/src/test/java/com/sgv/service/SaleStateMachineTest.java
+index 31e9419..67da306 100644
+--- a/java-sgv/src/test/java/com/sgv/service/SaleStateMachineTest.java
++++ b/java-sgv/src/test/java/com/sgv/service/SaleStateMachineTest.java
+@@ -121,7 +121,10 @@ class SaleStateMachineTest {
+         item.setLineTotalAmount(new BigDecimal("100.00"));
+         item.setDescription(p.getName());
+         s.setItems(List.of(item));
+-        return saleService.processAndSave(s, op);
++        // processAndSave devolve o File do documento; a Sale persistida é
++        // devolvida por id (o id é atribuído à instância passada).
++        saleService.processAndSave(s, op);
++        return saleRepository.findById(s.getId()).orElseThrow();
+     }
+ 
+     private void pay(String amount) {
+-- 
+2.39.5
