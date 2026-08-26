@@ -31,6 +31,24 @@ public class ReportService {
         return period(LocalDate.now(), LocalDate.now());
     }
 
+    /**
+     * Universo reportável (correção do BUG-004/028): documentos efectivamente
+     * facturados — VENDA, FACTURA e NC (a NC entra com total negativo e abate
+     * o apuramento), nunca anulados e nunca demo. Cotações e encomendas são
+     * documentos pré-venda: não são receita, não são IVA e não entram em
+     * relatório de vendas. Este é o MESMO critério usado pelos agregados da
+     * SaleRepository e pelos KPIs do dashboard (paridade verificada por
+     * ReportParityTest).
+     */
+    static boolean isReportable(Sale s) {
+        if (s == null) return false;
+        String dt = s.getDocumentType() != null ? s.getDocumentType() : "";
+        if (!("VENDA".equals(dt) || "FACTURA".equals(dt) || "NC".equals(dt))) return false;
+        if ("ANULADA".equals(s.getState())) return false;
+        if (Boolean.TRUE.equals(s.getDemoFlag())) return false;
+        return true;
+    }
+
     public Map<String, Object> period(LocalDate from, LocalDate to) {
         List<Sale> sales = saleRepository.findAll().stream()
                 .filter(s -> s.getCreatedAt() != null)
@@ -41,7 +59,9 @@ public class ReportService {
                 })
                 .toList();
 
-        List<Sale> emitted = sales.stream().filter(s -> !"ANULADA".equals(s.getState())).toList();
+        // Correção do BUG-004: o apuramento usa o universo reportável
+        // (VENDA/FACTURA/NC) — antes, cotações e encomendas contavam como vendas.
+        List<Sale> emitted = sales.stream().filter(ReportService::isReportable).toList();
         List<Sale> annulled = sales.stream().filter(s -> "ANULADA".equals(s.getState())).toList();
 
         double totalVendas = emitted.stream().mapToDouble(s -> safe(s.getTotal())).sum();
@@ -63,7 +83,11 @@ public class ReportService {
     public Map<String, Object> topProducts(int limit) {
         Map<String, ProductStats> byCode = new LinkedHashMap<>();
         for (Sale sale : saleRepository.findAll()) {
-            if (!"EMITIDA".equals(sale.getState()) || Boolean.TRUE.equals(sale.getDemoFlag())) continue;
+            // Correção do BUG-031/BUG-004: "mais vendidos" contava apenas
+            // estado EMITIDA (vendas já pagas) e ignorava o tipo de documento;
+            // agora usa o universo reportável — PAGO/EMITIDA/NC, não anulados,
+            // não demo.
+            if (!isReportable(sale)) continue;
             if (sale.getItems() == null) continue;
             for (SaleItem item : sale.getItems()) {
                 String code = item.getProductCode() != null ? item.getProductCode() : item.getDescription();
@@ -100,8 +124,10 @@ public class ReportService {
         Map<String, Double> totals = new LinkedHashMap<>();
         Map<String, Integer> counts = new LinkedHashMap<>();
         for (Sale sale : saleRepository.findAll()) {
-            if (sale.getCreatedAt() == null || "ANULADA".equals(sale.getState())) continue;
-            if (Boolean.TRUE.equals(sale.getDemoFlag())) continue;
+            if (sale.getCreatedAt() == null) continue;
+            // Correção do BUG-004: cotações/encomendas não têm vendas — não
+            // contam no resumo por forma de pagamento.
+            if (!isReportable(sale)) continue;
             LocalDate d = sale.getCreatedAt().toLocalDate();
             if (d.isBefore(from) || d.isAfter(to)) continue;
 
@@ -224,7 +250,13 @@ public class ReportService {
     public Map<String, Object> getAccountsReceivableAging(LocalDate from, LocalDate to) {
         List<Sale> sales = saleRepository.findAll().stream()
                 .filter(s -> s.getCreatedAt() != null)
+                // Correção do BUG-004: contas a receber = só VENDA/FACTURA
+                // (cotações/encomendas abertas não são dívidas).
                 .filter(s -> !"ANULADA".equalsIgnoreCase(s.getState()))
+                .filter(s -> {
+                    String dt = s.getDocumentType() != null ? s.getDocumentType() : "";
+                    return "VENDA".equals(dt) || "FACTURA".equals(dt);
+                })
                 .filter(s -> {
                     LocalDate date = s.getCreatedAt().toLocalDate();
                     return (from == null || !date.isBefore(from)) && (to == null || !date.isAfter(to));

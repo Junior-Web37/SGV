@@ -99,6 +99,14 @@ public class DataInitializer implements CommandLineRunner {
     }
 
     private void ensureDefaultUsers() {
+        // Correção do BUG-006: o utilizador default é semeado APENAS em BD
+        // vazia. Antes, ensureUser("admin") corria em CADA arranque e re-criava
+        // o admin com password default mesmo numa instalação em produção.
+        if (userRepository.count() > 0) {
+            logger.info("Base de dados com utilizadores existentes — seed de utilizadores default ignorado.");
+            return;
+        }
+
         Role adminRole = roleRepository.findByName("ADMIN").orElseGet(() -> {
             Role r = new Role();
             r.setName("ADMIN");
@@ -119,8 +127,10 @@ public class DataInitializer implements CommandLineRunner {
             if (user.getFullName() == null || user.getFullName().isBlank()) {
                 user.setFullName(fullName);
             }
-            user.setActive(true);
-            user.setCanViewStats(true);
+            // Correção do BUG-006: NUNCA reactivar/utilizador existente —
+            // um utilizador desactivado tem de permanecer desactivado
+            // (antes: setActive(true) incondicional revertia a revogação
+            // de acesso no arranque seguinte).
             if (!user.getRoles().contains(role)) user.getRoles().add(role);
             Branch branch = branchRepository.findAll().stream()
                     .filter(b -> "Sede Maputo".equalsIgnoreCase(b.getName()) || "Matriz SGV".equalsIgnoreCase(b.getName()))
@@ -363,6 +373,10 @@ public class DataInitializer implements CommandLineRunner {
         sale.setCustomerNuit("999999999");
         sale.setPaymentMethod("DINHEIRO");
         sale.setState("PAGO");
+        // Correção do BUG-006: a venda de demonstração é marcadamente DEMO —
+        // sem esta flag, ela entrava em todos os relatórios/KPIs/IVA como
+        // venda real (os agregados excluem demoFlag=true).
+        sale.setDemoFlag(true);
         sale.setSubtotal(product.getPriceSale());
         sale.setTotalTax(product.getPriceSale() * (product.getTaxRate() / 100.0));
         sale.setTotalIce(0.0);

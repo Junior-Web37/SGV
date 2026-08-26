@@ -38,7 +38,11 @@ public class SystemBackup {
     
     @Column(columnDefinition = "TEXT")
     private String notes;
-    
+
+    /** SHA-256 do ficheiro de backup (correção do BUG-001 — validação de integridade no restore). */
+    @Column(name = "checksum_sha256", length = 64)
+    private String checksumSha256;
+
     // Getters e Setters
     public Long getId() { return id; }
     public void setId(Long id) { this.id = id; }
@@ -69,7 +73,10 @@ public class SystemBackup {
     
     public String getNotes() { return notes; }
     public void setNotes(String notes) { this.notes = notes; }
-    
+
+    public String getChecksumSha256() { return checksumSha256; }
+    public void setChecksumSha256(String checksumSha256) { this.checksumSha256 = checksumSha256; }
+
     // Utilitário para formato do tamanho
     public String getFormattedSize() {
         if (fileSize == null || fileSize == 0) return "0 B";

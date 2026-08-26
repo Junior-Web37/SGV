@@ -83,7 +83,12 @@ public interface SaleRepository extends JpaRepository<Sale, Long> {
     @Query("SELECT COALESCE(SUM(s.totalTax), 0.0) FROM Sale s WHERE s.createdAt IS NOT NULL")
     BigDecimal sumTotalTaxAll();
 
-    @Query("SELECT COALESCE(SUM(s.total), 0.0) FROM Sale s WHERE s.createdAt IS NOT NULL")
+    /**
+     * Correção do BUG-004: apenas o universo reportável — VENDA/FACTURA/NC
+     * (NC entra com total negativo), não anulados e não demo. Cotações e
+     * encomendas são documentos pré-venda e não podem somar nas receitas.
+     */
+    @Query("SELECT COALESCE(SUM(s.total), 0.0) FROM Sale s WHERE s.createdAt IS NOT NULL AND s.documentType IN ('VENDA', 'FACTURA', 'NC') AND s.state <> 'ANULADA' AND (s.demoFlag IS NULL OR s.demoFlag = false)")
     BigDecimal sumTotalAll();
     
     @Query("SELECT s FROM Sale s LEFT JOIN s.customer c WHERE " +
@@ -99,7 +104,12 @@ public interface SaleRepository extends JpaRepository<Sale, Long> {
     @Query("SELECT s FROM Sale s WHERE s.customer.id = :customerId ORDER BY s.createdAt DESC")
     List<Sale> findAllByCustomerId(@Param("customerId") Long customerId);
 
-    @Query("SELECT s FROM Sale s WHERE s.customer.id = :customerId AND s.state <> 'ANULADA' AND (COALESCE(s.total, 0.0) - COALESCE(s.paidAmount, 0.0)) > 0.01 ORDER BY s.createdAt ASC")
+    /**
+     * Pendências do cliente para a reconciliação FIFO. Correção do BUG-015/007:
+     * apenas VENDA/FACTURA (antes a FIFO alocava pagamentos a cotações e
+     * encomendas, que não são dívidas).
+     */
+    @Query("SELECT s FROM Sale s WHERE s.customer.id = :customerId AND s.documentType IN ('VENDA', 'FACTURA') AND s.state <> 'ANULADA' AND (COALESCE(s.total, 0.0) - COALESCE(s.paidAmount, 0.0)) > 0.01 ORDER BY s.createdAt ASC")
     List<Sale> findPendingByCustomerId(@Param("customerId") Long customerId);
 
     @Query("SELECT COUNT(s) FROM Sale s WHERE s.createdAt >= :start AND s.createdAt <= :end")
@@ -122,19 +132,37 @@ public interface SaleRepository extends JpaRepository<Sale, Long> {
     @Query("SELECT MAX(s.hashControl) FROM Sale s WHERE s.branch.id = :branchId")
     Long findMaxHashControlByBranchId(@Param("branchId") Long branchId);
 
-    @Query("SELECT s FROM Sale s WHERE s.state <> 'ANULADA' AND (COALESCE(s.total, 0.0) - COALESCE(s.paidAmount, 0.0)) > 0.01 ORDER BY s.createdAt DESC")
+    /**
+     * Documentos com dívida pendente. Correção do BUG-007: apenas VENDA e
+     * FACTURA — cotações/encomendas abertas são documentos pré-venda e NUNCA
+     * devem aparecer na fila de recebimentos (antes eram "pagáveis" e
+     * inflavam o KPI "Contas a Receber" e o aging de devedores).
+     */
+    @Query("SELECT s FROM Sale s WHERE s.documentType IN ('VENDA', 'FACTURA') AND s.state <> 'ANULADA' AND (COALESCE(s.total, 0.0) - COALESCE(s.paidAmount, 0.0)) > 0.01 ORDER BY s.createdAt DESC")
     List<Sale> findPendingSales();
 
-    @Query("SELECT COALESCE(SUM(s.total), 0.0) FROM Sale s WHERE s.createdAt >= :startOfDay AND s.createdAt <= :endOfDay AND (:branchId IS NULL OR s.branch.id = :branchId) AND s.state <> 'ANULADA'")
+    /**
+     * Universo reportável (correção do BUG-004): VENDA/FACTURA/NC (NC entra
+     * com total negativo), não anulados, não demo. Antes somava cotações,
+     * encomendas e vendas demo, inflando o KPI de "Vendas de hoje" e o gráfico.
+     */
+    @Query("SELECT COALESCE(SUM(s.total), 0.0) FROM Sale s WHERE s.createdAt >= :startOfDay AND s.createdAt <= :endOfDay AND (:branchId IS NULL OR s.branch.id = :branchId) AND s.documentType IN ('VENDA', 'FACTURA', 'NC') AND s.state <> 'ANULADA' AND (s.demoFlag IS NULL OR s.demoFlag = false)")
     BigDecimal sumTotalByDateRangeAndBranch(@Param("startOfDay") LocalDateTime startOfDay, @Param("endOfDay") LocalDateTime endOfDay, @Param("branchId") Long branchId);
 
-    @Query("SELECT COUNT(s) FROM Sale s WHERE s.createdAt >= :startOfDay AND s.createdAt <= :endOfDay AND (:branchId IS NULL OR s.branch.id = :branchId) AND s.state <> 'ANULADA'")
+    /** Universo reportável (correção do BUG-004) — ver sumTotalByDateRangeAndBranch. */
+    @Query("SELECT COUNT(s) FROM Sale s WHERE s.createdAt >= :startOfDay AND s.createdAt <= :endOfDay AND (:branchId IS NULL OR s.branch.id = :branchId) AND s.documentType IN ('VENDA', 'FACTURA', 'NC') AND s.state <> 'ANULADA' AND (s.demoFlag IS NULL OR s.demoFlag = false)")
     long countByDateRangeAndBranch(@Param("startOfDay") LocalDateTime startOfDay, @Param("endOfDay") LocalDateTime endOfDay, @Param("branchId") Long branchId);
 
-    @Query("SELECT COALESCE(SUM(s.total - COALESCE(s.paidAmount, 0.0)), 0.0) FROM Sale s WHERE s.state <> 'ANULADA' AND (s.total - COALESCE(s.paidAmount, 0.0)) > 0.01 AND (:branchId IS NULL OR s.branch.id = :branchId)")
+    /**
+     * Contas a receber pendentes (correção do BUG-004): apenas VENDA/FACTURA —
+     * cotações/encomendas abertas não são dívidas e não podiam inflar o KPI
+     * nem divergir da lista de pendências (findPendingSales, BUG-007).
+     */
+    @Query("SELECT COALESCE(SUM(s.total - COALESCE(s.paidAmount, 0.0)), 0.0) FROM Sale s WHERE s.documentType IN ('VENDA', 'FACTURA') AND s.state <> 'ANULADA' AND (s.demoFlag IS NULL OR s.demoFlag = false) AND (s.total - COALESCE(s.paidAmount, 0.0)) > 0.01 AND (:branchId IS NULL OR s.branch.id = :branchId)")
     BigDecimal sumTotalPendingCreditsByBranch(@Param("branchId") Long branchId);
 
-    @Query("SELECT s.paymentMethod, COALESCE(SUM(s.total), 0.0) FROM Sale s WHERE s.createdAt >= :startOfDay AND s.createdAt <= :endOfDay AND (:branchId IS NULL OR s.branch.id = :branchId) AND s.state <> 'ANULADA' GROUP BY s.paymentMethod")
+    /** Universo reportável (correção do BUG-004) — ver sumTotalByDateRangeAndBranch. */
+    @Query("SELECT s.paymentMethod, COALESCE(SUM(s.total), 0.0) FROM Sale s WHERE s.createdAt >= :startOfDay AND s.createdAt <= :endOfDay AND (:branchId IS NULL OR s.branch.id = :branchId) AND s.documentType IN ('VENDA', 'FACTURA', 'NC') AND s.state <> 'ANULADA' AND (s.demoFlag IS NULL OR s.demoFlag = false) GROUP BY s.paymentMethod")
     List<Object[]> sumTotalByPaymentMethodToday(@Param("startOfDay") LocalDateTime startOfDay, @Param("endOfDay") LocalDateTime endOfDay, @Param("branchId") Long branchId);
 
     @Query("SELECT s FROM Sale s WHERE (:branchId IS NULL OR s.branch.id = :branchId) ORDER BY s.createdAt DESC")
@@ -159,8 +187,9 @@ public interface SaleRepository extends JpaRepository<Sale, Long> {
                                     @Param("itemCount") int itemCount,
                                     @Param("since") LocalDateTime since);
 
+    /** Universo reportável (correção do BUG-004) — ver sumTotalByDateRangeAndBranch. */
     @Query("SELECT MONTH(s.createdAt) as m, COALESCE(SUM(s.total), 0.0) " +
-           "FROM Sale s WHERE s.documentYear = :year AND s.state <> 'ANULADA' " +
+           "FROM Sale s WHERE s.documentYear = :year AND s.documentType IN ('VENDA', 'FACTURA', 'NC') AND s.state <> 'ANULADA' AND (s.demoFlag IS NULL OR s.demoFlag = false) " +
            "GROUP BY MONTH(s.createdAt)")
     List<Object[]> sumTotalByMonthAndYear(@Param("year") int year);
 }

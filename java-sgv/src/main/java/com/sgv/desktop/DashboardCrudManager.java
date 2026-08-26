@@ -64,6 +64,7 @@ public class DashboardCrudManager {
     private final com.sgv.service.SaleService saleService;
     private final com.sgv.service.CustomerAccountService customerAccountService;
     private final com.sgv.service.DashboardCrudService dashboardCrudService;
+    private final com.sgv.service.CustomerAccountLedger customerAccountLedger;
 
     public DashboardCrudManager(ApplicationContext applicationContext,
                                 SaleRepository saleRepository,
@@ -90,7 +91,8 @@ public class DashboardCrudManager {
                                 TrainingModeService trainingModeService,
                                 com.sgv.service.SaleService saleService,
                                 com.sgv.service.CustomerAccountService customerAccountService,
-                                com.sgv.service.DashboardCrudService dashboardCrudService) {
+                                com.sgv.service.DashboardCrudService dashboardCrudService,
+                                com.sgv.service.CustomerAccountLedger customerAccountLedger) {
         this.applicationContext = applicationContext;
         this.saleRepository = saleRepository;
         this.productRepository = productRepository;
@@ -117,6 +119,7 @@ public class DashboardCrudManager {
         this.saleService = saleService;
         this.customerAccountService = customerAccountService;
         this.dashboardCrudService = dashboardCrudService;
+        this.customerAccountLedger = customerAccountLedger;
     }
 
     public String getDateFormatPattern() { return "dd/MM/yyyy HH:mm"; }
@@ -1362,9 +1365,13 @@ public class DashboardCrudManager {
             try { valor = Double.parseDouble(valStr); } catch (NumberFormatException nfe) { return; }
             if (valor == 0) return;
             try {
-                double novoSaldo = (customer.getBalance() != null ? customer.getBalance() : 0.0) - valor;
-                customer.setBalance(novoSaldo);
-                customerRepository.save(customer);
+                // Correção do BUG-005/010: o crédito manual passa também pelo
+                // livro de conta corrente (lançamento ADJUSTMENT) — não é mais
+                // uma escrita directa no saldo, pelo que o extrato reflecte a
+                // operação e a invariante Σ(lançamentos)==saldo mantém-se.
+                customerAccountLedger.recordEntry(customer.getId(), null, null,
+                        CustomerAccountLedger.TYPE_ADJUSTMENT, BigDecimal.valueOf(-valor),
+                        "AJUSTE", "Crédito manual em conta corrente");
                 onDataChanged.run();
                 dialog.close();
             } catch (Exception ex) { log.error("Erro inesperado", ex); }

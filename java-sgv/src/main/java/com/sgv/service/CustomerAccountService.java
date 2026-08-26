@@ -1,10 +1,12 @@
 package com.sgv.service;
 
 import com.sgv.entity.Customer;
+import com.sgv.entity.CustomerAccountEntry;
 import com.sgv.entity.Payment;
 import com.sgv.entity.PaymentAllocation;
 import com.sgv.entity.Sale;
 import com.sgv.entity.User;
+import com.sgv.repository.CustomerAccountEntryRepository;
 import com.sgv.repository.CustomerRepository;
 import com.sgv.repository.PaymentAllocationRepository;
 import com.sgv.repository.PaymentRepository;
@@ -25,25 +27,34 @@ public class CustomerAccountService {
     private final PaymentAllocationRepository paymentAllocationRepository;
     private final SystemLogService systemLogService;
     private final CashSessionService cashSessionService;
+    private final CustomerAccountEntryRepository customerAccountEntryRepository;
+    private final CustomerAccountLedger customerAccountLedger;
 
     public CustomerAccountService(CustomerRepository customerRepository,
                                   SaleRepository saleRepository,
                                   PaymentRepository paymentRepository,
                                   PaymentAllocationRepository paymentAllocationRepository,
                                   SystemLogService systemLogService,
-                                  CashSessionService cashSessionService) {
+                                  CashSessionService cashSessionService,
+                                  CustomerAccountEntryRepository customerAccountEntryRepository,
+                                  CustomerAccountLedger customerAccountLedger) {
         this.customerRepository = customerRepository;
         this.saleRepository = saleRepository;
         this.paymentRepository = paymentRepository;
         this.paymentAllocationRepository = paymentAllocationRepository;
         this.systemLogService = systemLogService;
         this.cashSessionService = cashSessionService;
+        this.customerAccountEntryRepository = customerAccountEntryRepository;
+        this.customerAccountLedger = customerAccountLedger;
     }
 
     @Transactional
     public Payment recordReceipt(Customer customer, Sale sale, BigDecimal amount, String method, User currentUser) {
         if (customer == null || customer.getId() == null) {
             throw new IllegalArgumentException("Cliente inválido.");
+        }
+        if (customerRepository.findById(customer.getId()).isEmpty()) {
+            throw new IllegalArgumentException("Cliente não encontrado.");
         }
         Sale managedSale = null;
         if (sale != null && sale.getId() != null) {
@@ -67,16 +78,30 @@ public class CustomerAccountService {
             }
         }
 
-        Customer managedCustomer = customerRepository.findById(customer.getId()).orElseThrow(() -> new IllegalArgumentException("Cliente não encontrado."));
-        managedCustomer.setBalanceAmount(managedCustomer.getBalanceAmount().subtract(amount));
-        customerRepository.save(managedCustomer);
-
         Payment payment = new Payment();
         payment.setAmountValue(amount);
         payment.setMethod(method != null ? method : "Numerário");
         payment.setCreatedAt(LocalDateTime.now());
         payment.setSale(managedSale);
         Payment savedPayment = paymentRepository.save(payment);
+
+        // Correção do BUG-005/BUG-014: o recebimento abre LANÇAMENTO no livro de
+        // conta corrente (saldo e lançamento na mesma transação). Sem factura
+        // associada o lançamento é RECEIPT_WITHOUT_SALE — antes baixava o saldo
+        // sem deixar qualquer rastro no extrato do cliente.
+        String docRef = managedSale != null
+                ? (managedSale.getSeries() != null ? managedSale.getSeries() : "A")
+                        + "/" + (managedSale.getDocumentNumber() != null ? managedSale.getDocumentNumber() : managedSale.getId())
+                : "S/DOC";
+        String entryType = managedSale != null
+                ? CustomerAccountLedger.TYPE_PAYMENT
+                : CustomerAccountLedger.TYPE_RECEIPT_WITHOUT_SALE;
+        String description = managedSale != null
+                ? "Recebimento sobre " + docRef
+                : "Recebimento sem factura (adiantação)";
+        customerAccountLedger.recordEntry(customer.getId(),
+                managedSale != null ? managedSale.getId() : null,
+                savedPayment.getId(), entryType, amount.negate(), docRef, description);
 
         if (managedSale != null) {
             BigDecimal saleTotal = managedSale.getTotalAmount() != null ? managedSale.getTotalAmount() : BigDecimal.ZERO;
@@ -97,11 +122,14 @@ public class CustomerAccountService {
             alloc.setCreatedAt(LocalDateTime.now());
             paymentAllocationRepository.save(alloc);
 
-            if (cashSessionService != null && currentUser != null) {
+            // Correção do BUG-003: só numerário move a gaveta (recebimentos
+            // electrónicos não são entradas de caixa física).
+            if (cashSessionService != null && currentUser != null
+                    && com.sgv.model.PaymentMethod.movesCashDrawer(method)) {
                 try {
-                    String docRef = "Recibo FT " + (managedSale.getSeries() != null ? managedSale.getSeries() : "A")
+                    String docRef2 = "Recibo FT " + (managedSale.getSeries() != null ? managedSale.getSeries() : "A")
                             + "/" + (managedSale.getDocumentNumber() != null ? managedSale.getDocumentNumber() : managedSale.getId());
-                    cashSessionService.registerMovement(currentUser, "IN", amount, docRef, method != null ? method : "RECEBIMENTO");
+                    cashSessionService.registerMovement(currentUser, "IN", amount, docRef2, method != null ? method : "RECEBIMENTO");
                 } catch (Exception ignored) {}
             }
         }
@@ -161,10 +189,15 @@ public class CustomerAccountService {
             }
         }
 
-        managedCustomer.setBalanceAmount(managedCustomer.getBalanceAmount().subtract(paymentAmount));
-        customerRepository.save(managedCustomer);
+        // Correção do BUG-005/010: a reconciliação abre LANÇAMENTO no livro de
+        // conta corrente (saldo e lançamento na mesma transação).
+        customerAccountLedger.recordEntry(customer.getId(), null, payment.getId(),
+                CustomerAccountLedger.TYPE_RECONCILIATION, paymentAmount.negate(),
+                "REC", "Reconciliação de conta corrente");
 
-        // Registo de entrada em caixa na sessão do operador
+        // Registo de entrada em caixa na sessão do operador (mantido
+        // incondicional: a reconciliação representa caixa física recebida,
+        // independentemente do método nominal).
         if (cashSessionService != null && currentUser != null) {
             try {
                 String docRef = "Reconciliação CC — " + (managedCustomer.getName() != null ? managedCustomer.getName() : "Cliente");
@@ -180,6 +213,16 @@ public class CustomerAccountService {
 
     /**
      * Gera o Extrato de Conta Corrente cronológico com saldo progressivo para o cliente.
+     *
+     * <p>Correcção do BUG-005/BUG-010: o extrato é agora construído a partir do
+     * LIVRO de conta corrente ({@code customer_account_entries}) — a mesma
+     * origem do saldo — e não mais derivado das vendas. Notas de crédito,
+     * recibos sem factura, reconciliações e anulações aparecem com o valor
+     * real, e o saldo progressivo termina exactamente no saldo do cliente
+     * (invariante verificada por {@code ReportParityTest}).</p>
+     *
+     * <p>Clientes sem lançamentos (base de dados criada antes da migração V28)
+     * continuam a ver a visão legada derivada das vendas.</p>
      */
     @Transactional(readOnly = true)
     public List<CustomerStatementEntry> getCustomerStatement(Long customerId) {
@@ -187,6 +230,93 @@ public class CustomerAccountService {
         Customer customer = customerRepository.findById(customerId).orElse(null);
         if (customer == null) return List.of();
 
+        List<CustomerAccountEntry> entries = customerAccountEntryRepository.findByCustomerIdOrderByCreatedAtAsc(customerId);
+        if (entries == null || entries.isEmpty()) {
+            return legacyStatementFromSales(customerId);
+        }
+
+        // Saldo de abertura = saldo actual − Σ(lançamentos): cobre saldos que
+        // existiam antes da migração V28 (o livro começou a meio do histórico).
+        BigDecimal sumEntries = BigDecimal.ZERO;
+        for (CustomerAccountEntry e : entries) {
+            if (e.getAmount() != null) sumEntries = sumEntries.add(e.getAmount());
+        }
+        BigDecimal opening = customer.getBalanceAmount().subtract(sumEntries);
+
+        List<CustomerStatementEntry> statement = new java.util.ArrayList<>();
+        if (opening.signum() != 0) {
+            statement.add(new CustomerStatementEntry(
+                    LocalDateTime.now(), "AB", "—",
+                    opening.signum() > 0 ? opening : BigDecimal.ZERO,
+                    opening.signum() < 0 ? opening.negate() : BigDecimal.ZERO,
+                    opening, "Saldo de abertura (antes do livro de conta corrente)"
+            ));
+        }
+
+        BigDecimal running = opening;
+        for (CustomerAccountEntry e : entries) {
+            BigDecimal amount = e.getAmount() != null ? e.getAmount() : BigDecimal.ZERO;
+            running = running.add(amount);
+            String ref = e.getReference() != null && !e.getReference().isBlank() ? e.getReference() : "—";
+            String description = e.getDescription() != null ? e.getDescription() : e.getEntryType();
+            String type;
+            String document;
+            BigDecimal debit = BigDecimal.ZERO;
+            BigDecimal credit = BigDecimal.ZERO;
+            switch (e.getEntryType() != null ? e.getEntryType() : "") {
+                case CustomerAccountLedger.TYPE_CREDITO_SALE:
+                    type = "FT";
+                    document = "FT " + ref;
+                    debit = amount.signum() > 0 ? amount : BigDecimal.ZERO;
+                    credit = amount.signum() < 0 ? amount.negate() : BigDecimal.ZERO;
+                    break;
+                case CustomerAccountLedger.TYPE_CREDIT_NOTE:
+                    type = "NC";
+                    document = "NC " + ref;
+                    credit = amount.abs();
+                    description = description != null ? description : "Nota de Crédito / Devolução";
+                    break;
+                case CustomerAccountLedger.TYPE_ANNULMENT:
+                    type = "ANUL";
+                    document = "ANUL " + ref;
+                    credit = amount.abs();
+                    break;
+                case CustomerAccountLedger.TYPE_RECEIPT_WITHOUT_SALE:
+                    type = "RC";
+                    document = "RC (adiantação)";
+                    credit = amount.abs();
+                    break;
+                case CustomerAccountLedger.TYPE_RECONCILIATION:
+                    type = "RC";
+                    document = "Reconciliação";
+                    credit = amount.abs();
+                    break;
+                case CustomerAccountLedger.TYPE_ADJUSTMENT:
+                    type = "AJ";
+                    document = "Ajuste manual";
+                    credit = amount.abs();
+                    break;
+                case CustomerAccountLedger.TYPE_PAYMENT:
+                default:
+                    type = "RC";
+                    document = "Recibo " + ref;
+                    credit = amount.abs();
+                    break;
+            }
+            statement.add(new CustomerStatementEntry(
+                    e.getCreatedAt() != null ? e.getCreatedAt() : LocalDateTime.now(),
+                    type, document, debit, credit, running, description
+            ));
+        }
+        return statement;
+    }
+
+    /**
+     * Visão legada (pré-V28): extrato derivado das vendas. Mantida apenas como
+     * fallback para clientes que ainda não têm lançamentos no livro de conta
+     * corrente. Não reflecte NC/recebimentos sem factura — ver BUG-005.
+     */
+    private List<CustomerStatementEntry> legacyStatementFromSales(Long customerId) {
         List<CustomerStatementEntry> statement = new java.util.ArrayList<>();
         List<Sale> sales = saleRepository.findAllByCustomerId(customerId);
 

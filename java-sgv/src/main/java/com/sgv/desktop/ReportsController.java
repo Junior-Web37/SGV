@@ -293,7 +293,12 @@ public class ReportsController {
                     .toList();
         }
 
-        List<Sale> sales = saleRepository.findByDateRangeAndState(fromDt, toDt, null);
+        // Correção do BUG-004: o relatório de vendas usa o universo reportável
+        // (VENDA/FACTURA/NC, não anulados, não demo) — antes, cotações,
+        // encomendas, anuladas e vendas demo inflavam o total e o ticket.
+        List<Sale> sales = saleRepository.findByDateRangeAndState(fromDt, toDt, null).stream()
+                .filter(ReportsController::isReportable)
+                .toList();
         if (!branches.isEmpty()) {
             Set<Long> branchIds = branches.stream().map(Branch::getId).collect(Collectors.toSet());
             sales = sales.stream().filter(s -> s.getBranch() != null && branchIds.contains(s.getBranch().getId())).toList();
@@ -412,7 +417,12 @@ public class ReportsController {
         LocalDateTime fromDt = from.atStartOfDay();
         LocalDateTime toDt = today.atTime(23, 59, 59);
 
-        List<SaleItem> items = saleItemRepository.findBySaleDateRange(fromDt, toDt);
+        // Correção do BUG-031/BUG-004: "mais vendidos" usa o universo
+        // reportável — itens de cotações/encomendas/anuladas/demo não são
+        // vendas (antes entravam todos os itens do período).
+        List<SaleItem> items = saleItemRepository.findBySaleDateRange(fromDt, toDt).stream()
+                .filter(it -> it.getSale() != null && isReportable(it.getSale()))
+                .toList();
         Map<Long, Double> qtyMap = new HashMap<>();
         Map<Long, Double> revMap = new HashMap<>();
         items.forEach(it -> {
@@ -537,8 +547,17 @@ public class ReportsController {
                 LocalDate to = ivaAte.getValue() != null ? ivaAte.getValue() : LocalDate.now();
                 LocalDateTime fromDt = from.atStartOfDay();
                 LocalDateTime toDt = to.atTime(23, 59, 59);
+                // Correção do BUG-004: apenas documentos fiscais (VENDA/
+                // FACTURA/NC) vão para o SAF-T MZ — cotações/encomendas são
+                // documentos pré-venda; as ANULADAS permanecem porque o
+                // esquema reporta o estado do documento fiscal (status "A").
                 List<Sale> sales = saleRepository.findByDateRangeAndState(fromDt, toDt, null).stream()
                         .filter(s -> s.getCreatedAt() != null)
+                        .filter(s -> {
+                            String dt = s.getDocumentType() != null ? s.getDocumentType() : "";
+                            return "VENDA".equals(dt) || "FACTURA".equals(dt) || "NC".equals(dt);
+                        })
+                        .filter(s -> !Boolean.TRUE.equals(s.getDemoFlag()))
                         .sorted(Comparator.comparing(Sale::getCreatedAt).reversed())
                         .toList();
                 java.nio.file.Path outputPath = java.nio.file.Paths.get("backups", "saf_t_mz_" + from + "_a_" + to + ".xml");
@@ -584,8 +603,10 @@ public class ReportsController {
         LocalDateTime fromDt = from.atStartOfDay();
         LocalDateTime toDt = to.atTime(23, 59, 59);
 
+        // Universo reportável (correção do BUG-004): cotações/encomendas não
+        // são facturadas e não entram no apuramento de IVA.
         List<Sale> allPeriodSales = saleRepository.findByDateRangeAndState(fromDt, toDt, null).stream()
-                .filter(s -> !"ANULADA".equalsIgnoreCase(s.getState()))
+                .filter(ReportsController::isReportable)
                 .toList();
 
         double baseTributavel = 0.0;
@@ -596,13 +617,24 @@ public class ReportsController {
         for (Sale s : allPeriodSales) {
             double sTotal = s.getTotal() != null ? s.getTotal() : 0.0;
             double sTax = s.getTotalTax() != null ? s.getTotalTax() : 0.0;
-            double sSub = s.getSubtotal() != null ? s.getSubtotal() : 0.0;
             totalFacturado += sTotal;
             ivaCobrado += sTax;
-            if (sTax > 0.001) {
-                baseTributavel += sSub;
+        }
+
+        // Correção do BUG-028: a base tributável/isenta é apurada POR LINHA,
+        // não por documento. Antes, o documento era classificado inteiro pela
+        // taxa total (sTax > 0.001), o que desclassificava toda a base quando
+        // uma única linha isenta existia (ou quando o documento era NC, cujo
+        // IVA total é negativo mas cuja base é tributável com sinal negativo).
+        Set<Long> periodSaleIds = allPeriodSales.stream().map(Sale::getId).collect(Collectors.toSet());
+        for (SaleItem item : saleItemRepository.findBySaleDateRange(fromDt, toDt)) {
+            if (item.getSale() == null || !periodSaleIds.contains(item.getSale().getId())) continue;
+            double lineBase = item.getLineBase() != null ? item.getLineBase() : 0.0;
+            double lineTax = item.getLineTax() != null ? item.getLineTax() : 0.0;
+            if (Math.abs(lineTax) > 0.0005) {
+                baseTributavel += lineBase;
             } else {
-                baseIsenta += sSub;
+                baseIsenta += lineBase;
             }
         }
 
@@ -1418,6 +1450,22 @@ public class ReportsController {
         label.setText("Página " + (currentPage + 1) + " de " + Math.max(1, totalPages));
         prev.setDisable(currentPage <= 0);
         next.setDisable(currentPage >= totalPages - 1);
+    }
+
+    /**
+     * Universo reportável (correção do BUG-004/028): documentos efectivamente
+     * facturados — VENDA, FACTURA e NC (NC com total negativo), nunca anulados
+     * e nunca demo. Cotações/encomendas são documentos pré-venda e não podem
+     * entrar em apuramentos de vendas/IVA. Mesmo critério usado por
+     * ReportService.isReportable e pelos agregados da SaleRepository.
+     */
+    private static boolean isReportable(Sale s) {
+        if (s == null) return false;
+        String dt = s.getDocumentType() != null ? s.getDocumentType() : "";
+        if (!("VENDA".equals(dt) || "FACTURA".equals(dt) || "NC".equals(dt))) return false;
+        if ("ANULADA".equalsIgnoreCase(s.getState())) return false;
+        if (Boolean.TRUE.equals(s.getDemoFlag())) return false;
+        return true;
     }
 
     private String fmt(double v) {

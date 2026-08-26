@@ -103,9 +103,11 @@ public class SupplierPaymentService {
 
         SupplierPayment saved = supplierPaymentRepository.save(payment);
 
-        // Registo automático de saída de numerário no turno de caixa se pago em Dinheiro
-        if (payment.getMethod() != null &&
-            (payment.getMethod().toLowerCase().contains("dinheiro") || payment.getMethod().toLowerCase().contains("caixa"))) {
+        // Registo automático de saída de numerário no turno de caixa se pago em
+        // numerário. Correção do BUG-020 (parte 1): o matching por substring
+        // ("dinheiro"/"caixa") falhava para "Numerário" — agora usa a
+        // normalização partilhada PaymentMethod (DINHEIRO/NUMERARIO/CASH).
+        if (com.sgv.model.PaymentMethod.movesCashDrawer(payment.getMethod())) {
             if (currentUser != null && cashSessionService != null && cashSessionService.hasOpenSession(currentUser)) {
                 try {
                     String desc = "Pagamento a Fornecedor: " + supplier.getName() +

@@ -27,6 +27,7 @@ public class PaymentService {
     private final CashSessionService cashSessionService;
     private final SaleDocumentService saleDocumentService;
     private final SystemLogService systemLogService;
+    private final CustomerAccountLedger customerAccountLedger;
 
     public PaymentService(PaymentRepository paymentRepository,
                           SaleRepository saleRepository,
@@ -34,7 +35,8 @@ public class PaymentService {
                           PaymentAllocationRepository paymentAllocationRepository,
                           CashSessionService cashSessionService,
                           SaleDocumentService saleDocumentService,
-                          SystemLogService systemLogService) {
+                          SystemLogService systemLogService,
+                          CustomerAccountLedger customerAccountLedger) {
         this.paymentRepository = paymentRepository;
         this.saleRepository = saleRepository;
         this.customerRepository = customerRepository;
@@ -42,6 +44,7 @@ public class PaymentService {
         this.cashSessionService = cashSessionService;
         this.saleDocumentService = saleDocumentService;
         this.systemLogService = systemLogService;
+        this.customerAccountLedger = customerAccountLedger;
     }
 
     public List<Sale> findPendingSales() {
@@ -66,6 +69,17 @@ public class PaymentService {
         Sale managedSale = saleRepository.findById(payment.getSale().getId())
                 .orElseThrow(() -> new IllegalArgumentException("Factura/Venda não encontrada para o pagamento."));
         payment.setSale(managedSale);
+
+        // Correção do BUG-007: defesa em profundidade — nunca liquidar um
+        // documento pré-venda (a lista de pendências já os exclui, mas o
+        // service não pode confiar no chamador).
+        String docType = managedSale.getDocumentType();
+        if (!"VENDA".equalsIgnoreCase(docType) && !"FACTURA".equalsIgnoreCase(docType)) {
+            throw new IllegalStateException("Não é possível pagar o documento "
+                    + (docType != null ? docType : "?") + " " + managedSale.getSeries() + "/"
+                    + managedSale.getDocumentNumber()
+                    + " — apenas vendas e facturas são liquidáveis. Se for uma cotação/encomenda, converta-a primeiro em factura.");
+        }
 
         BigDecimal total = managedSale.getTotalAmount() != null ? managedSale.getTotalAmount() : BigDecimal.ZERO;
         BigDecimal currentPaid = managedSale.getPaidAmountValue() != null ? managedSale.getPaidAmountValue() : BigDecimal.ZERO;
@@ -94,17 +108,23 @@ public class PaymentService {
         }
         saleRepository.save(managedSale);
 
-        // Abate automático na conta corrente do cliente
+        // Abate automático na conta corrente do cliente.
+        // Correção do BUG-005/010: o abate abre LANÇAMENTO no livro de conta
+        // corrente (saldo e lançamento na mesma transação — o extrato reflecte
+        // a liquidação em vez de a derivar das vendas).
         if (managedSale.getCustomer() != null && managedSale.getCustomer().getId() != null) {
-            customerRepository.findById(managedSale.getCustomer().getId()).ifPresent(cust -> {
-                BigDecimal currentBal = cust.getBalanceAmount();
-                cust.setBalanceAmount(currentBal.subtract(amount));
-                customerRepository.save(cust);
-            });
+            String docRef = (managedSale.getSeries() != null ? managedSale.getSeries() : "A")
+                    + "/" + (managedSale.getDocumentNumber() != null ? managedSale.getDocumentNumber() : managedSale.getId());
+            customerAccountLedger.recordEntry(managedSale.getCustomer().getId(), managedSale.getId(), savedPayment.getId(),
+                    CustomerAccountLedger.TYPE_PAYMENT, amount.negate(),
+                    docRef, "Recebimento sobre " + docRef);
         }
 
-        // Registo de entrada em caixa se o operador tiver sessão aberta
-        if (cashSessionService != null && currentUser != null) {
+        // Registo de entrada em caixa se o operador tiver sessão aberta.
+        // Correção do BUG-003: só recebimentos em numerário movem a gaveta;
+        // recebimentos por M-Pesa/POS/transferência não são caixa física.
+        if (cashSessionService != null && currentUser != null
+                && com.sgv.model.PaymentMethod.movesCashDrawer(payment.getMethod())) {
             try {
                 String method = payment.getMethod() != null ? payment.getMethod() : "RECEBIMENTO";
                 String docRef = "Recibo FT " + managedSale.getSeries() + "/" + managedSale.getDocumentNumber();
