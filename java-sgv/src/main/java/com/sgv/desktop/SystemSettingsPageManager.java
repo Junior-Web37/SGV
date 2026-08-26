@@ -428,7 +428,7 @@ public class SystemSettingsPageManager {
                     "MANUAL", currentUser != null ? currentUser.getUsername() : "system");
             if (out.success()) {
                 auditLogService.log(null, "BACKUP", "sistema", null,
-                        "Backup criado: " + out.file().getFileName() + " (" + out.sizeBytes() + " bytes, sha256 " + out.sha256() + ")");
+                        "Backup criado: " + out.file().getName() + " (" + out.sizeBytes() + " bytes, sha256 " + out.sha256() + ")");
                 SgvDialog.info("Backup Criado",
                         "Backup criado com sucesso!\n\n" + out.file().getAbsolutePath() + "\n"
                                 + (out.sizeBytes() / 1024) + " KB — SHA-256: " + out.sha256());

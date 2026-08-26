@@ -226,11 +226,9 @@ public class BackupService {
                         "--defaults-extra-file=" + optionsFile.getAbsolutePath(),
                         dbName);
                 pb.redirectErrorStream(true);
-                Process process;
-                try (InputStream in = Files.newInputStream(sqlFile)) {
-                    pb.redirectInput(in);
-                    process = pb.start();
-                }
+                // O dump é a entrada padrão do cliente mysql (mysql < backup.sql)
+                pb.redirectInput(ProcessBuilder.Redirect.from(sqlFile.toFile()));
+                Process process = pb.start();
                 String output = new String(process.getInputStream().readAllBytes());
                 int rc = process.waitFor();
                 if (rc != 0) {
