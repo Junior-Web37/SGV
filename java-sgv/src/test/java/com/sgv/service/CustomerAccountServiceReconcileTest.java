@@ -3,6 +3,7 @@ package com.sgv.service;
 import com.sgv.entity.Customer;
 import com.sgv.entity.Sale;
 import com.sgv.entity.User;
+import com.sgv.repository.CustomerAccountEntryRepository;
 import com.sgv.repository.CustomerRepository;
 import com.sgv.repository.PaymentAllocationRepository;
 import com.sgv.repository.PaymentRepository;
@@ -26,7 +27,11 @@ class CustomerAccountServiceReconcileTest {
         PaymentAllocationRepository paymentAllocationRepository = mock(PaymentAllocationRepository.class);
         SystemLogService systemLogService = mock(SystemLogService.class);
 
-        CustomerAccountService svc = new CustomerAccountService(customerRepository, saleRepository, paymentRepository, paymentAllocationRepository, systemLogService, null);
+        CustomerAccountEntryRepository entryRepository = mock(CustomerAccountEntryRepository.class);
+        // Ledger real sobre o customerRepository mockado (ponto único de
+        // escrita do saldo — BUG-005/010).
+        CustomerAccountLedger ledger = new CustomerAccountLedger(entryRepository, customerRepository);
+        CustomerAccountService svc = new CustomerAccountService(customerRepository, saleRepository, paymentRepository, paymentAllocationRepository, systemLogService, null, entryRepository, ledger);
 
         Customer c = new Customer();
         c.setId(42L);

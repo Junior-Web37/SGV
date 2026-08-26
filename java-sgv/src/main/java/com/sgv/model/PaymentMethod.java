@@ -28,6 +28,28 @@ public enum PaymentMethod {
         return saftCode;
     }
 
+    /**
+     * Correção do BUG-003: este método movimenta a gaveta de numerário?
+     *
+     * <p>Só o DINHEIRO (notas e moedas) move o caixa físico. Meios
+     * electrónicos (M-Pesa, e-Mola, mKesh, POS, débito, transferência,
+     * Multicaixa) e CREDITO/Não-crédito não tocam na gaveta — lançá-los
+     * como entrada de caixa cria sobra/quebra falsa permanente e a fita Z
+     * deixa de fechar.
+     */
+    public boolean movesCashDrawer() {
+        return this == DINHEIRO;
+    }
+
+    /**
+     * Variante para textos livres (o PDV grava strings, não o enum).
+     * Normaliza via {@link #fromString(String)}; texto nulo/vazio mantém o
+     * comportamento histórico (DINHEIRO).
+     */
+    public static boolean movesCashDrawer(String rawMethod) {
+        return fromString(rawMethod).movesCashDrawer();
+    }
+
     public static PaymentMethod fromString(String s) {
         if (s == null || s.isBlank()) return DINHEIRO;
         String clean = s.trim().toUpperCase()

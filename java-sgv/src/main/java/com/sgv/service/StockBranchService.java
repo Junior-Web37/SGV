@@ -111,7 +111,47 @@ public class StockBranchService {
     }
 
     /**
-     * Abate automático de matérias-primas e ingredientes com base na Ficha Técnica (BOM / Receitas).
+     * Lista as matérias-primas insuficientes para produzir {@code producedQty}
+     * unidades de {@code finishedProduct} na {@code branch} (vazio = há
+     * stock suficiente para tudo).
+     */
+    public List<String> listIngredientShortages(Branch branch, Product finishedProduct, BigDecimal producedQty) {
+        List<String> shortages = new java.util.ArrayList<>();
+        if (branch == null || finishedProduct == null || producedQty == null || producedQty.compareTo(BigDecimal.ZERO) <= 0) {
+            return shortages;
+        }
+        List<ProductRecipe> recipes = productRecipeRepository.findByParentProductId(finishedProduct.getId());
+        if (recipes == null || recipes.isEmpty()) return shortages;
+
+        for (ProductRecipe recipe : recipes) {
+            Product ingredient = recipe.getIngredientProduct();
+            if (ingredient == null) continue;
+            BigDecimal requiredPerUnit = recipe.getQuantityRequired() != null ? recipe.getQuantityRequired() : BigDecimal.ONE;
+            BigDecimal totalConsumption = requiredPerUnit.multiply(producedQty);
+            BigDecimal available = stockBranchRepository.findByProductAndBranch(ingredient, branch)
+                    .map(sb -> sb.getStockCurrentAmount() != null ? sb.getStockCurrentAmount() : BigDecimal.ZERO)
+                    .orElse(BigDecimal.ZERO);
+            if (available.compareTo(totalConsumption) < 0) {
+                shortages.add(ingredient.getName() + " (necessário " + totalConsumption.stripTrailingZeros().toPlainString()
+                        + ", disponível " + available.stripTrailingZeros().toPlainString() + ")");
+            }
+        }
+        return shortages;
+    }
+
+    /**
+     * Abate de matérias-primas e ingredientes com base na Ficha Técnica (BOM / Receitas).
+     *
+     * <p>Correção do BUG-002: antes, este método engolia TODAS as excepções
+     * (catch vazio) e permitia stock negativo → produção gravada sem consumo,
+     * ou com MP negativa, em silêncio. Agora:
+     * <ol>
+     *   <li>valida a disponibilidade de TODAS as MP antes de qualquer escrita;</li>
+     *   <li>se faltar alguma, lança {@link IllegalStateException} com a lista
+     *       de faltas — a transacção completa é revertida;</li>
+     *   <li>o consumo nunca deixa {@code stock_current < 0} (verificação
+     *       defensiva na escrita).</li>
+     * </ol>
      */
     @Transactional
     public void consumeIngredientsForProduction(Branch branch, Product finishedProduct, BigDecimal producedQty, String reference, User user) {
@@ -119,31 +159,44 @@ public class StockBranchService {
         List<ProductRecipe> recipes = productRecipeRepository.findByParentProductId(finishedProduct.getId());
         if (recipes == null || recipes.isEmpty()) return;
 
+        // 1) Validação prévia — nenhuma escrita acontece se faltar MP
+        List<String> shortages = listIngredientShortages(branch, finishedProduct, producedQty);
+        if (!shortages.isEmpty()) {
+            throw new IllegalStateException("Matérias-primas insuficientes para produzir "
+                    + producedQty.stripTrailingZeros().toPlainString() + " de " + finishedProduct.getName()
+                    + " na filial " + branch.getName() + ": " + String.join("; ", shortages)
+                    + ". A produção não foi gravada.");
+        }
+
+        // 2) Consumo — sem catch: qualquer falha (lock, constraint) propaga e
+        // reverte a transacção inteira (nunca mais "log and continue").
         for (ProductRecipe recipe : recipes) {
             Product ingredient = recipe.getIngredientProduct();
             if (ingredient == null) continue;
             BigDecimal requiredPerUnit = recipe.getQuantityRequired() != null ? recipe.getQuantityRequired() : BigDecimal.ONE;
             BigDecimal totalConsumption = requiredPerUnit.multiply(producedQty);
 
-            try {
-                StockBranch sb = stockBranchRepository.findByProductAndBranch(ingredient, branch)
-                        .orElseGet(() -> {
-                            StockBranch newSb = new StockBranch();
-                            newSb.setProduct(ingredient);
-                            newSb.setBranch(branch);
-                            newSb.setStockCurrentAmount(BigDecimal.ZERO);
-                            newSb.setStockMinAmount(BigDecimal.ZERO);
-                            return newSb;
-                        });
-                BigDecimal before = sb.getStockCurrentAmount() != null ? sb.getStockCurrentAmount() : BigDecimal.ZERO;
-                BigDecimal after = before.subtract(totalConsumption);
-                sb.setStockCurrentAmount(after);
-                StockBranch saved = stockBranchRepository.save(sb);
-                saveMovement(saved, totalConsumption.negate(), before, after, "SAIDA", "PROD_CONSUMO", reference, user,
-                        "Consumo de matéria-prima para produção de " + finishedProduct.getName());
-            } catch (Exception e) {
-                // Log and continue
+            StockBranch sb = stockBranchRepository.findByProductAndBranch(ingredient, branch)
+                    .orElseGet(() -> {
+                        StockBranch newSb = new StockBranch();
+                        newSb.setProduct(ingredient);
+                        newSb.setBranch(branch);
+                        newSb.setStockCurrentAmount(BigDecimal.ZERO);
+                        newSb.setStockMinAmount(BigDecimal.ZERO);
+                        return newSb;
+                    });
+            BigDecimal before = sb.getStockCurrentAmount() != null ? sb.getStockCurrentAmount() : BigDecimal.ZERO;
+            BigDecimal after = before.subtract(totalConsumption);
+            if (after.compareTo(BigDecimal.ZERO) < 0) {
+                // Defesa em profundidade (ex.: consumo entre a validação e a
+                // escrita por outra transacção) — nunca gravar negativo.
+                throw new IllegalStateException("Stock de " + ingredient.getName() + " tornou-se insuficiente "
+                        + "(" + before + " − " + totalConsumption + " < 0). Produção bloqueada; nada foi gravado.");
             }
+            sb.setStockCurrentAmount(after);
+            StockBranch saved = stockBranchRepository.save(sb);
+            saveMovement(saved, totalConsumption.negate(), before, after, "SAIDA", "PROD_CONSUMO", reference, user,
+                    "Consumo de matéria-prima para produção de " + finishedProduct.getName());
         }
     }
 

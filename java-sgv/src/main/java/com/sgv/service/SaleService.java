@@ -30,6 +30,7 @@ public class SaleService {
     private final TrainingModeService trainingModeService;
     private final AppConfigService appConfigService;
     private final CashSessionService cashSessionService;
+    private final CustomerAccountLedger customerAccountLedger;
     @Autowired
     private jakarta.persistence.EntityManager entityManager;
 
@@ -46,7 +47,8 @@ public class SaleService {
                        FiscalService fiscalService,
                        TrainingModeService trainingModeService,
                        AppConfigService appConfigService,
-                       CashSessionService cashSessionService) {
+                       CashSessionService cashSessionService,
+                       CustomerAccountLedger customerAccountLedger) {
         this.saleRepository = saleRepository;
         this.saleItemRepository = saleItemRepository;
         this.stockBranchService = stockBranchService;
@@ -60,6 +62,7 @@ public class SaleService {
         this.trainingModeService = trainingModeService;
         this.appConfigService = appConfigService;
         this.cashSessionService = cashSessionService;
+        this.customerAccountLedger = customerAccountLedger;
     }
 
     @Transactional
@@ -216,7 +219,10 @@ public class SaleService {
         // Caixa só depois do stock — se o abate falhar, não fica movimento órfão no log.
         com.sgv.model.DocumentType paymentDocumentType = com.sgv.model.DocumentType.fromString(persistentSale.getDocumentType());
         if (paymentDocumentType == com.sgv.model.DocumentType.VENDA || paymentDocumentType == com.sgv.model.DocumentType.FACTURA || paymentDocumentType == com.sgv.model.DocumentType.RECIBO) {
-            if (!"CREDITO".equalsIgnoreCase(persistentSale.getPaymentMethod())) {
+            // Correção do BUG-003: só o numerário (DINHEIRO) move a gaveta.
+            // M-Pesa/POS/transferência/cheque não são entradas de caixa física
+            // (deixam de criar sobra/quebra falsa no fecho/fita Z).
+            if (com.sgv.model.PaymentMethod.movesCashDrawer(persistentSale.getPaymentMethod())) {
                 try {
                     java.math.BigDecimal saleTotal = saved.getTotalAmount() != null ? saved.getTotalAmount() : java.math.BigDecimal.ZERO;
                     String saleReference = saved.getSeries() != null && saved.getDocumentNumber() != null
@@ -233,10 +239,13 @@ public class SaleService {
         if ("CREDITO".equals(persistentSale.getPaymentMethod()) && persistentSale.getCustomer() != null && customerRepository != null) {
             Customer cust = customerRepository.findById(persistentSale.getCustomer().getId()).orElse(null);
             if (cust != null) {
-                java.math.BigDecimal currentBalance = cust.getBalanceAmount();
                 java.math.BigDecimal saleTotal = persistentSale.getTotalAmount() != null ? persistentSale.getTotalAmount() : java.math.BigDecimal.ZERO;
-                cust.setBalanceAmount(currentBalance.add(saleTotal));
-                customerRepository.save(cust);
+                // Correção do BUG-005/010: o saldo e o lançamento são escritos
+                // atomicamente no livro de conta corrente — o extrato deixa de
+                // ser derivado das vendas e passa a reflectir o saldo real.
+                customerAccountLedger.recordEntry(cust.getId(), saved.getId(), null,
+                        CustomerAccountLedger.TYPE_CREDITO_SALE, saleTotal,
+                        docRef(saved), "Factura a crédito");
             }
         }
         return saved;
@@ -364,7 +373,46 @@ public class SaleService {
             }
         }
 
+        // =====================================================================
+        // Correção do BUG-010: a nota de crédito tem de REVERTER os efeitos da
+        // venda original, não apenas o stock:
+        //  - venda a CRÉDITO → baixa da dívida do cliente (lançamento CREDIT_NOTE
+        //    no livro de conta corrente — sem isto o extrato e a dívida nunca
+        //    reflectiam a devolução);
+        //  - venda em CAIXA  → estorno físico (OUT) na gaveta do operador, SEM
+        //    catch engolido: se não houver turno aberto, a NC não é emitida
+        //    (rollback total), porque uma devolução sem estorno deixa a gaveta
+        //    com dinheiro a mais.
+        // =====================================================================
+        BigDecimal ncValue = saved.getTotalAmount() != null ? saved.getTotalAmount().abs() : BigDecimal.ZERO;
+        if (ncValue.signum() > 0) {
+            boolean wasCreditSale = "CREDITO".equalsIgnoreCase(baseSale.getPaymentMethod())
+                    && baseSale.getCustomer() != null && baseSale.getCustomer().getId() != null;
+            boolean wasCashSale = com.sgv.model.PaymentMethod.movesCashDrawer(baseSale.getPaymentMethod());
+            if (wasCreditSale) {
+                Customer cust = customerRepository.findById(baseSale.getCustomer().getId()).orElse(null);
+                if (cust != null) {
+                    customerAccountLedger.recordEntry(cust.getId(), baseSale.getId(), null,
+                            CustomerAccountLedger.TYPE_CREDIT_NOTE, ncValue.negate(),
+                            docRef(saved),
+                            "Nota de crédito sobre a venda original " + docRef(baseSale));
+                }
+            }
+            if (wasCashSale && cashSessionService != null && currentUser != null) {
+                String ref = "NC " + docRef(saved) + " (estorno de " + docRef(baseSale) + ")";
+                cashSessionService.registerMovement(currentUser, "OUT", ncValue, ref, "DEVOLUCAO",
+                        com.sgv.entity.OperationKind.REFUND, true);
+            }
+        }
+
         return saved;
+    }
+
+    /** Referência curta de um documento: "série/número" (ou id quando ainda sem número). */
+    private static String docRef(Sale s) {
+        String series = s.getSeries() != null ? s.getSeries() : "A";
+        Object number = s.getDocumentNumber() != null ? s.getDocumentNumber() : s.getId();
+        return series + "/" + number;
     }
 
     @Transactional
@@ -408,16 +456,23 @@ public class SaleService {
             Customer cust = customerRepository.findById(saved.getCustomer().getId()).orElse(null);
             if (cust != null) {
                 BigDecimal totalAmount = saved.getTotalAmount() != null ? saved.getTotalAmount() : BigDecimal.ZERO;
-                BigDecimal currentBalance = cust.getBalanceAmount();
-                BigDecimal newBalance = currentBalance.subtract(totalAmount);
-                cust.setBalanceAmount(newBalance);
-                customerRepository.save(cust);
+                // Correção do BUG-005/010: a anulação abre LANÇAMENTO no livro
+                // (o extrato reflecte a baixa da dívida; antes só o saldo mudava).
+                customerAccountLedger.recordEntry(cust.getId(), saved.getId(), null,
+                        CustomerAccountLedger.TYPE_ANNULMENT, totalAmount.negate(),
+                        docRef(saved), "Anulação de venda a crédito");
                 if (entityManager != null) entityManager.flush();
             }
         } else {
-            // Estorno de tesouraria / saída de caixa para vendas a pronto que movimentaram caixa
+            // Estorno de tesouraria / saída de caixa para vendas a pronto que
+            // movimentaram caixa. Simetria do BUG-003: só estorna para a gaveta
+            // se a venda original era numerário (um M-Pesa/POS que nunca entrou
+            // na gaveta não pode sair dela).
             com.sgv.model.DocumentType docType = com.sgv.model.DocumentType.fromString(saved.getDocumentType());
-            if (docType == com.sgv.model.DocumentType.VENDA || docType == com.sgv.model.DocumentType.FACTURA || docType == com.sgv.model.DocumentType.RECIBO) {
+            boolean fiscalDoc = docType == com.sgv.model.DocumentType.VENDA
+                    || docType == com.sgv.model.DocumentType.FACTURA
+                    || docType == com.sgv.model.DocumentType.RECIBO;
+            if (fiscalDoc && com.sgv.model.PaymentMethod.movesCashDrawer(saved.getPaymentMethod())) {
                 if (cashSessionService != null && currentUser != null) {
                     try {
                         BigDecimal saleTotal = saved.getTotalAmount() != null ? saved.getTotalAmount() : BigDecimal.ZERO;

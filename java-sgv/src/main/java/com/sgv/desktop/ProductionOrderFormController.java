@@ -10,6 +10,7 @@ import com.sgv.repository.ProductRecipeRepository;
 import com.sgv.repository.ProductRepository;
 import com.sgv.repository.ProductionOrderRepository;
 import com.sgv.repository.UserRepository;
+import com.sgv.service.ProductionService;
 import com.sgv.service.StockBranchService;
 import com.sgv.service.SystemLogService;
 import javafx.beans.property.SimpleStringProperty;
@@ -50,6 +51,7 @@ public class ProductionOrderFormController extends BaseFormController {
     private final MetricUnitRepository metricUnitRepository;
     private final UserRepository userRepository;
     private final StockBranchService stockBranchService;
+    private final ProductionService productionService;
     private final SystemLogService systemLogService;
     private ProductionOrder order;
 
@@ -59,6 +61,7 @@ public class ProductionOrderFormController extends BaseFormController {
                                          MetricUnitRepository metricUnitRepository,
                                          UserRepository userRepository,
                                          StockBranchService stockBranchService,
+                                         ProductionService productionService,
                                          SystemLogService systemLogService) {
         this.productionOrderRepository = productionOrderRepository;
         this.productRepository = productRepository;
@@ -66,6 +69,7 @@ public class ProductionOrderFormController extends BaseFormController {
         this.metricUnitRepository = metricUnitRepository;
         this.userRepository = userRepository;
         this.stockBranchService = stockBranchService;
+        this.productionService = productionService;
         this.systemLogService = systemLogService;
     }
 
@@ -300,29 +304,25 @@ public class ProductionOrderFormController extends BaseFormController {
                     target.setCompletedAt(LocalDateTime.now());
                 }
 
-                productionOrderRepository.save(target);
-
-                // Entrada automática em stock na filial do utilizador/responsável
                 User stockUser = (currentUser != null) ? currentUser : responsible;
-                if (target.getProduct() != null && stockUser != null && stockUser.getBranch() != null) {
-                    if (qty.compareTo(BigDecimal.ZERO) > 0) {
-                        stockBranchService.increaseStock(
-                                stockUser.getBranch(),
-                                target.getProduct(),
-                                qty,
-                                "PROD-" + target.getOrderNumber(),
-                                "PRODUCAO",
-                                stockUser
-                        );
-                        // Abate automático de matérias-primas / ingredientes
-                        stockBranchService.consumeIngredientsForProduction(
-                                stockUser.getBranch(),
-                                target.getProduct(),
-                                qty,
-                                "PROD-" + target.getOrderNumber(),
-                                stockUser
-                        );
+
+                if (target.getId() == null) {
+                    // Nova ordem → produção COMPLETA E ATÓMICA (correção do
+                    // BUG-002/BUG-041): consumo de matérias-primas (bloqueado
+                    // com lista de faltas se insuficiente) + entrada do
+                    // produto acabado + gravação da ordem, num único
+                    // transaction boundary — qualquer falha reverte tudo.
+                    if (stockUser == null || stockUser.getBranch() == null) {
+                        throw new IllegalStateException(
+                                "Não é possível produzir: o operador não tem filial afectada. "
+                                + "Defina a filial do utilizador responsável.");
                     }
+                    productionService.produce(target, stockUser.getBranch(), stockUser);
+                } else {
+                    // Edição de ordem existente: apenas metadados. O ajuste de
+                    // stock por variação de quantidade de uma ordem completada
+                    // é um fluxo de controlo próprio (BUG-041 — Sprint 2).
+                    productionOrderRepository.save(target);
                 }
                 return null;
             }

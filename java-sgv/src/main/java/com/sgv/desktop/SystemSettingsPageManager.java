@@ -8,6 +8,7 @@ import com.sgv.repository.SystemBackupRepository;
 import com.sgv.repository.UserRepository;
 import com.sgv.service.AppConfigService;
 import com.sgv.service.AuditLogService;
+import com.sgv.service.BackupService;
 import com.sgv.service.DesktopAuthService;
 import com.sgv.service.LicenseService;
 import com.sgv.service.TrainingModeService;
@@ -62,6 +63,7 @@ public class SystemSettingsPageManager {
     private final LicenseService licenseService;
     private final TrainingModeService trainingModeService;
     private final PasswordEncoder passwordEncoder;
+    private final BackupService backupService;
 
     public SystemSettingsPageManager(AppConfigService appConfigService,
                                      SystemBackupRepository systemBackupRepository,
@@ -71,7 +73,8 @@ public class SystemSettingsPageManager {
                                      DesktopAuthService authService,
                                      LicenseService licenseService,
                                      TrainingModeService trainingModeService,
-                                     PasswordEncoder passwordEncoder) {
+                                     PasswordEncoder passwordEncoder,
+                                     BackupService backupService) {
         this.appConfigService = appConfigService;
         this.systemBackupRepository = systemBackupRepository;
         this.userRepository = userRepository;
@@ -81,6 +84,7 @@ public class SystemSettingsPageManager {
         this.licenseService = licenseService;
         this.trainingModeService = trainingModeService;
         this.passwordEncoder = passwordEncoder;
+        this.backupService = backupService;
     }
 
     // ═══════════════════════════════════════════════════════════════════════
@@ -416,24 +420,23 @@ public class SystemSettingsPageManager {
                 "Deseja criar uma cópia de segurança da base de dados agora?\n\nO processo pode demorar alguns segundos.",
                 "▶ Criar Backup")) return;
         try {
-            Path backupDir = Paths.get("backups");
-            Files.createDirectories(backupDir);
-            String timestamp = LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyyMMdd_HHmmss"));
-            Path dest = backupDir.resolve("sgv_backup_" + timestamp + ".db");
-            Path dbPath = Paths.get("sgv.db");
-            if (Files.exists(dbPath)) {
-                Files.copy(dbPath, dest);
+            // Correção do BUG-001: backup REAL via mysqldump (BackupService),
+            // registado só como COMPLETED se o ficheiro existir com conteúdo —
+            // antes copiava um "sgv.db" inexistente (o registo "COMPLETED"
+            // nunca correspondia a um backup verdadeiro).
+            BackupService.BackupOutcome out = backupService.runBackup(
+                    "MANUAL", currentUser != null ? currentUser.getUsername() : "system");
+            if (out.success()) {
+                auditLogService.log(null, "BACKUP", "sistema", null,
+                        "Backup criado: " + out.file().getFileName() + " (" + out.sizeBytes() + " bytes, sha256 " + out.sha256() + ")");
+                SgvDialog.info("Backup Criado",
+                        "Backup criado com sucesso!\n\n" + out.file().getAbsolutePath() + "\n"
+                                + (out.sizeBytes() / 1024) + " KB — SHA-256: " + out.sha256());
+            } else {
+                // O registo FAILED já foi gravado pelo BackupService
+                SgvDialog.error("Erro no Backup",
+                        "O backup falhou (registado como FAILED):\n" + out.error());
             }
-            SystemBackup bk = new SystemBackup();
-            bk.setFileName(dest.getFileName().toString());
-            bk.setFilePath(dest.toAbsolutePath().toString());
-            bk.setFileSize(Files.exists(dest) ? dest.toFile().length() : 0L);
-            bk.setBackupType("MANUAL");
-            bk.setStatus("COMPLETED");
-            bk.setCreatedBy(currentUser != null ? currentUser.getUsername() : "system");
-            systemBackupRepository.save(bk);
-            auditLogService.log(null, "BACKUP", "sistema", null, "Backup criado: " + dest.getFileName());
-            SgvDialog.info("Backup Criado", "Backup criado com sucesso!\n" + dest.toAbsolutePath());
             buildBackupsPane(container, currentUser);
         } catch (Exception ex) {
             SgvDialog.error("Erro no Backup", "Erro ao criar backup: " + ex.getMessage());
@@ -458,43 +461,34 @@ public class SystemSettingsPageManager {
                 SgvDialog.error("Erro no Restore", "Ficheiro de backup não encontrado:\n" + src.toAbsolutePath());
                 return;
             }
-            Path mariaDataDir = Paths.get("C:\\xampp\\mysql\\data\\sgv");
-            boolean copyOk = false;
-            String errorMsg = "";
-            if (Files.isDirectory(mariaDataDir)) {
-                try {
-                    Files.copy(src, mariaDataDir.resolve(b.getFileName()), java.nio.file.StandardCopyOption.REPLACE_EXISTING);
-                    copyOk = true;
-                } catch (Exception ex) {
-                    errorMsg = ex.getMessage();
-                }
-            } else {
-                errorMsg = "Directório de dados MariaDB não encontrado: " + mariaDataDir.toAbsolutePath();
-            }
+            // Correção do BUG-001: restore REAL — o dump SQL é aplicado ao
+            // servidor via cliente mysql, com validação de integridade
+            // (SHA-256) antes de aplicar. Antes copiava o ficheiro para
+            // "C:\xampp\mysql\data\sgv" (caminho fixo de Windows) e marcava
+            // RESTORED sem confirmar que o restore funcionou.
+            BackupService.RestoreOutcome out = backupService.restoreFrom(src, bkOpt.get().getChecksumSha256());
 
-            bkOpt.ifPresent(bk -> {
+            if (out.success()) {
+                SystemBackup bk = bkOpt.get();
                 bk.setStatus("RESTORED");
                 systemBackupRepository.save(bk);
-            });
+            }
             SystemBackup restoreLog = new SystemBackup();
             restoreLog.setFileName("RESTORE_" + b.getFileName());
             restoreLog.setFilePath(src.toAbsolutePath().toString());
             restoreLog.setBackupType("RESTORE");
-            restoreLog.setStatus(copyOk ? "COMPLETED" : "FAILED");
             restoreLog.setNotes("Restore de: " + b.getFileName() + " por " + (currentUser != null ? currentUser.getUsername() : "system"));
             restoreLog.setCreatedBy(currentUser != null ? currentUser.getUsername() : "system");
-            if (!copyOk && !errorMsg.isEmpty()) restoreLog.setErrorMessage(errorMsg);
+            restoreLog.setStatus(out.success() ? "COMPLETED" : "FAILED");
+            if (!out.success()) restoreLog.setErrorMessage(out.detail());
             systemBackupRepository.save(restoreLog);
             auditLogService.log(null, "RESTORE", "backups", null,
-                "Restore feito a partir de: " + b.getFileName());
+                "Restore " + (out.success() ? "com sucesso" : "FALHOU") + " a partir de: " + b.getFileName());
 
-            if (copyOk) {
-                SgvDialog.info("Restore Concluído", "Backup '" + b.getFileName() + "' restaurado!\n\nFicheiro copiado para:\n"
-                    + mariaDataDir.toAbsolutePath() + "\n\nReinicie o serviço MariaDB e a aplicação para aplicar.");
+            if (out.success()) {
+                SgvDialog.info("Restore Concluído", out.detail());
             } else {
-                SgvDialog.warning("Restore Manual Necessário", "Restore automático não foi possível.\n\nCópia manual:\n1. Pare o serviço MariaDB\n2. Copie:\n   "
-                    + src.toAbsolutePath() + "\n   para\n   " + mariaDataDir.toAbsolutePath()
-                    + "\n3. Reinicie o serviço e a aplicação\n\nDetalhe: " + errorMsg);
+                SgvDialog.error("Restore Falhou", "O restore não foi aplicado:\n" + out.detail());
             }
         } catch (Exception ex) {
             SgvDialog.error("Erro no Restore", "Erro ao restaurar backup: " + ex.getMessage());

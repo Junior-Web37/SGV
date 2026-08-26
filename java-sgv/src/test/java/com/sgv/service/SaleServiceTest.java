@@ -41,6 +41,12 @@ class SaleServiceTest {
         when(stockBranchService.increaseStock(any(), any(), any(), anyString(), anyString(), any())).thenReturn(new StockBranch());
         CashSessionService cashSessionService = mock(CashSessionService.class);
         when(cashSessionService.registerMovement(any(), anyString(), any(), anyString(), anyString())).thenReturn(new CashMovement());
+        // BUG-010: a NC sobre venda a crédito tem de abater a dívida do cliente
+        // (lançamento CREDIT_NOTE no livro de conta corrente).
+        Customer cust = buildCustomer();
+        when(customerRepository.findById(5L)).thenReturn(Optional.of(cust));
+        CustomerAccountEntryRepository entryRepository = mock(CustomerAccountEntryRepository.class);
+        CustomerAccountLedger ledger = new CustomerAccountLedger(entryRepository, customerRepository);
 
         SaleService saleService = new SaleService(
                 saleRepository,
@@ -55,7 +61,8 @@ class SaleServiceTest {
                 fiscalService,
                 trainingModeService,
                 appConfigService,
-                cashSessionService);
+                cashSessionService,
+                ledger);
 
         Sale result = saleService.createCreditNote(buildSale(), "Devolução", buildUser());
 
@@ -64,6 +71,9 @@ class SaleServiceTest {
         assertFalse(result.getItems().isEmpty());
         assertTrue(result.getItems().get(0).getQtyAmount().compareTo(BigDecimal.ZERO) < 0);
         verify(stockBranchService, atLeastOnce()).increaseStock(any(), any(), any(), anyString(), anyString(), any());
+        // Dívida 10 − 10 (NC) = 0
+        assertEquals(BigDecimal.ZERO, cust.getBalanceAmount());
+        verify(entryRepository).save(any());
     }
 
     @Test
@@ -88,6 +98,8 @@ class SaleServiceTest {
         when(stockBranchService.increaseStock(any(), any(), any(), anyString(), anyString(), any())).thenReturn(new StockBranch());
         CashSessionService cashSessionService = mock(CashSessionService.class);
         when(cashSessionService.registerMovement(any(), anyString(), any(), anyString(), anyString())).thenReturn(new CashMovement());
+        CustomerAccountEntryRepository entryRepository = mock(CustomerAccountEntryRepository.class);
+        CustomerAccountLedger ledger = new CustomerAccountLedger(entryRepository, customerRepository);
 
         SaleService saleService = new SaleService(
                 saleRepository,
@@ -102,7 +114,8 @@ class SaleServiceTest {
                 fiscalService,
                 trainingModeService,
                 appConfigService,
-                cashSessionService);
+                cashSessionService,
+                ledger);
 
         Sale result = saleService.annulSale(buildSale(), "Motivo", buildUser());
 

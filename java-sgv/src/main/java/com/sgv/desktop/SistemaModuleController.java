@@ -23,6 +23,7 @@ import com.sgv.repository.SystemBackupRepository;
 import com.sgv.repository.UserRepository;
 import com.sgv.service.AppConfigService;
 import com.sgv.service.AuditLogService;
+import com.sgv.service.BackupService;
 import com.sgv.service.DesktopAuthService;
 import javafx.application.Platform;
 import javafx.beans.property.SimpleStringProperty;
@@ -75,6 +76,7 @@ public class SistemaModuleController {
     @Autowired private SystemBackupRepository systemBackupRepository;
     @Autowired private org.springframework.context.ApplicationContext applicationContext;
     @Autowired private com.sgv.service.LicenseService licenseService;
+    @Autowired private BackupService backupService;
 
     // Current logged-in user (set from Dashboard)
     private User currentUser;
@@ -855,27 +857,22 @@ public class SistemaModuleController {
         Optional<ButtonType> result = confirm.showAndWait();
         if (result.isPresent() && result.get() == ButtonType.OK) {
             try {
-                Path backupDir = Paths.get("backups");
-                Files.createDirectories(backupDir);
-                String timestamp = java.time.LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyyMMdd_HHmmss"));
-                Path dest = backupDir.resolve("sgv_backup_" + timestamp + ".db");
-                // Copy current DB if exists
-                Path dbPath = Paths.get("sgv.db");
-                if (Files.exists(dbPath)) {
-                    Files.copy(dbPath, dest);
+                // Correção do BUG-001: backup REAL via mysqldump (BackupService),
+                // registado só como COMPLETED se o ficheiro existir com conteúdo.
+                // (Antes copiava um "sgv.db" inexistente e gravava COMPLETED
+                // incondicionalmente — o registo nunca era um backup real.)
+                BackupService.BackupOutcome out = backupService.runBackup(
+                        "MANUAL", currentUser != null ? currentUser.getUsername() : "system");
+                if (out.success()) {
+                    auditLogService.log(null, "BACKUP", "sistema", null,
+                        "Backup criado: " + out.file().getFileName() + " (sha256 " + out.sha256() + ")");
+                    showAlert(Alert.AlertType.INFORMATION,
+                        "Backup criado com sucesso!\n\n" + out.file().getAbsolutePath() + "\n"
+                                + (out.sizeBytes() / 1024) + " KB — SHA-256: " + out.sha256());
+                } else {
+                    showAlert(Alert.AlertType.ERROR,
+                        "O backup falhou (registado como FAILED):\n" + out.error());
                 }
-                // Grava registo na base de dados
-                SystemBackup bk = new SystemBackup();
-                bk.setFileName(dest.getFileName().toString());
-                bk.setFilePath(dest.toAbsolutePath().toString());
-                bk.setFileSize(Files.exists(dest) ? dest.toFile().length() : 0L);
-                bk.setBackupType("MANUAL");
-                bk.setStatus("COMPLETED");
-                bk.setCreatedBy(currentUser != null ? currentUser.getUsername() : "system");
-                systemBackupRepository.save(bk);
-                auditLogService.log(null, "BACKUP", "sistema", null,
-                    "Backup criado: " + dest.getFileName());
-                showAlert(Alert.AlertType.INFORMATION, "Backup criado com sucesso!\n" + dest.toAbsolutePath());
                 loadBackupHistory();
             } catch (Exception e) {
                 showAlert(Alert.AlertType.ERROR, "Erro ao criar backup: " + e.getMessage());
@@ -885,12 +882,39 @@ public class SistemaModuleController {
 
     @FXML
     private void onRestoreBackup() {
-        DirectoryChooser chooser = new DirectoryChooser();
-        chooser.setTitle("Seleccionar Pasta de Backup");
-        File folder = chooser.showDialog(null);
-        if (folder != null) {
-            showAlert(Alert.AlertType.INFORMATION,
-                "Restore from: " + folder.getAbsolutePath() + "\n\nNota: Em produção, o restore substituirá a base de dados actual.\nReinicie a aplicação após o restore.");
+        // Correção do BUG-001: o botão "Restaurar" era morto (apenas mostrava
+        // uma nota). Agora escolhe um dump .sql e aplica-o ao servidor via
+        // BackupService.restoreFrom (mysql < backup.sql).
+        javafx.stage.FileChooser chooser = new javafx.stage.FileChooser();
+        chooser.setTitle("Seleccionar Ficheiro de Backup (dump .sql)");
+        chooser.getExtensionFilters().add(new javafx.stage.FileChooser.ExtensionFilter("Dump SQL (*.sql)", "*.sql"));
+        File file = chooser.showOpenDialog(null);
+        if (file == null) return;
+        Alert confirm = new Alert(Alert.AlertType.CONFIRMATION);
+        confirm.setTitle("Restaurar Backup");
+        confirm.setContentText("Aplicar o dump '" + file.getName() + "' à base de dados actual?\n\nAviso: a base de dados actual será SUBSTITUÍDA. A aplicação tem de ser reiniciada após o restore.");
+        Optional<ButtonType> result = confirm.showAndWait();
+        if (!result.isPresent() || result.get() != ButtonType.OK) return;
+        try {
+            BackupService.RestoreOutcome out = backupService.restoreFrom(file.toPath(), null);
+            SystemBackup restoreLog = new SystemBackup();
+            restoreLog.setFileName("RESTORE_" + file.getName());
+            restoreLog.setFilePath(file.getAbsolutePath());
+            restoreLog.setBackupType("RESTORE");
+            restoreLog.setStatus(out.success() ? "COMPLETED" : "FAILED");
+            restoreLog.setCreatedBy(currentUser != null ? currentUser.getUsername() : "system");
+            if (!out.success()) restoreLog.setErrorMessage(out.detail());
+            systemBackupRepository.save(restoreLog);
+            auditLogService.log(null, "RESTORE", "backups", null,
+                "Restore " + (out.success() ? "com sucesso" : "FALHOU") + " a partir do ficheiro: " + file.getName());
+            if (out.success()) {
+                showAlert(Alert.AlertType.INFORMATION, out.detail());
+            } else {
+                showAlert(Alert.AlertType.ERROR, "O restore não foi aplicado:\n" + out.detail());
+            }
+            loadBackupHistory();
+        } catch (Exception e) {
+            showAlert(Alert.AlertType.ERROR, "Erro ao restaurar backup: " + e.getMessage());
         }
     }
 
@@ -914,30 +938,22 @@ public class SistemaModuleController {
                     return;
                 }
 
-                // Directório de dados do MariaDB (XAMPP)
-                Path mariaDataDir = Paths.get("C:\\xampp\\mysql\\data\\sgv");
-                boolean copyOk = false;
-                String errorMsg = "";
+                // Correção do BUG-001: restore REAL — o dump SQL é aplicado ao
+                // servidor via cliente mysql, com validação de integridade
+                // (SHA-256) antes de aplicar. (Antes copiava o ficheiro para o
+                // directório de dados do XAMPP — caminho fixo de Windows — e
+                // marcava RESTORED sem confirmar que o restore funcionou.)
+                BackupService.RestoreOutcome out = backupService.restoreFrom(src, bkOpt.get().getChecksumSha256());
+                boolean copyOk = out.success();
+                String errorMsg = out.success() ? "" : out.detail();
 
-                if (Files.isDirectory(mariaDataDir)) {
-                    try {
-                        // Copia o ficheiro de backup para o directório de dados do MariaDB
-                        // Procura todos os ficheiros .ibd ou .frm no directório e substitui
-                        Path dest = mariaDataDir.resolve(b.fileName);
-                        Files.copy(src, dest, java.nio.file.StandardCopyOption.REPLACE_EXISTING);
-                        copyOk = true;
-                    } catch (Exception ex) {
-                        errorMsg = ex.getMessage();
-                    }
-                } else {
-                    errorMsg = "Directório de dados do MariaDB não encontrado: " + mariaDataDir.toAbsolutePath();
+                if (copyOk) {
+                    // Marca o backup restaurado como RESTORED na BD
+                    bkOpt.ifPresent(bk -> {
+                        bk.setStatus("RESTORED");
+                        systemBackupRepository.save(bk);
+                    });
                 }
-
-                // Marca o backup restaurado como RESTORED na BD
-                bkOpt.ifPresent(bk -> {
-                    bk.setStatus("RESTORED");
-                    systemBackupRepository.save(bk);
-                });
                 // Regista a operação de restore
                 SystemBackup restoreLog = new SystemBackup();
                 restoreLog.setFileName("RESTORE_" + b.fileName);
@@ -951,19 +967,13 @@ public class SistemaModuleController {
                 }
                 systemBackupRepository.save(restoreLog);
                 auditLogService.log(null, "RESTORE", "backups", null,
-                    "Restore feito a partir de: " + b.fileName + (copyOk ? " (cópia automática)" : " (manual)"));
+                    "Restore " + (copyOk ? "com sucesso" : "FALHOU") + " a partir de: " + b.fileName);
 
                 if (copyOk) {
-                    showAlert(Alert.AlertType.INFORMATION,
-                        "Backup '" + b.fileName + "' restaurado com sucesso!\n\nFicheiro copiado para: " + mariaDataDir.toAbsolutePath() + "\nReinicie a aplicação e o serviço MariaDB para aplicar as alterações.");
+                    showAlert(Alert.AlertType.INFORMATION, out.detail());
                 } else {
-                    showAlert(Alert.AlertType.WARNING,
-                        "O restore automático não foi possível.\n\n" +
-                        "Cópia manual necessária:\n" +
-                        "1. Pare o serviço MariaDB\n" +
-                        "2. Copie o ficheiro:\n   " + src.toAbsolutePath() + "\n   para\n   " + mariaDataDir.toAbsolutePath() + "\n" +
-                        "3. Reinicie o serviço MariaDB e a aplicação\n\n" +
-                        "Erro: " + (errorMsg.isEmpty() ? "Directório de dados não encontrado" : errorMsg));
+                    showAlert(Alert.AlertType.ERROR,
+                        "O restore não foi aplicado:\n" + out.detail());
                 }
                 loadBackupHistory();
             } catch (Exception e) {
