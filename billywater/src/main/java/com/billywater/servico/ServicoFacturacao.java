@@ -58,7 +58,7 @@ public class ServicoFacturacao {
         } catch (Exception ex) { return BigDecimal.valueOf(16); }
     }
 
-    public Factura gerarFactura(Factura f, ResultadoFacturacao r) {
+    public Factura gerarFactura(Factura f, ResultadoFacturacao r) throws SQLException {
         f.consumo = r.consumo;
         f.valorAgua = r.valorAgua;
         f.taxaDisponibilidade = r.taxaDisponibilidade;
