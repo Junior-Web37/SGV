@@ -23,7 +23,10 @@ public class BillyWaterApp extends Application {
             // base não disponível — the login screen reports it
         }
         Scene s = new Scene(new LoginView());
-        s.getStylesheets().add(getClass().getResource("/css/billywater.css").toExternalForm());
+        try {
+            var css = getClass().getResource("/css/billywater.css");
+            if (css != null) s.getStylesheets().add(css.toExternalForm());
+        } catch (Exception ignored) {}
         stage.setTitle("BILLY WATER — SGF");
         stage.setScene(s);
         stage.setWidth(440);
@@ -34,7 +37,10 @@ public class BillyWaterApp extends Application {
 
     public static void mostrarPrincipal() {
         Scene s = new Scene(new MainWindow());
-        s.getStylesheets().add(BillyWaterApp.class.getResource("/css/billywater.css").toExternalForm());
+        try {
+            var css = BillyWaterApp.class.getResource("/css/billywater.css");
+            if (css != null) s.getStylesheets().add(css.toExternalForm());
+        } catch (Exception ignored) {}
         primaryStage.setScene(s);
         primaryStage.setWidth(1280);
         primaryStage.setHeight(800);

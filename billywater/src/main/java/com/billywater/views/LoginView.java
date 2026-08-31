@@ -66,7 +66,10 @@ public class LoginView extends VBox {
 
     public static Scene cena() {
         Scene s = new Scene(new LoginView());
-        s.getStylesheets().add(LoginView.class.getResource("/css/billywater.css").toExternalForm());
+        try {
+            var css = LoginView.class.getResource("/css/billywater.css");
+            if (css != null) s.getStylesheets().add(css.toExternalForm());
+        } catch (Exception ignored) {}
         return s;
     }
 }
