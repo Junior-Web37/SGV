@@ -52,13 +52,13 @@ public class LoginView extends VBox {
                 Config.load();
                 ConfigBanco.applyMigrations();
             } catch (Exception ex) { status.setText("Erro de base: " + ex.getMessage()); return; }
-            // Licença
-            if (!ServicoLicenca.autorizada()) {
-                status.setText("Sem licença válida. Active uma licença em Configurações.");
-                return;
-            }
             var u = new ServicoSeguranca().autenticar(user.getText().trim(), pass.getText());
             if (u == null) { status.setText("Credenciais inválidas ou conta bloqueada."); return; }
+            // Licença: sem licença entra em modo DEMONSTRAÇÃO (não bloqueia)
+            if (!ServicoLicenca.autorizada()) {
+                Sessao.setModoTreino(true);
+                Ui.aviso("Modo demonstração", "Não há licença válida.\nO BILLY WATER vai correr em modo DEMONSTRAÇÃO.\nPara produção active uma licença em Configurações → Licença.");
+            }
             Sessao.entrar(u, u.perfil);
             com.billywater.BillyWaterApp.mostrarPrincipal();
         });
