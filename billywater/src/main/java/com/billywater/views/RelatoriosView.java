@@ -74,10 +74,10 @@ public class RelatoriosView extends BaseView {
     }
 
     private void montarTabela(List<String> colunas) {
-        List<TableColumn<Object[], ?>> cols = new ArrayList<>();
+        List<TableColumn<Object[], String>> cols = new ArrayList<>();
         for (int i = 0; i < colunas.size(); i++) {
             final int idx = i;
-            TableColumn<Object[], ?> c = new TableColumn<>(colunas.get(i));
+            TableColumn<Object[], String> c = new TableColumn<>(colunas.get(i));
             c.setCellValueFactory(f -> new javafx.beans.property.SimpleStringProperty(f.getValue().length > idx && f.getValue()[idx] != null ? f.getValue()[idx].toString() : ""));
             c.setPrefWidth(150);
             cols.add(c);

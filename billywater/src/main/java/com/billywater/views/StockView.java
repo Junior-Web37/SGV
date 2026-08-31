@@ -35,9 +35,9 @@ public class StockView extends BaseView {
     }
 
     private void montarTabela() {
-        TableColumn<Object[], ?> c1 = new TableColumn<>("Produto");
+        TableColumn<Object[], String> c1 = new TableColumn<>("Produto");
         c1.setCellValueFactory(f -> new javafx.beans.property.SimpleStringProperty(f.getValue().length > 0 && f.getValue()[0] != null ? f.getValue()[0].toString() : ""));
-        TableColumn<Object[], ?> c2 = new TableColumn<>("Quantidade");
+        TableColumn<Object[], String> c2 = new TableColumn<>("Quantidade");
         c2.setCellValueFactory(f -> new javafx.beans.property.SimpleStringProperty(f.getValue().length > 1 && f.getValue()[1] != null ? f.getValue()[1].toString() : ""));
         c1.setPrefWidth(300); c2.setPrefWidth(120);
         tabela.getColumns().setAll(c1, c2);

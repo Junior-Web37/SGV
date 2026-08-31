@@ -9,6 +9,7 @@ import com.billywater.dao.TarifaDAO;
 import com.billywater.domain.Cliente;
 import com.billywater.domain.Factura;
 import com.billywater.domain.LinhaFactura;
+import com.billywater.domain.Parametro;
 import com.billywater.servico.MotorTarifario;
 import com.billywater.servico.ServicoFacturacao;
 import com.billywater.ui.ComboItem;

@@ -11,6 +11,7 @@ import com.billywater.domain.Contrato;
 import com.billywater.domain.Factura;
 import com.billywater.domain.Leitura;
 import com.billywater.domain.LinhaFactura;
+import com.billywater.domain.Parametro;
 import com.billywater.domain.Tarifa;
 
 import java.math.BigDecimal;

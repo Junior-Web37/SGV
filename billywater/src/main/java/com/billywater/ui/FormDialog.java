@@ -1,6 +1,7 @@
 package com.billywater.ui;
 
 import javafx.geometry.Insets;
+import javafx.scene.Node;
 import javafx.scene.control.CheckBox;
 import javafx.scene.control.ComboBox;
 import javafx.scene.control.DatePicker;
@@ -84,7 +85,7 @@ public class FormDialog {
 
     public void setComboSelecionado(String rotulo, Object valor) {
         Node n = campos.get(rotulo);
-        if (n instanceof ComboBox<?> cb) cb.setValue(valor);
+        if (n instanceof ComboBox<?> cb) { @SuppressWarnings("unchecked") ComboBox<Object> c = (ComboBox<Object>) cb; c.setValue(valor); }
     }
 
     public boolean mostrar(String titulo) {
